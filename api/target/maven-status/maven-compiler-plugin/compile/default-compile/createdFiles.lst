@@ -1,0 +1,6 @@
+org/openmrs/module/ssemrws/Item.class
+org/openmrs/module/ssemrws/api/dao/SSEMRWebServicesDao.class
+org/openmrs/module/ssemrws/SSEMRWebServicesActivator.class
+org/openmrs/module/ssemrws/api/impl/SSEMRWebServicesServiceImpl.class
+org/openmrs/module/ssemrws/api/SSEMRWebServicesService.class
+org/openmrs/module/ssemrws/SSEMRWebServicesConfig.class

@@ -1,0 +1,119 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.openmrs.maven.parents</groupId>
+        <artifactId>maven-parent-openmrs-module</artifactId>
+        <version>1.1.1</version>
+    </parent>
+
+	<groupId>org.openmrs.module</groupId>
+	<artifactId>ssemrws</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>SSEMR Web Services</name>
+	<description>Web Services for the SSMER project</description>
+
+	<url>https://wiki.openmrs.org/x/FQ4z</url>
+
+	<scm>
+		<connection>scm:git:git@github.com:openmrs/openmrs-module-ssemrws.git</connection>
+		<developerConnection>scm:git:git@github.com:openmrs/openmrs-module-ssemrws.git</developerConnection>
+		<url>https://github.com/openmrs/openmrs-module-ssemrws/</url>
+	</scm>
+
+	<modules>
+		<module>api</module>
+		<module>omod</module>
+	</modules>
+
+	<repositories>
+		<repository>
+			<id>openmrs-repo</id>
+			<name>OpenMRS Nexus Repository</name>
+			<url>https://mavenrepo.openmrs.org/public</url>
+		</repository>
+		<repository>
+			<id>central</id>
+			<name>Maven Repository Switchboard</name>
+			<layout>default</layout>
+			<url>https://repo1.maven.org/maven2</url>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>openmrs-repo</id>
+			<name>OpenMRS Nexus Repository</name>
+			<url>https://mavenrepo.openmrs.org/public</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</pluginRepository>
+	</pluginRepositories>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.openmrs.module</groupId>
+				<artifactId>legacyui-omod</artifactId>
+				<version>${legacyUIomodVersion}</version>
+				<scope>provided</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.openmrs.module</groupId>
+				<artifactId>serialization.xstream-api</artifactId>
+				<version>${serializationxstreamVersion}</version>
+				<scope>provided</scope>
+			</dependency>
+
+			<dependency>
+				<groupId>org.openmrs.module</groupId>
+				<artifactId>serialization.xstream-api-2.0</artifactId>
+				<version>${serializationxstreamVersion}</version>
+				<scope>test</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.openmrs.module</groupId>
+				<artifactId>webservices.rest-omod-common</artifactId>
+				<version>${webservices.restModuleVersion}</version>
+				<scope>provided</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.openmrs.module</groupId>
+				<artifactId>webservices.rest-omod-common</artifactId>
+				<version>${webservices.restModuleVersion}</version>
+				<scope>provided</scope>
+				<type>test-jar</type>
+			</dependency>
+			<dependency>
+				<groupId>org.springframework</groupId>
+				<artifactId>spring-oxm</artifactId>
+				<version>3.2.4.RELEASE</version>
+				<scope>provided</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<properties>
+        <openmrsPlatformVersion>2.3.1</openmrsPlatformVersion>
+		<legacyUIomodVersion>1.8.2</legacyUIomodVersion>
+		<webservices.restModuleVersion>2.40.0</webservices.restModuleVersion>
+		<serializationxstreamVersion>0.2.14</serializationxstreamVersion>
+
+    </properties>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.6.1</version>
+				<configuration>
+					<source>1.7</source>
+					<target>1.7</target>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
