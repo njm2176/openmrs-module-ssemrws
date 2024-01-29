@@ -3,7 +3,7 @@ openmrs-module-ssemrws
 
 Description
 -----------
-This is a very basic module which can be used as a starting point in creating a new module.
+This module provides additional web services required by SSEMR and are not available natively via OpenMRS FHIR module or OpenMRS Web Services nodule
 
 Building from Source
 --------------------
