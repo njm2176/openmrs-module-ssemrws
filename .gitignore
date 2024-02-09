@@ -15,3 +15,7 @@ buildNumber.properties
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+/.idea/
+/.settings/
+/omod/target/
+/api/target/
