@@ -50,6 +50,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ssemr")
 public class SSEMRWebServicesController {
 	
+	//Create Enum of the following filter categories: CHILDREN_ADOLESCENTS, PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
+	public enum filterCategory {
+		CHILDREN_ADOLESCENTS, PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
+	};
+	
 	public static final String enrolmentEncounterTypeUuid = "f469b65f-a4f6-4723-989a-46090de6a0e5";
 	
 	public static final String TRANSFER_IN_CONCEPT_UUID = "735cd395-0ef1-4832-a58c-e8afb567d3b3";
@@ -151,33 +156,22 @@ public class SSEMRWebServicesController {
 		return allFormsObj.toString();
 	}
 	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/allClients")
+	// gets all visit forms for a patient
+	@ResponseBody
+	public Object getAllPatients(HttpServletRequest request, @RequestParam("startDate") Date startDate,
+			@RequestParam("endDate") Date endDate, @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
+		
+		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
+		return generatePatientListObj(new HashSet<>(allPatients), endDate, filterCategory);
+	}
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
 	// gets all visit forms for a patient
 	@ResponseBody
 	public Object getNewPatients(HttpServletRequest request, @RequestParam("startDate") Date startDate,
 	        @RequestParam("endDate") Date endDate) {
-		// Get all patients who were enrolled within the specified date range
-		EncounterType enrolmentEncounterType = Context.getEncounterService().getEncounterTypeByUuid(
-				enrolmentEncounterTypeUuid);
-		// Add a filter for current location
-		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(
-						        null, null, startDate, endDate, null, null, Collections.singletonList(enrolmentEncounterType), null, null, null,
-		        false);
-		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
-		// Extract patients from encounters into a hashset to remove duplicates
-		HashSet<Patient> enrolledPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
-		        HashSet::add, HashSet::addAll);
-		// Get Patients who were transferred in
-		List<Obs> transferInObs = Context.getObsService().getObservations(null, encounters, Collections.singletonList(
-		        Context.getConceptService().getConceptByUuid(TRANSFER_IN_CONCEPT_UUID)), Collections.singletonList(
-						Context.getConceptService().getConceptByUuid("a2065636-5326-40f5-aed6-0cc2cca81ccc")), null,
-		        null, null, null, null, null, endDate, false);
-		// Extract patients from transfer in obs into a hashset to remove duplicates
-		HashSet<Person> transferInPatients = transferInObs.stream().map(Obs::getPerson).collect(HashSet::new,
-		        HashSet::add, HashSet::addAll);
-		// Remove patients who were transferred in from the enrolled patients
-		enrolledPatients.removeIf(transferInPatients::contains);
-		
+		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
 		return generatePatientListObj(enrolledPatients, endDate);
 	}
 	
@@ -233,7 +227,7 @@ public class SSEMRWebServicesController {
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
 		// Add logic to filter patients who have returned to treatment
 		
-		return generatePatientListObj((HashSet<Patient>) allPatients);
+		return generatePatientListObj(new HashSet<>(allPatients));
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/adultRegimenTreatment")
@@ -264,11 +258,6 @@ public class SSEMRWebServicesController {
 		// Add logic to filter patients on Child regimen treatment
 		
 		return generatePatientListObj((HashSet<Patient>) allPatients);
-	}
-	
-	// Dummy method to be removed
-	private Object generatePatientListObj(HashSet<Patient> allPatients) {
-		return generatePatientListObj(allPatients, new Date());
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
@@ -311,28 +300,74 @@ public class SSEMRWebServicesController {
 		return generateViralLoadListObj(allPatients);
 	}
 	
+	private Object generatePatientListObj(HashSet<Patient> allPatients) {
+		return generatePatientListObj(allPatients, new Date());
+	}
+	
 	private Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate) {
+		return generatePatientListObj(allPatients, new Date(), null);
+	}
+	
+	private Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate, filterCategory filterCategory) {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
 		for (Patient patient : allPatients) {
 			ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
+			// TODO: Add logic to fetch the enrollment date
+			String dateEnrolled = dateTimeFormatter.format(new Date());
+			Date startDate = new Date();
+			// Calculate age in years based on patient's birthdate and current date
+			Date birthdate = patient.getBirthdate();
+			Date currentDate = new Date();
+			long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+			
 			patientObj.put("uuid", patient.getUuid());
 			patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
 			patientObj.put("identifier", patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString()
 			        : "");
 			patientObj.put("sex", patient.getGender());
-			patientObj.put("dateEnrolled", dateTimeFormatter.format(new Date()));
-			// Calculate age in years based on patient's birthdate and current date
-			Date birthdate = patient.getBirthdate();
-			Date currentDate = new Date();
-			long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+			patientObj.put("dateEnrolled", dateEnrolled);
+			patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
 			patientObj.put("childOrAdolescent", age <= 19 ? "True" : "False");
 			patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
 			patientObj.put("returningFromIT", determineIfPatientIsReturningFromIT(patient));
 			patientObj.put("returningToTreatment", determineIfPatientIsReturningToTreatment(patient));
+			patientObj.put("dueForVl", determineIfPatientIsDueForVl(patient));
+			patientObj.put("highVl", determineIfPatientIsHighVl(patient));
+			patientObj.put("onAppointment", determineIfPatientIsOnAppointment(patient));
+			patientObj.put("missedAppointment", determineIfPatientMissedAppointment(patient));
+			
+			// check filter category and filter patients based on the category
+			if (filterCategory != null) {
+				switch (filterCategory) {
+					case CHILDREN_ADOLESCENTS:
+						if (age <= 19) {
+							patientList.add(patientObj);
+						}
+						break;
+					case PREGNANT_BREASTFEEDING:
+						if (determineIfPatientIsPregnantOrBreastfeeding(patient, endDate)) {
+							patientList.add(patientObj);
+						}
+						break;
+					case RETURN_FROM_IIT:
+						if (determineIfPatientIsReturningFromIT(patient)) {
+							patientList.add(patientObj);
+						}
+						break;
+					case RETURN_TO_TREATMENT:
+						if (determineIfPatientIsReturningToTreatment(patient)) {
+							patientList.add(patientObj);
+						}
+						break;
+				}
+			} else {
+				patientList.add(patientObj);
+			}
 			patientList.add(patientObj);
 		}
+		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupMonth = JsonNodeFactory.instance.objectNode();
@@ -362,6 +397,65 @@ public class SSEMRWebServicesController {
 		allPatientsObj.put("summary", groupingObj);
 		
 		return allPatientsObj.toString();
+	}
+	
+	private boolean determineIfPatientMissedAppointment(Patient patient) {
+		return Math.random() < 0.5;
+		// TODO: Add logic to determine if patient Missed appointment
+		// return false;
+	}
+	
+	private boolean determineIfPatientIsOnAppointment(Patient patient) {
+		return Math.random() < 0.5;
+		// TODO: Add logic to determine if patient was on appointment
+		// return false;
+	}
+	
+	private boolean determineIfPatientIsHighVl(Patient patient) {
+		return Math.random() < 0.5;
+		// TODO: Add logic to determine if patient is high VL
+		// return false;
+	}
+	
+	private boolean determineIfPatientIsDueForVl(Patient patient) {
+		return Math.random() < 0.5;
+		// TODO: Add logic to determine if patient is due for VL
+		// return false;
+	}
+	
+	private boolean determineIfPatientIsNewClient(Patient patient, Date startDate, Date endDate) {
+		// return random true or false value for now
+		return Math.random() < 0.5;
+		// TODO: Add logic to determine if patient is new client - Check #logicToDetermineIfNewlyEnrolled method
+		// return false;
+	}
+	
+	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate)
+	{
+		// Get all patients who were enrolled within the specified date range
+		EncounterType enrolmentEncounterType = Context.getEncounterService().getEncounterTypeByUuid(
+				enrolmentEncounterTypeUuid);
+		// Add a filter for current location
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(
+				null, null, startDate, endDate, null, null, Collections.singletonList(enrolmentEncounterType), null, null, null,
+				false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		// Extract patients from encounters into a hashset to remove duplicates
+		HashSet<Patient> enrolledPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
+				HashSet::add, HashSet::addAll);
+		// Get Patients who were transferred in
+		List<Obs> transferInObs = Context.getObsService().getObservations(null, encounters, Collections.singletonList(
+						Context.getConceptService().getConceptByUuid(TRANSFER_IN_CONCEPT_UUID)), Collections.singletonList(
+						Context.getConceptService().getConceptByUuid("a2065636-5326-40f5-aed6-0cc2cca81ccc")), null,
+				null, null, null, null, null, endDate, false);
+		// Extract patients from transfer in obs into a hashset to remove duplicates
+		HashSet<Person> transferInPatients = transferInObs.stream().map(Obs::getPerson).collect(HashSet::new,
+				HashSet::add, HashSet::addAll);
+		
+		enrolledPatients.removeIf(transferInPatients::contains);
+		
+		return enrolledPatients;
+		
 	}
 	
 	private boolean determineIfPatientIsReturningToTreatment(Patient patient) {
