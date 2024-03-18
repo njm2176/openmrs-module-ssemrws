@@ -12,6 +12,7 @@ package org.openmrs.module.ssemrws.web.controller;
 import javax.servlet.http.HttpServletRequest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -30,6 +31,7 @@ import org.openmrs.Obs;
 import org.openmrs.Patient;
 import org.openmrs.Person;
 import org.openmrs.Visit;
+import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
@@ -263,10 +265,57 @@ public class SSEMRWebServicesController {
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
 	// gets all visit forms for a patient
 	@ResponseBody
-	public Object getViralLoadSamplesCollected(HttpServletRequest request) {
+	public Object getViralLoadSamplesCollected(HttpServletRequest request, @RequestParam Date startDate, @RequestParam Date endDate, @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
 		// Add logic to filter patients on Child regimen treatment
-		
+		//get all viral load samples collected between the given date range
+		try {
+			EncounterType viralLoadEncounterType = Context.getEncounterService().getEncounterTypeByUuid("82024e00-3f10-11e4-adec-0800271c1b75");
+			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, null, endDate, null, null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
+			List<Encounter> viralLoadEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+			
+			// get the date of sample collection from the obs in the viral load encounters
+			Concept sampleCollectionDateConcept = Context.getConceptService().getConceptByUuid("ed520e2d-acb4-4ea9-8ae5-16ca27ace96d");
+			List<Obs> sampleCollectionDateObs = Context.getObsService().getObservations(null, viralLoadEncounters, Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, null, endDate, false);
+			
+			// Extract values from sampleCollectionObs that fall between start date and end date
+			List<Obs> sampleCollectionDateObsInRange = sampleCollectionDateObs.isEmpty()? new ArrayList<>(): sampleCollectionDateObs.stream().filter(obs -> obs.getValueDate().after(startDate) && obs.getValueDate().before(endDate)).collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+			
+			// Instantiate an array with all months of the year
+			String[] months = new String[]{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+			// For each value date in the SampleCollectionDateObsInRange, group the data by month and week and day and calculate counts for each group
+			//  Extract unique years from the sampleCollectionDateObsInRange
+			HashSet<Integer> years = sampleCollectionDateObsInRange.stream().map(obs -> obs.getValueDate().getYear()).collect(HashSet::new, HashSet::add, HashSet::addAll);
+			// Extract unique month names from the sampleCollectionDateObsInRange
+			HashSet<String> monthNames = sampleCollectionDateObsInRange.stream().map(obs -> months[obs.getValueDate().getMonth()]).collect(HashSet::new, HashSet::add, HashSet::addAll);
+
+				// Add logic to group the data by month and week and day and calculate counts for each group
+				// Group by month
+				ArrayNode groupYear = JsonNodeFactory.instance.arrayNode();
+				for (int y : years) {
+					ObjectNode singleYearObj = JsonNodeFactory.instance.objectNode();
+					ObjectNode monthsObj = JsonNodeFactory.instance.objectNode();
+					for (Obs o : sampleCollectionDateObsInRange) {
+						Calendar calendar = Calendar.getInstance();
+						calendar.setTime(o.getValueDate());
+						if (calendar.get(Calendar.YEAR) == y) {
+							monthsObj.put(months[calendar.get(Calendar.MONTH)], monthsObj.get(months[calendar.get(Calendar.MONTH)]).asInt() + 1);
+							singleYearObj.put(String.valueOf(y), monthsObj);
+						}
+					}
+
+					groupYear.add(singleYearObj);
+				}
+
+				
+				// Group by week
+				// Group by day
+			
+			
+		}
+		catch (APIException e) {
+			throw new RuntimeException(e);
+		}
 		return generateViralLoadListObj(allPatients);
 	}
 	
