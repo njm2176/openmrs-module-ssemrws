@@ -15,9 +15,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
+import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -33,6 +35,7 @@ import org.openmrs.Person;
 import org.openmrs.Visit;
 import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
 import org.springframework.http.HttpHeaders;
@@ -263,60 +266,107 @@ public class SSEMRWebServicesController {
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
-	// gets all visit forms for a patient
 	@ResponseBody
-	public Object getViralLoadSamplesCollected(HttpServletRequest request, @RequestParam Date startDate, @RequestParam Date endDate, @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		// Add logic to filter patients on Child regimen treatment
-		//get all viral load samples collected between the given date range
+	public Object getViralLoadSamplesCollected(HttpServletRequest request, @RequestParam Date startDate,
+	        @RequestParam Date endDate, @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
+		SimpleObject simpleObject;
 		try {
-			EncounterType viralLoadEncounterType = Context.getEncounterService().getEncounterTypeByUuid("82024e00-3f10-11e4-adec-0800271c1b75");
-			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, null, endDate, null, null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
-			List<Encounter> viralLoadEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+			
+			EncounterType viralLoadEncounterType = Context.getEncounterService().getEncounterTypeByUuid(
+			    "82024e00-3f10-11e4-adec-0800271c1b75");
+			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, null, endDate, null,
+			        null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
+			List<Encounter> viralLoadSampleEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
 			
 			// get the date of sample collection from the obs in the viral load encounters
-			Concept sampleCollectionDateConcept = Context.getConceptService().getConceptByUuid("ed520e2d-acb4-4ea9-8ae5-16ca27ace96d");
-			List<Obs> sampleCollectionDateObs = Context.getObsService().getObservations(null, viralLoadEncounters, Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, null, endDate, false);
+			Concept sampleCollectionDateConcept = Context.getConceptService().getConceptByUuid(
+			    "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d");
+			List<Obs> sampleCollectionDateObs = Context.getObsService().getObservations(null, viralLoadSampleEncounters,
+			    Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, null, endDate,
+			    false);
 			
-			// Extract values from sampleCollectionObs that fall between start date and end date
-			List<Obs> sampleCollectionDateObsInRange = sampleCollectionDateObs.isEmpty()? new ArrayList<>(): sampleCollectionDateObs.stream().filter(obs -> obs.getValueDate().after(startDate) && obs.getValueDate().before(endDate)).collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+			simpleObject = generateDashboardSummary(startDate, endDate, sampleCollectionDateObs, null);
 			
-			// Instantiate an array with all months of the year
-			String[] months = new String[]{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-			// For each value date in the SampleCollectionDateObsInRange, group the data by month and week and day and calculate counts for each group
-			//  Extract unique years from the sampleCollectionDateObsInRange
-			HashSet<Integer> years = sampleCollectionDateObsInRange.stream().map(obs -> obs.getValueDate().getYear()).collect(HashSet::new, HashSet::add, HashSet::addAll);
-			// Extract unique month names from the sampleCollectionDateObsInRange
-			HashSet<String> monthNames = sampleCollectionDateObsInRange.stream().map(obs -> months[obs.getValueDate().getMonth()]).collect(HashSet::new, HashSet::add, HashSet::addAll);
-
-				// Add logic to group the data by month and week and day and calculate counts for each group
-				// Group by month
-				ArrayNode groupYear = JsonNodeFactory.instance.arrayNode();
-				for (int y : years) {
-					ObjectNode singleYearObj = JsonNodeFactory.instance.objectNode();
-					ObjectNode monthsObj = JsonNodeFactory.instance.objectNode();
-					for (Obs o : sampleCollectionDateObsInRange) {
-						Calendar calendar = Calendar.getInstance();
-						calendar.setTime(o.getValueDate());
-						if (calendar.get(Calendar.YEAR) == y) {
-							monthsObj.put(months[calendar.get(Calendar.MONTH)], monthsObj.get(months[calendar.get(Calendar.MONTH)]).asInt() + 1);
-							singleYearObj.put(String.valueOf(y), monthsObj);
-						}
-					}
-
-					groupYear.add(singleYearObj);
-				}
-
-				
-				// Group by week
-				// Group by day
-			
+			return simpleObject;
 			
 		}
 		catch (APIException e) {
 			throw new RuntimeException(e);
 		}
-		return generateViralLoadListObj(allPatients);
+	}
+	
+	private static SimpleObject generateDashboardSummary(Date startDate, Date endDate, List<Obs> obsList, filterCategory filterCategory) {
+		// TODO: Implement filter category logic
+		
+		SimpleObject simpleObject = new SimpleObject();
+		// Instantiate an array with all months of the year
+		String[] months = new String[]{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+		
+		//Instantiate an array with all days of the week
+		String[] days = new String[]{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+		
+		HashMap<String, List<Person>> monthlyGrouping = new HashMap<>();
+		HashMap<String, Integer> weeklySummary = new HashMap<>();
+		HashMap<String, Integer> monthlySummary = new HashMap<>();
+		HashMap<String, Integer> dailySummary = new HashMap<>();
+		
+		// For each obs in the obsList, filter Value Datetime that falls between the start date and end date
+		for (Obs obs : obsList) {
+			if (obs.getValueDate().after(DateUtils.addDays(startDate, -1) ) && obs.getValueDate().before(DateUtils.addDays(
+					endDate,1))) {
+				// Add logic to group the data by month and week and day and calculate counts for each group
+				Calendar calendar = Calendar.getInstance();
+				calendar.setTime(obs.getValueDate());
+				String month = months[calendar.get(Calendar.MONTH)];
+				
+				if (monthlyGrouping.containsKey(month)) {
+					// check if person already exists in the list for the month
+					//TODO: Convert the person object to a `patientObj` object. -->Call generatePatientObject method to generate the patient object
+					if (!monthlyGrouping.get(month).contains(obs.getPerson())) {
+						monthlyGrouping.get(month).add(obs.getPerson());
+					}
+				} else {
+					monthlyGrouping.put(month, Collections.singletonList(obs.getPerson()));
+				}
+				
+				//Group by month
+				if (monthlySummary.containsKey(month)) {
+					monthlySummary.put(month, monthlySummary.get(month) + 1);
+				} else {
+					monthlySummary.put(month, 1);
+				}
+				
+				// Group by week
+				int week = calendar.get(Calendar.WEEK_OF_MONTH);
+				String weekOfTheMonth = month + "-" + week;
+				if (weeklySummary.containsKey(weekOfTheMonth)) {
+					weeklySummary.put(weekOfTheMonth, weeklySummary.get(weekOfTheMonth) + 1);
+				} else {
+					weeklySummary.put(weekOfTheMonth, 1);
+				}
+				
+				// Group by day
+				
+				int day = calendar.get(Calendar.DAY_OF_WEEK);
+				// use string.format instead of concatenation
+				String day_in_week = String.format("%s-%s", week, days[day]);
+				if (dailySummary.containsKey(day_in_week)) {
+					dailySummary.put(day_in_week, dailySummary.get(day_in_week) + 1);
+				} else {
+					dailySummary.put(day_in_week, 1);
+				}
+			}
+		}
+		simpleObject.put("results", monthlyGrouping);
+		
+		SummarySection summary = new SummarySection();
+		summary.setGroupYear(monthlySummary);
+		summary.setGroupMonth(weeklySummary);
+		summary.setGroupWeek(dailySummary);
+		
+		simpleObject.put("summary", summary);
+		
+		return simpleObject;
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadResults")
@@ -362,59 +412,12 @@ public class SSEMRWebServicesController {
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
 		for (Patient patient : allPatients) {
-			ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
-			// TODO: Add logic to fetch the enrollment date
-			String dateEnrolled = dateTimeFormatter.format(new Date());
-			Date startDate = new Date();
-			// Calculate age in years based on patient's birthdate and current date
-			Date birthdate = patient.getBirthdate();
-			Date currentDate = new Date();
-			long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
-			
-			patientObj.put("uuid", patient.getUuid());
-			patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
-			patientObj.put("identifier", patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString()
-			        : "");
-			patientObj.put("sex", patient.getGender());
-			patientObj.put("dateEnrolled", dateEnrolled);
-			patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
-			patientObj.put("childOrAdolescent", age <= 19 ? "True" : "False");
-			patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
-			patientObj.put("returningFromIT", determineIfPatientIsReturningFromIT(patient));
-			patientObj.put("returningToTreatment", determineIfPatientIsReturningToTreatment(patient));
-			patientObj.put("dueForVl", determineIfPatientIsDueForVl(patient));
-			patientObj.put("highVl", determineIfPatientIsHighVl(patient));
-			patientObj.put("onAppointment", determineIfPatientIsOnAppointment(patient));
-			patientObj.put("missedAppointment", determineIfPatientMissedAppointment(patient));
-			
-			// check filter category and filter patients based on the category
-			if (filterCategory != null) {
-				switch (filterCategory) {
-					case CHILDREN_ADOLESCENTS:
-						if (age <= 19) {
-							patientList.add(patientObj);
-						}
-						break;
-					case PREGNANT_BREASTFEEDING:
-						if (determineIfPatientIsPregnantOrBreastfeeding(patient, endDate)) {
-							patientList.add(patientObj);
-						}
-						break;
-					case RETURN_FROM_IIT:
-						if (determineIfPatientIsReturningFromIT(patient)) {
-							patientList.add(patientObj);
-						}
-						break;
-					case RETURN_TO_TREATMENT:
-						if (determineIfPatientIsReturningToTreatment(patient)) {
-							patientList.add(patientObj);
-						}
-						break;
-				}
-			} else {
+			ObjectNode patientObj;
+			patientObj = generatePatientObject(endDate, filterCategory, patient);
+			if (patientObj != null) {
 				patientList.add(patientObj);
 			}
-			patientList.add(patientObj);
+			
 		}
 		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
@@ -446,6 +449,65 @@ public class SSEMRWebServicesController {
 		allPatientsObj.put("summary", groupingObj);
 		
 		return allPatientsObj.toString();
+	}
+	
+	private ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
+		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
+		String dateEnrolled = determineEnrolmentDate(patient);
+		Date startDate = new Date();
+		// Calculate age in years based on patient's birthdate and current date
+		Date birthdate = patient.getBirthdate();
+		Date currentDate = new Date();
+		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+		
+		patientObj.put("uuid", patient.getUuid());
+		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
+		patientObj
+		        .put("identifier", patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString() : "");
+		patientObj.put("sex", patient.getGender());
+		patientObj.put("dateEnrolled", dateEnrolled);
+		patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
+		patientObj.put("childOrAdolescent", age <= 19 ? "True" : "False");
+		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
+		patientObj.put("returningFromIT", determineIfPatientIsReturningFromIT(patient));
+		patientObj.put("returningToTreatment", determineIfPatientIsReturningToTreatment(patient));
+		patientObj.put("dueForVl", determineIfPatientIsDueForVl(patient));
+		patientObj.put("highVl", determineIfPatientIsHighVl(patient));
+		patientObj.put("onAppointment", determineIfPatientIsOnAppointment(patient));
+		patientObj.put("missedAppointment", determineIfPatientMissedAppointment(patient));
+		
+		// check filter category and filter patients based on the category
+		if (filterCategory != null) {
+			switch (filterCategory) {
+				case CHILDREN_ADOLESCENTS:
+					if (age <= 19) {
+						return patientObj;
+					}
+					break;
+				case PREGNANT_BREASTFEEDING:
+					if (determineIfPatientIsPregnantOrBreastfeeding(patient, endDate)) {
+						return patientObj;
+					}
+					break;
+				case RETURN_FROM_IIT:
+					if (determineIfPatientIsReturningFromIT(patient)) {
+						return patientObj;
+					}
+					break;
+				case RETURN_TO_TREATMENT:
+					if (determineIfPatientIsReturningToTreatment(patient)) {
+						return patientObj;
+					}
+			}
+		} else {
+			return patientObj;
+		}
+		return null;
+	}
+	
+	private String determineEnrolmentDate(Patient patient) {
+		// TODO: Add logic to fetch the enrollment date
+		return dateTimeFormatter.format(new Date());
 	}
 	
 	private boolean determineIfPatientMissedAppointment(Patient patient) {
@@ -549,5 +611,38 @@ public class SSEMRWebServicesController {
 		// ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
 		return new ArrayList<>();
+	}
+	
+	private static class SummarySection {
+		
+		private Object groupWeek;
+		
+		private Object groupMonth;
+		
+		private Object groupYear;
+		
+		public void setGroupYear(Object groupYear) {
+			this.groupYear = groupYear;
+		}
+		
+		public Object getGroupYear() {
+			return groupYear;
+		}
+		
+		public void setGroupMonth(Object groupMonth) {
+			this.groupMonth = groupMonth;
+		}
+		
+		public Object getGroupMonth() {
+			return groupMonth;
+		}
+		
+		public void setGroupWeek(Object groupWeek) {
+			this.groupWeek = groupWeek;
+		}
+		
+		public Object getGroupWeek() {
+			return groupWeek;
+		}
 	}
 }
