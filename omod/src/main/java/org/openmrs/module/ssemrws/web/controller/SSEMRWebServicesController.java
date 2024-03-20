@@ -313,7 +313,7 @@ public class SSEMRWebServicesController {
 		// Instantiate an array with all days of the week
 		String[] days = new String[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
 		
-		HashMap<String, List<Person>> monthlyGrouping = new HashMap<>();
+		HashMap<String, List<ObjectNode>> monthlyGrouping = new HashMap<>();
 		HashMap<String, Integer> weeklySummary = new HashMap<>();
 		HashMap<String, Integer> monthlySummary = new HashMap<>();
 		HashMap<String, Integer> dailySummary = new HashMap<>();
@@ -333,13 +333,11 @@ public class SSEMRWebServicesController {
 				ObjectNode personObj = generatePatientObject(endDate, filterCategory, (Patient) person);
 				if (monthlyGrouping.containsKey(month)) {
 					// check if person already exists in the list for the month
-					// TODO: Convert the person object to a `patientObj` object. -->Call
-					// generatePatientObject method to generate the patient object
-					if (!monthlyGrouping.get(month).contains(person)) {
-						monthlyGrouping.get(month).add(person);
+					if (!monthlyGrouping.get(month).contains(personObj)) {
+						monthlyGrouping.get(month).add(personObj);
 					}
 				} else {
-					monthlyGrouping.put(month, Collections.singletonList(person));
+					monthlyGrouping.put(month, Collections.singletonList(personObj));
 				}
 				
 				// Group by month
