@@ -10,6 +10,7 @@
 package org.openmrs.module.ssemrws.web.controller;
 
 import javax.servlet.http.HttpServletRequest;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -24,6 +25,7 @@ import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
@@ -36,7 +38,6 @@ import org.openmrs.Person;
 import org.openmrs.Visit;
 import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
-import org.openmrs.module.webservices.rest.SimpleObject;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
 import org.springframework.http.HttpHeaders;
@@ -84,7 +85,7 @@ public class SSEMRWebServicesController {
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
 	
-	SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+	SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 	
 	/**
 	 * Gets a list of available/completed forms for a patient
@@ -165,10 +166,11 @@ public class SSEMRWebServicesController {
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/allClients")
 	// gets all visit forms for a patient
 	@ResponseBody
-	public Object getAllPatients(HttpServletRequest request, @RequestParam("startDate") Date startDate,
-	        @RequestParam("endDate") Date endDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
-		
+	public Object getAllPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
 		return generatePatientListObj(new HashSet<>(allPatients), endDate, filterCategory);
 	}
@@ -269,10 +271,13 @@ public class SSEMRWebServicesController {
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
 	@ResponseBody
-	public Object getViralLoadSamplesCollected(HttpServletRequest request, @RequestParam Date startDate,
-	        @RequestParam Date endDate, @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
-		SimpleObject simpleObject;
+	public Object getViralLoadSamplesCollected(HttpServletRequest request,
+	        @RequestParam(value = "startDate") String qStartDate, @RequestParam(value = "endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
+		ObjectNode simpleObject = JsonNodeFactory.instance.objectNode();
 		try {
+			Date startDate = dateTimeFormatter.parse(qStartDate);
+			Date endDate = dateTimeFormatter.parse(qEndDate);
 			
 			EncounterType viralLoadEncounterType = Context.getEncounterService()
 			        .getEncounterTypeByUuid(VL_LAB_REQUEST_ENCOUNTER_TYPE);
@@ -291,16 +296,16 @@ public class SSEMRWebServicesController {
 			return simpleObject;
 			
 		}
-		catch (APIException e) {
+		catch (APIException | ParseException e) {
 			throw new RuntimeException(e);
 		}
 	}
 	
-	private static SimpleObject generateDashboardSummaryFromObs(Date startDate, Date endDate, List<Obs> obsList,
+	private static ObjectNode generateDashboardSummaryFromObs(Date startDate, Date endDate, List<Obs> obsList,
 	        filterCategory filterCategory) {
 		// TODO: Implement filter category logic
 		
-		SimpleObject simpleObject = new SimpleObject();
+		ObjectNode simpleObject = JsonNodeFactory.instance.objectNode();
 		// Instantiate an array with all months of the year
 		String[] months = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
 		        "Dec" };
@@ -363,14 +368,15 @@ public class SSEMRWebServicesController {
 				}
 			}
 		}
-		simpleObject.put("results", monthlyGrouping);
+		ObjectMapper mapper = new ObjectMapper();
+		simpleObject.put("results", mapper.convertValue(monthlyGrouping, ObjectNode.class));
 		
-		SummarySection summary = new SummarySection();
-		summary.setGroupYear(monthlySummary);
-		summary.setGroupMonth(weeklySummary);
-		summary.setGroupWeek(dailySummary);
+		SummarySection summary = new SummarySection(JsonNodeFactory.instance);
+		summary.setGroupYear(mapper.convertValue(monthlySummary, ObjectNode.class));
+		summary.setGroupMonth(mapper.convertValue(weeklySummary, ObjectNode.class));
+		summary.setGroupWeek(mapper.convertValue(dailySummary, ObjectNode.class));
 		
-		simpleObject.put("summary", summary);
+		simpleObject.put("summary", summary.toString());
 		
 		return simpleObject;
 	}
@@ -634,35 +640,39 @@ public class SSEMRWebServicesController {
 		return new ArrayList<>();
 	}
 	
-	private static class SummarySection {
+	private static class SummarySection extends ObjectNode {
 		
-		private Object groupWeek;
+		private ObjectNode groupWeek;
 		
-		private Object groupMonth;
+		private ObjectNode groupMonth;
 		
-		private Object groupYear;
+		private ObjectNode groupYear;
 		
-		public void setGroupYear(Object groupYear) {
+		public SummarySection(JsonNodeFactory nc) {
+			super(nc);
+		}
+		
+		public void setGroupYear(ObjectNode groupYear) {
 			this.groupYear = groupYear;
 		}
 		
-		public Object getGroupYear() {
+		public ObjectNode getGroupYear() {
 			return groupYear;
 		}
 		
-		public void setGroupMonth(Object groupMonth) {
+		public void setGroupMonth(ObjectNode groupMonth) {
 			this.groupMonth = groupMonth;
 		}
 		
-		public Object getGroupMonth() {
+		public ObjectNode getGroupMonth() {
 			return groupMonth;
 		}
 		
-		public void setGroupWeek(Object groupWeek) {
+		public void setGroupWeek(ObjectNode groupWeek) {
 			this.groupWeek = groupWeek;
 		}
 		
-		public Object getGroupWeek() {
+		public ObjectNode getGroupWeek() {
 			return groupWeek;
 		}
 	}
