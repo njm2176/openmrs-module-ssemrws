@@ -572,8 +572,8 @@ public class SSEMRWebServicesController {
 		// Get Patients who were transferred in
 		List<Obs> transferInObs = Context.getObsService().getObservations(null, encounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TRANSFER_IN_CONCEPT_UUID)),
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)),
-		    null, null, null, null, null, null, endDate, false);
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
+		    null, null, endDate, false);
 		// Extract patients from transfer in obs into a hashset to remove duplicates
 		HashSet<Person> transferInPatients = transferInObs.stream().map(Obs::getPerson).collect(HashSet::new, HashSet::add,
 		    HashSet::addAll);
