@@ -349,7 +349,7 @@ public class SSEMRWebServicesController {
 				
 				// Group by week
 				int week = calendar.get(Calendar.WEEK_OF_MONTH);
-				String weekOfTheMonth = month + "-" + week;
+				String weekOfTheMonth = String.format("%s_%s", month, week);
 				if (weeklySummary.containsKey(weekOfTheMonth)) {
 					weeklySummary.put(weekOfTheMonth, weeklySummary.get(weekOfTheMonth) + 1);
 				} else {
@@ -360,7 +360,7 @@ public class SSEMRWebServicesController {
 				
 				int day = calendar.get(Calendar.DAY_OF_WEEK);
 				// use string.format instead of concatenation
-				String day_in_week = String.format("%s-%s", week, days[day]);
+				String day_in_week = String.format("%s_%s", week, days[day]);
 				if (dailySummary.containsKey(day_in_week)) {
 					dailySummary.put(day_in_week, dailySummary.get(day_in_week) + 1);
 				} else {
