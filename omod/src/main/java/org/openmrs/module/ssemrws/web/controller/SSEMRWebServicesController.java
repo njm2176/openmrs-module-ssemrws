@@ -85,7 +85,7 @@ public class SSEMRWebServicesController {
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
 	
-	SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+	static SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 	
 	/**
 	 * Gets a list of available/completed forms for a patient
@@ -329,15 +329,17 @@ public class SSEMRWebServicesController {
 				calendar.setTime(obs.getValueDate());
 				String month = months[calendar.get(Calendar.MONTH)];
 				
+				Person person = obs.getPerson();
+				ObjectNode personObj = generatePatientObject(endDate, filterCategory, (Patient) person);
 				if (monthlyGrouping.containsKey(month)) {
 					// check if person already exists in the list for the month
 					// TODO: Convert the person object to a `patientObj` object. -->Call
 					// generatePatientObject method to generate the patient object
-					if (!monthlyGrouping.get(month).contains(obs.getPerson())) {
-						monthlyGrouping.get(month).add(obs.getPerson());
+					if (!monthlyGrouping.get(month).contains(person)) {
+						monthlyGrouping.get(month).add(person);
 					}
 				} else {
-					monthlyGrouping.put(month, Collections.singletonList(obs.getPerson()));
+					monthlyGrouping.put(month, Collections.singletonList(person));
 				}
 				
 				// Group by month
@@ -463,7 +465,7 @@ public class SSEMRWebServicesController {
 		return allPatientsObj.toString();
 	}
 	
-	private ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
+	private static ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		String dateEnrolled = determineEnrolmentDate(patient);
 		Date startDate = new Date();
@@ -517,7 +519,7 @@ public class SSEMRWebServicesController {
 		return null;
 	}
 	
-	private String determineEnrolmentDate(Patient patient) {
+	private static String determineEnrolmentDate(Patient patient) {
 		// Get enrolment encounter type
 		EncounterType enrolmentEncounterType = Context.getEncounterService()
 		        .getEncounterTypeByUuid(ENROLMENT_ENCOUNTER_TYPE_UUID);
@@ -532,31 +534,31 @@ public class SSEMRWebServicesController {
 		return enrolmentEncounter != null ? dateTimeFormatter.format(enrolmentEncounter.getEncounterDatetime()) : "";
 	}
 	
-	private boolean determineIfPatientMissedAppointment(Patient patient) {
+	private static boolean determineIfPatientMissedAppointment(Patient patient) {
 		return Math.random() < 0.5;
 		// TODO: Add logic to determine if patient Missed appointment
 		// return false;
 	}
 	
-	private boolean determineIfPatientIsOnAppointment(Patient patient) {
+	private static boolean determineIfPatientIsOnAppointment(Patient patient) {
 		return Math.random() < 0.5;
 		// TODO: Add logic to determine if patient was on appointment
 		// return false;
 	}
 	
-	private boolean determineIfPatientIsHighVl(Patient patient) {
+	private static boolean determineIfPatientIsHighVl(Patient patient) {
 		return Math.random() < 0.5;
 		// TODO: Add logic to determine if patient is high VL
 		// return false;
 	}
 	
-	private boolean determineIfPatientIsDueForVl(Patient patient) {
+	private static boolean determineIfPatientIsDueForVl(Patient patient) {
 		return Math.random() < 0.5;
 		// TODO: Add logic to determine if patient is due for VL
 		// return false;
 	}
 	
-	private boolean determineIfPatientIsNewClient(Patient patient, Date startDate, Date endDate) {
+	private static boolean determineIfPatientIsNewClient(Patient patient, Date startDate, Date endDate) {
 		// return random true or false value for now
 		return Math.random() < 0.5;
 		// TODO: Add logic to determine if patient is new client - Check
@@ -590,7 +592,7 @@ public class SSEMRWebServicesController {
 		
 	}
 	
-	private boolean determineIfPatientIsReturningToTreatment(Patient patient) {
+	private static boolean determineIfPatientIsReturningToTreatment(Patient patient) {
 		// Add logic to determine if patient is returning to treatment
 		// This is the definition of patients returning to treatment:
 		// Clients who experienced an interruption in treatment (IIT) during any
@@ -600,7 +602,7 @@ public class SSEMRWebServicesController {
 		return false;
 	}
 	
-	private boolean determineIfPatientIsReturningFromIT(Patient patient) {
+	private static boolean determineIfPatientIsReturningFromIT(Patient patient) {
 		// Add logic to determine if patient is returning from IT
 		// This is the definition of patients returning from IT:
 		// clients who missed for at least 28 days from the last expected return visit
@@ -608,7 +610,7 @@ public class SSEMRWebServicesController {
 		return false;
 	}
 	
-	private boolean determineIfPatientIsPregnantOrBreastfeeding(Patient patient, Date endDate) {
+	private static boolean determineIfPatientIsPregnantOrBreastfeeding(Patient patient, Date endDate) {
 		
 		List<Concept> pregnantAndBreastfeedingConcepts = new ArrayList<>();
 		pregnantAndBreastfeedingConcepts
