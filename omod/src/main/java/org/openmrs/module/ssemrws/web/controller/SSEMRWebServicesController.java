@@ -10,6 +10,7 @@
 package org.openmrs.module.ssemrws.web.controller;
 
 import javax.servlet.http.HttpServletRequest;
+import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -29,13 +30,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
-import org.openmrs.Concept;
-import org.openmrs.Encounter;
-import org.openmrs.EncounterType;
-import org.openmrs.Obs;
-import org.openmrs.Patient;
-import org.openmrs.Person;
-import org.openmrs.Visit;
+import org.openmrs.*;
 import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.rest.web.RestConstants;
@@ -61,7 +56,7 @@ public class SSEMRWebServicesController {
 	
 	public static final String SAMPLE_COLLECTION_DATE_UUID = "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d";
 	
-	public static final String YES_CONCEPT = "a2065636-5326-40f5-aed6-0cc2cca81ccc";
+	public static final String YES_CONCEPT = "78763e68-104e-465d-8ce3-35f9edfb083d";
 	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
@@ -74,6 +69,8 @@ public class SSEMRWebServicesController {
 	
 	public static final String ENROLMENT_ENCOUNTER_TYPE_UUID = "f469b65f-a4f6-4723-989a-46090de6a0e5";
 	
+	public static final String LAST_REFILL_DATE_ENCOUNTER_TYPE_UUID = "e8481555-9dd1-4bb5-ba8c-cb721dafb166";
+	
 	public static final String TRANSFER_IN_CONCEPT_UUID = "735cd395-0ef1-4832-a58c-e8afb567d3b3";
 	
 	public static final String CURRENTLY_BREASTFEEDING_CONCEPT_UUID = "e288fc7d-bbc5-479a-b94d-857e3819f926";
@@ -81,6 +78,10 @@ public class SSEMRWebServicesController {
 	private static final String CURRENTLY_PREGNANT_CONCEPT_UUID = "235a6246-6179-4309-ba84-6f0ec337eb48";
 	
 	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
+	
+	public static final String TELEPHONE_NUMBER_UUID = "8f0a2a16-c073-4622-88ad-a11f2d6966ad";
+	
+	public static final String DATE_OF_LAST_REFILL = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -478,6 +479,7 @@ public class SSEMRWebServicesController {
 		    patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString() : "");
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("dateEnrolled", dateEnrolled);
+		patientObj.put("lastRefillDate", getDateOfLastRefill(startDate, endDate));
 		patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
 		patientObj.put("childOrAdolescent", age <= 19 ? "True" : "False");
 		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
@@ -562,6 +564,33 @@ public class SSEMRWebServicesController {
 		// TODO: Add logic to determine if patient is new client - Check
 		// #logicToDetermineIfNewlyEnrolled method
 		// return false;
+	}
+	
+	private static String getDateOfLastRefill(Date startDate, Date endDate) {
+		EncounterType lastRefillDateEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(LAST_REFILL_DATE_ENCOUNTER_TYPE_UUID);
+		
+		// Add a filter for current location
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(lastRefillDateEncounterType), null, null, null, false);
+		List<Encounter> lastRefillDateEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		// Get Patients Last refill date
+		List<Obs> dateOfLastRefillConcept = Context.getObsService().getObservations(null, lastRefillDateEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_LAST_REFILL)), null, null, null,
+		    null, null, null, null, endDate, false);
+		// Extract patients from Last refill date obs into a hashset to remove
+		// duplicates
+		HashSet<Person> dateOfLastRefill = dateOfLastRefillConcept.stream().map(Obs::getPerson).collect(HashSet::new,
+		    HashSet::add, HashSet::addAll);
+		
+		if (dateOfLastRefill != null && !dateOfLastRefill.isEmpty()) {
+			Obs dateOfLastRefillObs = dateOfLastRefillConcept.get(0);
+			Date date = dateOfLastRefillObs.getValueDate();
+			DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			return dateFormat.format(date);
+		} else {
+			return "";
+		}
 	}
 	
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
