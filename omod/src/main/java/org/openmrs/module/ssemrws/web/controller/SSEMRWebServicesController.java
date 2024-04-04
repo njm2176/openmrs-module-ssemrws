@@ -10,6 +10,7 @@
 package org.openmrs.module.ssemrws.web.controller;
 
 import javax.servlet.http.HttpServletRequest;
+import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -29,13 +30,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
-import org.openmrs.Concept;
-import org.openmrs.Encounter;
-import org.openmrs.EncounterType;
-import org.openmrs.Obs;
-import org.openmrs.Patient;
-import org.openmrs.Person;
-import org.openmrs.Visit;
+import org.openmrs.*;
 import org.openmrs.api.APIException;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.rest.web.RestConstants;
@@ -61,8 +56,9 @@ public class SSEMRWebServicesController {
 	
 	public static final String SAMPLE_COLLECTION_DATE_UUID = "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d";
 	
-	public static final String YES_CONCEPT = "a2065636-5326-40f5-aed6-0cc2cca81ccc";
-	
+	public static final String YES_CONCEPT = "78763e68-104e-465d-8ce3-35f9edfb083d";
+	public static final String LAST_REFILL_DATE_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
+
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
@@ -81,6 +77,8 @@ public class SSEMRWebServicesController {
 	private static final String CURRENTLY_PREGNANT_CONCEPT_UUID = "235a6246-6179-4309-ba84-6f0ec337eb48";
 	
 	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
+	
+	public static final String TELEPHONE_NUMBER_UUID = "8f0a2a16-c073-4622-88ad-a11f2d6966ad";
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -466,6 +464,7 @@ public class SSEMRWebServicesController {
 	private static ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		String dateEnrolled = determineEnrolmentDate(patient);
+		String lastRefillDate = getLastRefillDate(patient, endDate);
 		Date startDate = new Date();
 		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
@@ -478,6 +477,7 @@ public class SSEMRWebServicesController {
 		    patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString() : "");
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("dateEnrolled", dateEnrolled);
+		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
 		patientObj.put("childOrAdolescent", age <= 19 ? "True" : "False");
 		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
@@ -562,6 +562,18 @@ public class SSEMRWebServicesController {
 		// TODO: Add logic to determine if patient is new client - Check
 		// #logicToDetermineIfNewlyEnrolled method
 		// return false;
+	}
+	
+	private static String getLastRefillDate(Patient patient, Date endDate) {
+		Concept lastRefillDateConcept = Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID);
+		List<Obs> LastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(lastRefillDateConcept), null, null, null, null, 1, null, null, endDate, false);
+		
+		String lastRefillDate = "";
+		if (LastRefillDateObs != null && !LastRefillDateObs.isEmpty()) {
+			dateTimeFormatter.format(LastRefillDateObs.get(0).getValueDate());
+		}
+		return lastRefillDate;
 	}
 	
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
