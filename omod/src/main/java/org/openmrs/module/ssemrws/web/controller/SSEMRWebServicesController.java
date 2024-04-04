@@ -467,6 +467,7 @@ public class SSEMRWebServicesController {
 	private static ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		String dateEnrolled = determineEnrolmentDate(patient);
+		String lastRefillDate = getLastRefillDate(patient, endDate);
 		Date startDate = new Date();
 		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
@@ -479,7 +480,7 @@ public class SSEMRWebServicesController {
 		    patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString() : "");
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("dateEnrolled", dateEnrolled);
-		patientObj.put("lastRefillDate", getDateOfLastRefill(startDate, endDate));
+		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
 		patientObj.put("childOrAdolescent", age <= 19 ? "True" : "False");
 		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
@@ -565,34 +566,17 @@ public class SSEMRWebServicesController {
 		// #logicToDetermineIfNewlyEnrolled method
 		// return false;
 	}
-	
-	private static String getDateOfLastRefill(Date startDate, Date endDate) {
-		EncounterType lastRefillDateEncounterType = Context.getEncounterService()
-		        .getEncounterTypeByUuid(LAST_REFILL_DATE_ENCOUNTER_TYPE_UUID);
-		
-		// Add a filter for current location
-		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
-		        null, Collections.singletonList(lastRefillDateEncounterType), null, null, null, false);
-		List<Encounter> lastRefillDateEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
-		// Get Patients Last refill date
-		List<Obs> dateOfLastRefillConcept = Context.getObsService().getObservations(null, lastRefillDateEncounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_LAST_REFILL)), null, null, null,
-		    null, null, null, null, endDate, false);
-		// Extract patients from Last refill date obs into a hashset to remove
-		// duplicates
-		HashSet<Person> dateOfLastRefill = dateOfLastRefillConcept.stream().map(Obs::getPerson).collect(HashSet::new,
-		    HashSet::add, HashSet::addAll);
-		
-		if (dateOfLastRefill != null && !dateOfLastRefill.isEmpty()) {
-			Obs dateOfLastRefillObs = dateOfLastRefillConcept.get(0);
-			Date date = dateOfLastRefillObs.getValueDate();
-			DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-			return dateFormat.format(date);
-		} else {
-			return "";
+	private static String getLastRefillDate(Patient patient, Date endDate) {
+		Concept lastRefillDateConcept = Context.getConceptService().getConceptByUuid("80e34f1b-26e8-49ea-9b6e-d7d903a91e26");
+		List<Obs> LastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null, Collections.singletonList(lastRefillDateConcept), null, null, null, null, 1, null, null, endDate, false);
+
+		String lastRefillDate = "";
+		if (LastRefillDateObs != null && !LastRefillDateObs.isEmpty()) {
+			dateTimeFormatter.format(LastRefillDateObs.get(0).getValueDate());
 		}
+		return lastRefillDate;
 	}
-	
+
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
 		// Get all patients who were enrolled within the specified date range
 		EncounterType enrolmentEncounterType = Context.getEncounterService()
