@@ -57,7 +57,8 @@ public class SSEMRWebServicesController {
 	public static final String SAMPLE_COLLECTION_DATE_UUID = "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d";
 	
 	public static final String YES_CONCEPT = "78763e68-104e-465d-8ce3-35f9edfb083d";
-	
+	public static final String LAST_REFILL_DATE_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
+
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
@@ -69,8 +70,6 @@ public class SSEMRWebServicesController {
 	
 	public static final String ENROLMENT_ENCOUNTER_TYPE_UUID = "f469b65f-a4f6-4723-989a-46090de6a0e5";
 	
-	public static final String LAST_REFILL_DATE_ENCOUNTER_TYPE_UUID = "e8481555-9dd1-4bb5-ba8c-cb721dafb166";
-	
 	public static final String TRANSFER_IN_CONCEPT_UUID = "735cd395-0ef1-4832-a58c-e8afb567d3b3";
 	
 	public static final String CURRENTLY_BREASTFEEDING_CONCEPT_UUID = "e288fc7d-bbc5-479a-b94d-857e3819f926";
@@ -80,8 +79,6 @@ public class SSEMRWebServicesController {
 	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
 	
 	public static final String TELEPHONE_NUMBER_UUID = "8f0a2a16-c073-4622-88ad-a11f2d6966ad";
-	
-	public static final String DATE_OF_LAST_REFILL = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -566,17 +563,19 @@ public class SSEMRWebServicesController {
 		// #logicToDetermineIfNewlyEnrolled method
 		// return false;
 	}
+	
 	private static String getLastRefillDate(Patient patient, Date endDate) {
-		Concept lastRefillDateConcept = Context.getConceptService().getConceptByUuid("80e34f1b-26e8-49ea-9b6e-d7d903a91e26");
-		List<Obs> LastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null, Collections.singletonList(lastRefillDateConcept), null, null, null, null, 1, null, null, endDate, false);
-
+		Concept lastRefillDateConcept = Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID);
+		List<Obs> LastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(lastRefillDateConcept), null, null, null, null, 1, null, null, endDate, false);
+		
 		String lastRefillDate = "";
 		if (LastRefillDateObs != null && !LastRefillDateObs.isEmpty()) {
 			dateTimeFormatter.format(LastRefillDateObs.get(0).getValueDate());
 		}
 		return lastRefillDate;
 	}
-
+	
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
 		// Get all patients who were enrolled within the specified date range
 		EncounterType enrolmentEncounterType = Context.getEncounterService()
