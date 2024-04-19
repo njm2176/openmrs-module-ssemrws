@@ -10,17 +10,11 @@
 package org.openmrs.module.ssemrws.web.controller;
 
 import javax.servlet.http.HttpServletRequest;
-import java.text.DateFormat;
+import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -54,17 +48,36 @@ public class SSEMRWebServicesController {
 	
 	public static final String VL_LAB_REQUEST_ENCOUNTER_TYPE = "82024e00-3f10-11e4-adec-0800271c1b75";
 	
+	public static final String FOLLOW_UP_FORM_ENCOUNTER_TYPE = "e8481555-9dd1-4bb5-ba8c-cb721dafb166";
+	
 	public static final String SAMPLE_COLLECTION_DATE_UUID = "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d";
 	
 	public static final String YES_CONCEPT = "78763e68-104e-465d-8ce3-35f9edfb083d";
+	
 	public static final String LAST_REFILL_DATE_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
-
+	
+	public static final String VIRAL_LOAD_CONCEPT_UUID = "01c3ce55-b7eb-45f5-93d5-bace353e3cfd";
+	
+	public static final String RETURNING_TO_TREATMENT_UUID = "4913c7f0-3362-4407-8d48-4b115f2f59dd";
+	
+	public static final String INTERRUPTION_IN_TREATMENT_UUID = "84c23dc4-40f4-4d9a-a2f5-ebeb4b4f3250";
+	
+	public static final String ART_TREATMENT_INTURRUPTION_ENCOUNTER_TYPE_UUID = "81852aee-3f10-11e4-adec-0800271c1b75";
+	
+	public static final String ACTIVE_REGIMEN_CONCEPT_UUID = "23322fd6-3dbb-410e-8bee-6210dfcd5f71";
+	
+	public static final String PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID = "0e9f540d-92cb-43c9-a95c-9407f5bf3f2a";
+	
+	public static final String COMMUNITY_LINKAGE_ENCOUNTER_UUID = "3c2df02e-6856-11ee-8c99-0242ac120002";
+	
+	public static final String DATE_OF_ENROLLMENT_UUID = "e27f8561-e242-4744-9193-b84d752dd86d";
+	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
 		CHILDREN_ADOLESCENTS,
 		PREGNANT_BREASTFEEDING,
-		RETURN_FROM_IIT,
+		IIT,
 		RETURN_TO_TREATMENT
 	};
 	
@@ -79,6 +92,8 @@ public class SSEMRWebServicesController {
 	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
 	
 	public static final String TELEPHONE_NUMBER_UUID = "8f0a2a16-c073-4622-88ad-a11f2d6966ad";
+	
+	private static final double THRESHOLD = 1000.0;
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -173,37 +188,10 @@ public class SSEMRWebServicesController {
 		return generatePatientListObj(new HashSet<>(allPatients), endDate, filterCategory);
 	}
 	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getNewPatients(HttpServletRequest request, @RequestParam("startDate") Date startDate,
-	        @RequestParam("endDate") Date endDate) {
-		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
-		return generatePatientListObj(enrolledPatients, endDate);
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/activeClients")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getActivePatients(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		
-		return generatePatientListObj((HashSet<Patient>) allPatients);
-	}
-	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/dueForVl")
 	// gets all visit forms for a patient
 	@ResponseBody
 	public Object getPatientsDueForVl(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		
-		return generatePatientListObj((HashSet<Patient>) allPatients);
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/highVl")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getPatientsOnHighVl(HttpServletRequest request) {
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
 		
 		return generatePatientListObj((HashSet<Patient>) allPatients);
@@ -216,25 +204,6 @@ public class SSEMRWebServicesController {
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
 		
 		return generatePatientListObj((HashSet<Patient>) allPatients);
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/interruptedInTreatment")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getPatientsInterruptedInTreatment(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		
-		return generatePatientListObj((HashSet<Patient>) allPatients);
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/returnedToTreatment")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getPatientsReturnedToTreatment(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		// Add logic to filter patients who have returned to treatment
-		
-		return generatePatientListObj(new HashSet<>(allPatients));
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/adultRegimenTreatment")
@@ -256,23 +225,37 @@ public class SSEMRWebServicesController {
 		
 		return generatePatientListObj((HashSet<Patient>) allPatients);
 	}
-	
+
+	/**
+	 * Retrieves a list of patients under the care of community programs within a specified date range.
+	 *
+	 * @return An Object representing the list of patients under the care of community programs within the specified date range.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/underCareOfCommunityProgrammes")
-	// gets all visit forms for a patient
 	@ResponseBody
-	public Object getPatientsUnderCareOfCommunityProgrammes(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		// Add logic to filter patients on Child regimen treatment
-		
-		return generatePatientListObj((HashSet<Patient>) allPatients);
+	public Object getPatientsUnderCareOfCommunityProgrammes(HttpServletRequest request,
+	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+
+		EncounterType communityLinkageEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(COMMUNITY_LINKAGE_ENCOUNTER_UUID);
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(communityLinkageEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+
+		HashSet<Patient> underCareOfCommunityPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
+		    HashSet::add, HashSet::addAll);
+
+		return generatePatientListObj(underCareOfCommunityPatients, endDate);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
 	@ResponseBody
-	public Object getViralLoadSamplesCollected(HttpServletRequest request,
-	        @RequestParam(value = "startDate") String qStartDate, @RequestParam(value = "endDate") String qEndDate,
+	public Object getViralLoadSamplesCollected(HttpServletRequest request, @RequestParam(value = "startDate") String qStartDate,
+	        @RequestParam(value = "endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
-		ObjectNode simpleObject = JsonNodeFactory.instance.objectNode();
 		try {
 			Date startDate = dateTimeFormatter.parse(qStartDate);
 			Date endDate = dateTimeFormatter.parse(qEndDate);
@@ -289,7 +272,8 @@ public class SSEMRWebServicesController {
 			    Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, null, endDate,
 			    false);
 			
-			simpleObject = generateDashboardSummaryFromObs(startDate, endDate, sampleCollectionDateObs, null);
+			ObjectNode simpleObject = generateDashboardSummaryFromObs(startDate, endDate, sampleCollectionDateObs,
+			    filterCategory);
 			
 			return simpleObject;
 			
@@ -367,14 +351,12 @@ public class SSEMRWebServicesController {
 			}
 		}
 		ObjectMapper mapper = new ObjectMapper();
-		simpleObject.put("results", mapper.convertValue(monthlyGrouping, ObjectNode.class));
+		ObjectNode summaryNode = mapper.createObjectNode();
+		summaryNode.put("groupYear", mapper.valueToTree(monthlySummary));
+		summaryNode.put("groupMonth", mapper.valueToTree(weeklySummary));
+		summaryNode.put("groupWeek", mapper.valueToTree(dailySummary));
 		
-		SummarySection summary = new SummarySection(JsonNodeFactory.instance);
-		summary.setGroupYear(mapper.convertValue(monthlySummary, ObjectNode.class));
-		summary.setGroupMonth(mapper.convertValue(weeklySummary, ObjectNode.class));
-		summary.setGroupWeek(mapper.convertValue(dailySummary, ObjectNode.class));
-		
-		simpleObject.put("summary", summary.toString());
+		simpleObject.put("summary", summaryNode);
 		
 		return simpleObject;
 	}
@@ -421,35 +403,51 @@ public class SSEMRWebServicesController {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
+		// Initialize HashMaps to store counts
+		HashMap<String, Integer> yearlySummary = new HashMap<>();
+		HashMap<String, Integer> monthlySummary = new HashMap<>();
+		HashMap<String, Integer> weeklySummary = new HashMap<>();
+		
 		for (Patient patient : allPatients) {
-			ObjectNode patientObj;
-			patientObj = generatePatientObject(endDate, filterCategory, patient);
+			ObjectNode patientObj = generatePatientObject(endDate, filterCategory, patient);
 			if (patientObj != null) {
 				patientList.add(patientObj);
+				
+				// Extract month, week, and day
+				Calendar calendar = Calendar.getInstance();
+				calendar.setTime(endDate);
+				int monthOfYear = calendar.get(Calendar.MONTH);
+				int weekOfMonth = calendar.get(Calendar.WEEK_OF_MONTH);
+				int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+				
+				// Update counts for month
+				String monthKey = new DateFormatSymbols().getMonths()[monthOfYear];
+				monthlySummary.put(monthKey, monthlySummary.getOrDefault(monthKey, 0) + 1);
+				
+				// Update counts for week
+				String weekKey = "Week" + weekOfMonth;
+				weeklySummary.put(weekKey, weeklySummary.getOrDefault(weekKey, 0) + 1);
+				
+				// Update counts for day
+				String dayKey = new DateFormatSymbols().getShortWeekdays()[dayOfWeek];
+				if (!dayKey.isEmpty()) {
+					yearlySummary.put(dayKey, yearlySummary.getOrDefault(dayKey, 0) + 1);
+				}
 			}
-			
 		}
 		
+		// Construct summary object
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupMonth = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupWeek = JsonNodeFactory.instance.objectNode();
 		
-		groupYear.put("Jan", 10);
-		groupYear.put("Feb", 10);
-		groupYear.put("Mar", 10);
-		groupYear.put("Apr", 10);
-		
-		groupMonth.put("Week1", 10);
-		groupMonth.put("Week2", 10);
-		groupMonth.put("Week3", 10);
-		groupMonth.put("Week4", 10);
-		
-		groupWeek.put("Mon", 10);
-		groupWeek.put("Tue", 10);
-		groupWeek.put("Wed", 10);
-		groupWeek.put("Thu", 10);
-		groupWeek.put("Fri", 10);
+		groupYear.putAll(yearlySummary.entrySet().stream()
+		        .collect(Collectors.toMap(Map.Entry::getKey, e -> JsonNodeFactory.instance.numberNode(e.getValue()))));
+		groupMonth.putAll(monthlySummary.entrySet().stream()
+		        .collect(Collectors.toMap(Map.Entry::getKey, e -> JsonNodeFactory.instance.numberNode(e.getValue()))));
+		groupWeek.putAll(weeklySummary.entrySet().stream()
+		        .collect(Collectors.toMap(Map.Entry::getKey, e -> JsonNodeFactory.instance.numberNode(e.getValue()))));
 		
 		groupingObj.put("groupYear", groupYear);
 		groupingObj.put("groupMonth", groupMonth);
@@ -463,9 +461,9 @@ public class SSEMRWebServicesController {
 	
 	private static ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
-		String dateEnrolled = determineEnrolmentDate(patient);
-		String lastRefillDate = getLastRefillDate(patient, endDate);
 		Date startDate = new Date();
+		String dateEnrolled = determineEnrolmentDate(patient, startDate, endDate);
+		String lastRefillDate = getLastRefillDate(patient, startDate, endDate);
 		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
@@ -479,12 +477,12 @@ public class SSEMRWebServicesController {
 		patientObj.put("dateEnrolled", dateEnrolled);
 		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
-		patientObj.put("childOrAdolescent", age <= 19 ? "True" : "False");
+		patientObj.put("childOrAdolescent", age <= 19 ? true : false);
 		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
-		patientObj.put("returningFromIT", determineIfPatientIsReturningFromIT(patient));
-		patientObj.put("returningToTreatment", determineIfPatientIsReturningToTreatment(patient));
+		patientObj.put("IIT", determineIfPatientIsIIT(patient, endDate));
+		patientObj.put("returningToTreatment", determineIfPatientIsReturningToTreatment(patient, endDate));
 		patientObj.put("dueForVl", determineIfPatientIsDueForVl(patient));
-		patientObj.put("highVl", determineIfPatientIsHighVl(patient));
+		patientObj.put("highVl", determineIfPatientIsHighVl(patient, endDate));
 		patientObj.put("onAppointment", determineIfPatientIsOnAppointment(patient));
 		patientObj.put("missedAppointment", determineIfPatientMissedAppointment(patient));
 		
@@ -501,13 +499,13 @@ public class SSEMRWebServicesController {
 						return patientObj;
 					}
 					break;
-				case RETURN_FROM_IIT:
-					if (determineIfPatientIsReturningFromIT(patient)) {
+				case IIT:
+					if (determineIfPatientIsIIT(patient, endDate)) {
 						return patientObj;
 					}
 					break;
 				case RETURN_TO_TREATMENT:
-					if (determineIfPatientIsReturningToTreatment(patient)) {
+					if (determineIfPatientIsReturningToTreatment(patient, endDate)) {
 						return patientObj;
 					}
 			}
@@ -517,22 +515,8 @@ public class SSEMRWebServicesController {
 		return null;
 	}
 	
-	private static String determineEnrolmentDate(Patient patient) {
-		// Get enrolment encounter type
-		EncounterType enrolmentEncounterType = Context.getEncounterService()
-		        .getEncounterTypeByUuid(ENROLMENT_ENCOUNTER_TYPE_UUID);
-		// Search enrolment encounter and extract the encounter date as the enrolment
-		// date
-		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(patient, null, null, null, null, null,
-		        Collections.singletonList(enrolmentEncounterType), null, null, null, false);
-		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
-		// fetch the earliest encounter based on the encounter date
-		Encounter enrolmentEncounter = encounters.stream().min(Comparator.comparing(Encounter::getEncounterDatetime))
-		        .orElse(null);
-		return enrolmentEncounter != null ? dateTimeFormatter.format(enrolmentEncounter.getEncounterDatetime()) : "";
-	}
-	
 	private static boolean determineIfPatientMissedAppointment(Patient patient) {
+		
 		return Math.random() < 0.5;
 		// TODO: Add logic to determine if patient Missed appointment
 		// return false;
@@ -543,11 +527,60 @@ public class SSEMRWebServicesController {
 		// TODO: Add logic to determine if patient was on appointment
 		// return false;
 	}
+
+	/**
+	 * Handles the HTTP GET request to retrieve patients with high viral load values within a specified date range.
+	 * This method filters patients based on their viral load observations, identifying those with values above a predefined threshold.
+	 *
+	 * @return A JSON representation of the list of patients with high viral load, including summary information about each patient.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/highVl")
+	// gets all visit forms for a patient
+	@ResponseBody
+	public Object getPatientsOnHighVl(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		HashSet<Patient> highVLPatients = getPatientsWithHighVL(startDate, endDate);
+		
+		return generatePatientListObj(highVLPatients, endDate);
+	}
 	
-	private static boolean determineIfPatientIsHighVl(Patient patient) {
-		return Math.random() < 0.5;
-		// TODO: Add logic to determine if patient is high VL
-		// return false;
+	// Get all patients who have high Viral Load
+	private HashSet<Patient> getPatientsWithHighVL(Date startDate, Date endDate) {
+		EncounterType followUpEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(followUpEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		
+		HashSet<Patient> highVLPatients = new HashSet<>();
+		
+		List<Obs> highVLObs = Context.getObsService().getObservations(null, encounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
+		    null, null, null, null, null, endDate, false);
+		
+		for (Obs obs : highVLObs) {
+			if (obs.getValueNumeric() != null && obs.getValueNumeric() >= THRESHOLD) {
+				highVLPatients.add((Patient) obs.getPerson());
+			}
+		}
+		
+		return highVLPatients;
+		
+	}
+	// Determine if Patient is High Viral Load and return true if it is equal or above threshold
+	private static boolean determineIfPatientIsHighVl(Patient patient, Date endDate) {
+		Concept vlConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID);
+		List<Obs> vlObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+				Collections.singletonList(vlConcept), null, null, null, null, 1, null, null, endDate, false);
+		if (vlObs != null && !vlObs.isEmpty()) {
+			return vlObs.get(0).getValueNumeric() >= THRESHOLD;
+		}
+		return false;
 	}
 	
 	private static boolean determineIfPatientIsDueForVl(Patient patient) {
@@ -563,17 +596,193 @@ public class SSEMRWebServicesController {
 		// #logicToDetermineIfNewlyEnrolled method
 		// return false;
 	}
-	
-	private static String getLastRefillDate(Patient patient, Date endDate) {
-		Concept lastRefillDateConcept = Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID);
-		List<Obs> LastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, Collections.singletonList(lastRefillDateConcept), null, null, null, null, 1, null, null, endDate, false);
+
+	/**
+	 * Handles the HTTP GET request to retrieve patients who have returned to treatment after an interruption.
+	 * This method filters encounters based on ART treatment interruption encounter types and aggregates patients
+	 * who have returned to treatment within the specified date range.
+	 *
+	 * @param request The HttpServletRequest object, providing request information for HTTP servlets.
+	 * @return A JSON representation of the list of patients who have returned to treatment, including summary information about each patient.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/returnedToTreatment")
+	@ResponseBody
+	public Object getPatientsReturnedToTreatment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		
-		String lastRefillDate = "";
-		if (LastRefillDateObs != null && !LastRefillDateObs.isEmpty()) {
-			dateTimeFormatter.format(LastRefillDateObs.get(0).getValueDate());
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<String> encounterTypeUuids = Collections.singletonList(ART_TREATMENT_INTURRUPTION_ENCOUNTER_TYPE_UUID);
+		
+		List<Encounter> returnedToTreatmentEncounters = getEncountersByEncounterTypes(encounterTypeUuids, startDate,
+		    endDate);
+		
+		HashSet<Patient> returnedToTreatmentPatients = returnedToTreatmentEncounters.stream().map(Encounter::getPatient)
+		        .collect(Collectors.toCollection(HashSet::new));
+		
+		List<Obs> returnedToTreatmentObs = Context.getObsService().getObservations(null, returnedToTreatmentEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(RETURNING_TO_TREATMENT_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)), null, null, null, null,
+		    null, null, endDate, false);
+		
+		HashSet<Patient> interruptedInTreatmentEncountersClients = returnedToTreatmentObs.stream()
+		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson())
+		        .collect(Collectors.toCollection(HashSet::new));
+		
+		returnedToTreatmentPatients.addAll(interruptedInTreatmentEncountersClients);
+		
+		return generatePatientListObj(returnedToTreatmentPatients, endDate);
+	}
+	
+	// Determine if patient is returning to treatment
+	private static boolean determineIfPatientIsReturningToTreatment(Patient patient, Date endDate) {
+		List<Concept> returningToTreatmentConcept = new ArrayList<>();
+		returningToTreatmentConcept.add(Context.getConceptService().getConceptByUuid(RETURNING_TO_TREATMENT_UUID));
+		
+		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
+		    returningToTreatmentConcept,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)), null, null, null, null,
+		    null, null, endDate, false);
+		
+		return !obsList.isEmpty();
+	}
+
+	/**
+	 * Handles the HTTP GET request to retrieve patients who have experienced an interruption in their treatment.
+	 * This method filters encounters based on ART treatment interruption encounter types and aggregates patients
+	 * who have had such encounters within the specified date range. It aims to identify patients who might need
+	 * follow-up or intervention due to treatment interruption.
+	 *
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/interruptedInTreatment")
+	@ResponseBody
+	public Object getPatientsInterruptedInTreatment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<String> encounterTypeUuids = Collections.singletonList(ART_TREATMENT_INTURRUPTION_ENCOUNTER_TYPE_UUID);
+		
+		List<Encounter> interruptedInTreatmentEncounters = getEncountersByEncounterTypes(encounterTypeUuids, startDate,
+		    endDate);
+		
+		HashSet<Patient> interruptedInTreatmentPatients = interruptedInTreatmentEncounters.stream()
+		        .map(Encounter::getPatient).collect(Collectors.toCollection(HashSet::new));
+		
+		List<Obs> interruptedInTreatmentObs = Context.getObsService().getObservations(null, interruptedInTreatmentEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(INTERRUPTION_IN_TREATMENT_UUID)), null,
+		    null, null, null, null, null, null, endDate, false);
+		
+		HashSet<Patient> interruptedInTreatmentEncountersClients = interruptedInTreatmentObs.stream()
+		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson())
+		        .collect(Collectors.toCollection(HashSet::new));
+		
+		interruptedInTreatmentPatients.addAll(interruptedInTreatmentEncountersClients);
+		
+		return generatePatientListObj(interruptedInTreatmentPatients, endDate);
+		
+	}
+	
+	// Determine if patient is Interrupted In Treatment
+	private static boolean determineIfPatientIsIIT(Patient patient, Date endDate) {
+		List<Concept> interruptionIntreatmentConcept = new ArrayList<>();
+		interruptionIntreatmentConcept.add(Context.getConceptService().getConceptByUuid(INTERRUPTION_IN_TREATMENT_UUID));
+		
+		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
+		    interruptionIntreatmentConcept, null, null, null, null, null, null, null, endDate, false);
+		
+		return !obsList.isEmpty();
+	}
+	
+	/**
+	 * Handles the request to get a list of active patients within a specified date range.
+	 * Active patients are determined based on an active Regimen.
+	 *
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/activeClients")
+	@ResponseBody
+	public Object getActivePatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<String> encounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
+		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		
+		List<Encounter> activeRegimenEncounters = getEncountersByEncounterTypes(encounterTypeUuids, startDate, endDate);
+		
+		HashSet<Patient> activePatients = activeRegimenEncounters.stream().map(Encounter::getPatient)
+		        .collect(Collectors.toCollection(HashSet::new));
+		
+		List<Obs> regimenObs = Context.getObsService().getObservations(null, activeRegimenEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
+		    null, null, null, null, null, endDate, false);
+		
+		HashSet<Patient> activeClients = regimenObs.stream().filter(obs -> obs.getPerson() instanceof Patient)
+		        .map(obs -> (Patient) obs.getPerson()).collect(Collectors.toCollection(HashSet::new));
+		
+		activePatients.addAll(activeClients);
+		
+		return generatePatientListObj(activePatients, endDate);
+	}
+
+	// Retrieves a list of encounters filtered by encounter types.
+	private List<Encounter> getEncountersByEncounterTypes(List<String> encounterTypeUuids, Date startDate, Date endDate) {
+		List<EncounterType> encounterTypes = encounterTypeUuids.stream()
+		        .map(uuid -> Context.getEncounterService().getEncounterTypeByUuid(uuid)).collect(Collectors.toList());
+		
+		EncounterSearchCriteria encounterCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null, null,
+		        encounterTypes, null, null, null, false);
+		return Context.getEncounterService().getEncounters(encounterCriteria);
+	}
+
+	// Determine if Patient is Pregnant or Breastfeeding
+	private static boolean determineIfPatientIsPregnantOrBreastfeeding(Patient patient, Date endDate) {
+		
+		List<Concept> pregnantAndBreastfeedingConcepts = new ArrayList<>();
+		pregnantAndBreastfeedingConcepts
+		        .add(Context.getConceptService().getConceptByUuid(CURRENTLY_BREASTFEEDING_CONCEPT_UUID));
+		pregnantAndBreastfeedingConcepts.add(Context.getConceptService().getConceptByUuid(CURRENTLY_PREGNANT_CONCEPT_UUID));
+		
+		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
+		    pregnantAndBreastfeedingConcepts,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)), null, null, null, null,
+		    null, null, endDate, false);
+		
+		return !obsList.isEmpty();
+	}
+
+	// Retrieve the Last Refill Date from Patient Observation
+	private static String getLastRefillDate(Patient patient, Date startDate, Date endDate) {
+		Concept lastRefillDateConcept = Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID);
+		List<Obs> lastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(lastRefillDateConcept), null, null, null, null, null, null, startDate, endDate,
+		    false);
+		
+		if (lastRefillDateObs != null && !lastRefillDateObs.isEmpty()) {
+			Obs lastObs = lastRefillDateObs.get(0);
+			Date lastRefillDate = lastObs.getValueDate();
+			if (lastRefillDate != null) {
+				return dateTimeFormatter.format(lastRefillDate);
+			}
 		}
-		return lastRefillDate;
+		return "";
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
+	@ResponseBody
+	public Object getNewPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
+		return generatePatientListObj(enrolledPatients, endDate);
 	}
 	
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
@@ -601,38 +810,23 @@ public class SSEMRWebServicesController {
 		return enrolledPatients;
 		
 	}
-	
-	private static boolean determineIfPatientIsReturningToTreatment(Patient patient) {
-		// Add logic to determine if patient is returning to treatment
-		// This is the definition of patients returning to treatment:
-		// Clients who experienced an interruption in treatment (IIT) during any
-		// previous reporting period, who successfully restarted ARVs within the
-		// reporting period and remained on treatment until the end of the reporting
-		// period."
-		return false;
-	}
-	
-	private static boolean determineIfPatientIsReturningFromIT(Patient patient) {
-		// Add logic to determine if patient is returning from IT
-		// This is the definition of patients returning from IT:
-		// clients who missed for at least 28 days from the last expected return visit
-		// date"
-		return false;
-	}
-	
-	private static boolean determineIfPatientIsPregnantOrBreastfeeding(Patient patient, Date endDate) {
+
+	// Determine Patient Enrollment Date From the Adult and Adolescent and Pediatric Forms
+	private static String determineEnrolmentDate(Patient patient, Date startDate, Date endDate) {
+		Concept enrollmentDateConcept = Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID);
+		List<Obs> enrollmentDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(enrollmentDateConcept), null, null, null, null, null, null, startDate, endDate,
+		    false);
 		
-		List<Concept> pregnantAndBreastfeedingConcepts = new ArrayList<>();
-		pregnantAndBreastfeedingConcepts
-		        .add(Context.getConceptService().getConceptByUuid(CURRENTLY_BREASTFEEDING_CONCEPT_UUID));
-		pregnantAndBreastfeedingConcepts.add(Context.getConceptService().getConceptByUuid(CURRENTLY_PREGNANT_CONCEPT_UUID));
+		if (enrollmentDateObs != null && !enrollmentDateObs.isEmpty()) {
+			Obs dateObs = enrollmentDateObs.get(0);
+			Date enrollmentDate = dateObs.getValueDate();
+			if (enrollmentDate != null) {
+				return dateTimeFormatter.format(enrollmentDate);
+			}
+		}
+		return "";
 		
-		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-		    pregnantAndBreastfeedingConcepts,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)), null, null, null, null,
-		    null, null, endDate, false);
-		
-		return !obsList.isEmpty();
 	}
 	
 	private Object generateViralLoadListObj(List<Patient> allPatients) {
