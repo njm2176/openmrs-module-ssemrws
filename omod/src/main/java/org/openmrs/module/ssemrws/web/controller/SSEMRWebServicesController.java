@@ -549,8 +549,8 @@ public class SSEMRWebServicesController {
 	
 	private static boolean determineIfPatientIsOnAppointment(Patient patient) {
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-				null, null, null, null, null, null, null, null, false);
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
+		    null, null, null, null, null, null, null, null, false);
 		
 		if (!obsList.isEmpty()) {
 			Date appointmentScheduledDate = null;
@@ -623,8 +623,8 @@ public class SSEMRWebServicesController {
 	
 	private static boolean determineIfPatientMissedAppointment(Patient patient) {
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-				null, null, null, null, null, null, null, null, false);
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
+		    null, null, null, null, null, null, null, null, false);
 		
 		if (!obsList.isEmpty()) {
 			Date appointmentScheduledDate = null;
@@ -698,9 +698,9 @@ public class SSEMRWebServicesController {
 	// above threshold
 	private static boolean determineIfPatientIsHighVl(Patient patient) {
 		List<Obs> vlObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)),
-				null, null, null, null, 1, null, null, null, false);
-
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
+		    null, null, 1, null, null, null, false);
+		
 		if (vlObs != null && !vlObs.isEmpty()) {
 			return vlObs.get(0).getValueNumeric() >= THRESHOLD;
 		}
@@ -829,9 +829,9 @@ public class SSEMRWebServicesController {
 	// Determine if patient is returning to treatment
 	private static boolean determineIfPatientIsReturningToTreatment(Patient patient) {
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(RETURNING_TO_TREATMENT_UUID)),
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)),
-				null, null, null, null, null, null, null, false);
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(RETURNING_TO_TREATMENT_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)), null, null, null, null,
+		    null, null, null, false);
 		
 		return !obsList.isEmpty();
 	}
@@ -889,8 +889,8 @@ public class SSEMRWebServicesController {
 	// Determine if patient is Interrupted In Treatment
 	private static boolean determineIfPatientIsIIT(Patient patient) {
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-				null, null, null, null, null, null, null, null, false);
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
+		    null, null, null, null, null, null, null, null, false);
 		
 		if (!obsList.isEmpty()) {
 			Date appointmentScheduledDate = null;
