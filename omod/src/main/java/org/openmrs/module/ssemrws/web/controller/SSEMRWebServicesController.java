@@ -891,29 +891,27 @@ public class SSEMRWebServicesController {
 	// Determine if patient is Interrupted In Treatment
 	private static boolean determineIfPatientIsIIT(Patient patient, Date endDate) {
 		List<Concept> interruptionIntreatmentConcept = new ArrayList<>();
-		interruptionIntreatmentConcept
-		        .add(Context.getConceptService().getConceptByUuid(DATE_INTERRUPTION_IN_TREATMENT_CONCEPT_UUID));
-		interruptionIntreatmentConcept.add(Context.getConceptService().getConceptByUuid(DATE_OF_LAST_VISIT_CONCEPT_UUID));
-		
+		interruptionIntreatmentConcept.add(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID));
+
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-		    interruptionIntreatmentConcept, null, null, null, null, null, null, null, endDate, false);
-		
+				interruptionIntreatmentConcept, null, null, null, null, null, null, null, endDate, false);
+
 		if (!obsList.isEmpty()) {
-			Date interruptionDate = null;
-			Date lastVisitDate = null;
+			Date appointmentScheduledDate = null;
 			for (Obs obs : obsList) {
-				if (obs.getConcept().getUuid().equals(DATE_INTERRUPTION_IN_TREATMENT_CONCEPT_UUID)) {
-					interruptionDate = obs.getValueDatetime();
-				} else if (obs.getConcept().getUuid().equals(DATE_OF_LAST_VISIT_CONCEPT_UUID)) {
-					lastVisitDate = obs.getValueDatetime();
+				if (obs.getPerson().equals(patient)
+						&& obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
+					appointmentScheduledDate = obs.getValueDatetime();
+					break;
 				}
 			}
-			
-			if (interruptionDate != null && lastVisitDate != null) {
-				long diffInMillies = Math.abs(interruptionDate.getTime() - lastVisitDate.getTime());
-				long diffInDays = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
-				
-				return diffInDays > 28;
+
+			if (appointmentScheduledDate != null) {
+				LocalDate today = LocalDate.now();
+				LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+				long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
+
+				return diffInDays >= 28;
 			}
 		}
 		return false;
