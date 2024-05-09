@@ -80,6 +80,10 @@ public class SSEMRWebServicesController {
 	
 	public static final String DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID = "e605731b-2e81-41a9-8446-2ed442c339e2";
 	
+	public static final String PEDIATRIC_INTAKE_FORM = "356def6a-fa66-4a78-97d5-b43154064875";
+	
+	public static final String ADULT_AND_ADOLESCENT_INTAKE_FORM = "b645dbdd-7d58-41d4-9b11-eeff023b8ee5";
+	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
@@ -442,8 +446,8 @@ public class SSEMRWebServicesController {
 	private static ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		Date startDate = new Date();
-		String dateEnrolled = determineEnrolmentDate(patient, startDate, endDate);
-		String lastRefillDate = getLastRefillDate(patient, startDate, endDate);
+		String dateEnrolled = getEnrolmentDate(patient);
+		String lastRefillDate = getLastRefillDate(patient);
 		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
@@ -952,7 +956,8 @@ public class SSEMRWebServicesController {
 	}
 	
 	// Retrieves a list of encounters filtered by encounter types.
-	private List<Encounter> getEncountersByEncounterTypes(List<String> encounterTypeUuids, Date startDate, Date endDate) {
+	private static List<Encounter> getEncountersByEncounterTypes(List<String> encounterTypeUuids, Date startDate,
+	        Date endDate) {
 		List<EncounterType> encounterTypes = encounterTypeUuids.stream()
 		        .map(uuid -> Context.getEncounterService().getEncounterTypeByUuid(uuid)).collect(Collectors.toList());
 		
@@ -975,23 +980,6 @@ public class SSEMRWebServicesController {
 		    null, null, endDate, false);
 		
 		return !obsList.isEmpty();
-	}
-	
-	// Retrieve the Last Refill Date from Patient Observation
-	private static String getLastRefillDate(Patient patient, Date startDate, Date endDate) {
-		Concept lastRefillDateConcept = Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID);
-		List<Obs> lastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, Collections.singletonList(lastRefillDateConcept), null, null, null, null, null, null, startDate, endDate,
-		    false);
-		
-		if (lastRefillDateObs != null && !lastRefillDateObs.isEmpty()) {
-			Obs lastObs = lastRefillDateObs.get(0);
-			Date lastRefillDate = lastObs.getValueDate();
-			if (lastRefillDate != null) {
-				return dateTimeFormatter.format(lastRefillDate);
-			}
-		}
-		return "";
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
@@ -1033,11 +1021,10 @@ public class SSEMRWebServicesController {
 	
 	// Determine Patient Enrollment Date From the Adult and Adolescent and Pediatric
 	// Forms
-	private static String determineEnrolmentDate(Patient patient, Date startDate, Date endDate) {
-		Concept enrollmentDateConcept = Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID);
+	private static String getEnrolmentDate(Patient patient) {
 		List<Obs> enrollmentDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, Collections.singletonList(enrollmentDateConcept), null, null, null, null, null, null, startDate, endDate,
-		    false);
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), null,
+		    null, null, null, null, null, null, null, false);
 		
 		if (enrollmentDateObs != null && !enrollmentDateObs.isEmpty()) {
 			Obs dateObs = enrollmentDateObs.get(0);
@@ -1048,6 +1035,22 @@ public class SSEMRWebServicesController {
 		}
 		return "";
 		
+	}
+	
+	// Retrieve the Last Refill Date from Patient Observation
+	private static String getLastRefillDate(Patient patient) {
+		List<Obs> lastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID)), null, null,
+		    null, null, null, null, null, null, false);
+		
+		if (lastRefillDateObs != null && !lastRefillDateObs.isEmpty()) {
+			Obs lastObs = lastRefillDateObs.get(0);
+			Date lastRefillDate = lastObs.getValueDate();
+			if (lastRefillDate != null) {
+				return dateTimeFormatter.format(lastRefillDate);
+			}
+		}
+		return "";
 	}
 	
 	private Object generateViralLoadListObj(List<Patient> allPatients) {
