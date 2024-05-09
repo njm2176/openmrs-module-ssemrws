@@ -534,8 +534,8 @@ public class SSEMRWebServicesController {
 				        LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
 				                .toLocalDate();
 				        long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-
-						return diffInDays == 0;
+				        
+				        return diffInDays == 0;
 			        }
 			        return false;
 		        }).collect(Collectors.toCollection(HashSet::new));
@@ -640,7 +640,7 @@ public class SSEMRWebServicesController {
 				LocalDate today = LocalDate.now();
 				LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 				long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-
+				
 				return diffInDays >= 1 && diffInDays < 28;
 			}
 		}
@@ -849,68 +849,69 @@ public class SSEMRWebServicesController {
 	public Object getPatientsInterruptedInTreatment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
 	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-
-			Date startDate = dateTimeFormatter.parse(qStartDate);
-			Date endDate = dateTimeFormatter.parse(qEndDate);
-
-			List<String> interruptedInTreatmentEncounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-
-			List<Encounter> interruptedInTreatmentEncounters = getEncountersByEncounterTypes(interruptedInTreatmentEncounterTypeUuids,
-					startDate, endDate);
-
-			List<Obs> interruptedInTreatmentObs = Context.getObsService().getObservations(null, interruptedInTreatmentEncounters,
-					Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-					null, null, null, null, null, null, null, endDate, false);
-
-			HashSet<Patient> interruptedInTreatmentEncountersClients = interruptedInTreatmentObs.stream()
-					.filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
-						Date appointmentScheduledDate = null;
-						for (Obs obs : interruptedInTreatmentObs) {
-							if (obs.getPerson().equals(patient)
-									&& obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
-								appointmentScheduledDate = obs.getValueDatetime();
-								break;
-							}
-						}
-
-						if (appointmentScheduledDate != null) {
-							LocalDate today = LocalDate.now();
-							LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
-									.toLocalDate();
-							long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-
-							return diffInDays >= 28;
-						}
-						return false;
-					}).collect(Collectors.toCollection(HashSet::new));
-
-			return generatePatientListObj(interruptedInTreatmentEncountersClients, endDate);
-
-		}
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<String> interruptedInTreatmentEncounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		
+		List<Encounter> interruptedInTreatmentEncounters = getEncountersByEncounterTypes(
+		    interruptedInTreatmentEncounterTypeUuids, startDate, endDate);
+		
+		List<Obs> interruptedInTreatmentObs = Context.getObsService().getObservations(null, interruptedInTreatmentEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
+		    null, null, null, null, null, null, null, endDate, false);
+		
+		HashSet<Patient> interruptedInTreatmentEncountersClients = interruptedInTreatmentObs.stream()
+		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
+			        Date appointmentScheduledDate = null;
+			        for (Obs obs : interruptedInTreatmentObs) {
+				        if (obs.getPerson().equals(patient)
+				                && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
+					        appointmentScheduledDate = obs.getValueDatetime();
+					        break;
+				        }
+			        }
+			        
+			        if (appointmentScheduledDate != null) {
+				        LocalDate today = LocalDate.now();
+				        LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
+				                .toLocalDate();
+				        long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
+				        
+				        return diffInDays >= 28;
+			        }
+			        return false;
+		        }).collect(Collectors.toCollection(HashSet::new));
+		
+		return generatePatientListObj(interruptedInTreatmentEncountersClients, endDate);
+		
+	}
 	
 	// Determine if patient is Interrupted In Treatment
 	private static boolean determineIfPatientIsIIT(Patient patient, Date endDate) {
 		List<Concept> interruptionIntreatmentConcept = new ArrayList<>();
-		interruptionIntreatmentConcept.add(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID));
-
+		interruptionIntreatmentConcept
+		        .add(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID));
+		
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-				interruptionIntreatmentConcept, null, null, null, null, null, null, null, endDate, false);
-
+		    interruptionIntreatmentConcept, null, null, null, null, null, null, null, endDate, false);
+		
 		if (!obsList.isEmpty()) {
 			Date appointmentScheduledDate = null;
 			for (Obs obs : obsList) {
 				if (obs.getPerson().equals(patient)
-						&& obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
+				        && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
 					appointmentScheduledDate = obs.getValueDatetime();
 					break;
 				}
 			}
-
+			
 			if (appointmentScheduledDate != null) {
 				LocalDate today = LocalDate.now();
 				LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 				long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-
+				
 				return diffInDays >= 28;
 			}
 		}
