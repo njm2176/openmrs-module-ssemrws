@@ -347,14 +347,15 @@ public class SSEMRWebServicesController {
 		    regimenConcepts, null, null, null, null, null, null, endDate, false);
 		
 		Map<String, Integer> regimenCounts = new HashMap<>();
-
+		
 		for (Obs obs : regimenTreatmentObs) {
-			String regimen = obs.getValueText();
-			if (regimen != null) {
-				regimenCounts.put(regimen, regimenCounts.getOrDefault(regimen, 0) + 1);
+			Concept regimenConcept = obs.getValueCoded();
+			if (regimenConcept != null) {
+				String conceptName = regimenConcept.getName().getName();
+				regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
 			}
 		}
-
+		
 		Map<String, Object> results = new HashMap<>();
 		List<Map<String, Object>> regimenList = new ArrayList<>();
 		
@@ -410,11 +411,10 @@ public class SSEMRWebServicesController {
 			        null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
 			List<Encounter> viralLoadSampleEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
 			
-			// get the date of sample collection from the obs in the viral load encounters
 			Concept sampleCollectionDateConcept = Context.getConceptService().getConceptByUuid(SAMPLE_COLLECTION_DATE_UUID);
 			List<Obs> sampleCollectionDateObs = Context.getObsService().getObservations(null, viralLoadSampleEncounters,
-			    Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, null, endDate,
-			    false);
+			    Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, startDate,
+			    endDate, false);
 			
 			ObjectNode simpleObject = generateDashboardSummaryFromObs(startDate, endDate, sampleCollectionDateObs,
 			    filterCategory);
@@ -432,11 +432,8 @@ public class SSEMRWebServicesController {
 		// TODO: Implement filter category logic
 		
 		ObjectNode simpleObject = JsonNodeFactory.instance.objectNode();
-		// Instantiate an array with all months of the year
 		String[] months = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
 		        "Dec" };
-		
-		// Instantiate an array with all days of the week
 		String[] days = new String[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
 		
 		HashMap<String, List<ObjectNode>> monthlyGrouping = new HashMap<>();
@@ -444,13 +441,9 @@ public class SSEMRWebServicesController {
 		HashMap<String, Integer> monthlySummary = new HashMap<>();
 		HashMap<String, Integer> dailySummary = new HashMap<>();
 		
-		// For each obs in the obsList, filter Value Datetime that falls between the
-		// start date and end date
 		for (Obs obs : obsList) {
 			if (obs.getValueDate().after(DateUtils.addDays(startDate, -1))
 			        && obs.getValueDate().before(DateUtils.addDays(endDate, 1))) {
-				// Add logic to group the data by month and week and day and calculate counts
-				// for each group
 				Calendar calendar = Calendar.getInstance();
 				calendar.setTime(obs.getValueDate());
 				String month = months[calendar.get(Calendar.MONTH)];
@@ -459,41 +452,31 @@ public class SSEMRWebServicesController {
 				ObjectNode personObj = generatePatientObject(endDate, filterCategory, (Patient) person);
 				if (monthlyGrouping.containsKey(month)) {
 					// check if person already exists in the list for the month
-					if (!monthlyGrouping.get(month).contains(personObj)) {
-						monthlyGrouping.get(month).add(personObj);
+					List<ObjectNode> personList = monthlyGrouping.get(month);
+					if (!personList.contains(personObj)) {
+						personList.add(personObj);
 					}
 				} else {
-					monthlyGrouping.put(month, Collections.singletonList(personObj));
+					List<ObjectNode> personList = new ArrayList<>();
+					personList.add(personObj);
+					monthlyGrouping.put(month, personList);
 				}
 				
 				// Group by month
-				if (monthlySummary.containsKey(month)) {
-					monthlySummary.put(month, monthlySummary.get(month) + 1);
-				} else {
-					monthlySummary.put(month, 1);
-				}
+				monthlySummary.put(month, monthlySummary.getOrDefault(month, 0) + 1);
 				
 				// Group by week
 				int week = calendar.get(Calendar.WEEK_OF_MONTH);
 				String weekOfTheMonth = String.format("%s_%s", month, week);
-				if (weeklySummary.containsKey(weekOfTheMonth)) {
-					weeklySummary.put(weekOfTheMonth, weeklySummary.get(weekOfTheMonth) + 1);
-				} else {
-					weeklySummary.put(weekOfTheMonth, 1);
-				}
+				weeklySummary.put(weekOfTheMonth, weeklySummary.getOrDefault(weekOfTheMonth, 0) + 1);
 				
 				// Group by day
-				
 				int day = calendar.get(Calendar.DAY_OF_WEEK);
-				// use string.format instead of concatenation
-				String day_in_week = String.format("%s_%s", week, days[day]);
-				if (dailySummary.containsKey(day_in_week)) {
-					dailySummary.put(day_in_week, dailySummary.get(day_in_week) + 1);
-				} else {
-					dailySummary.put(day_in_week, 1);
-				}
+				String day_in_week = String.format("%s_%s", week, days[day - 1]);
+				dailySummary.put(day_in_week, dailySummary.getOrDefault(day_in_week, 0) + 1);
 			}
 		}
+		
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode summaryNode = mapper.createObjectNode();
 		summaryNode.put("groupYear", mapper.valueToTree(monthlySummary));
