@@ -17,7 +17,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.time.DateUtils;
@@ -281,7 +280,7 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		return generatePatientListObj(new HashSet<>(allPatients), endDate, filterCategory);
+		return generatePatientListObj(new HashSet<>(allPatients), startDate, endDate, filterCategory);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/dueForVl")
@@ -299,7 +298,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
 		
-		return generatePatientListObj((HashSet<Patient>) allPatients, endDate, filterCategory);
+		return generatePatientListObj((HashSet<Patient>) allPatients, startDate, endDate, filterCategory);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/adultRegimenTreatment")
@@ -449,7 +448,7 @@ public class SSEMRWebServicesController {
 				String month = months[calendar.get(Calendar.MONTH)];
 				
 				Person person = obs.getPerson();
-				ObjectNode personObj = generatePatientObject(endDate, filterCategory, (Patient) person);
+				ObjectNode personObj = generatePatientObject(endDate, endDate, filterCategory, (Patient) person);
 				if (monthlyGrouping.containsKey(month)) {
 					// check if person already exists in the list for the month
 					List<ObjectNode> personList = monthlyGrouping.get(month);
@@ -502,11 +501,16 @@ public class SSEMRWebServicesController {
 		return generatePatientListObj(allPatients, new Date());
 	}
 	
-	private Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate) {
-		return generatePatientListObj(allPatients, new Date(), null);
+	public Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate) {
+		return generatePatientListObj(allPatients, new Date(), endDate);
 	}
 	
-	private Object generatePatientListObj(HashSet<Patient> allPatients, Date endDate, filterCategory filterCategory) {
+	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate) {
+		return generatePatientListObj(allPatients, startDate, endDate, null);
+	}
+	
+	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
+	        filterCategory filterCategory) {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
@@ -515,35 +519,41 @@ public class SSEMRWebServicesController {
 		HashMap<String, Integer> monthlySummary = new HashMap<>();
 		HashMap<String, Integer> weeklySummary = new HashMap<>();
 		
+		Calendar startCal = Calendar.getInstance();
+		startCal.setTime(startDate);
+		Calendar endCal = Calendar.getInstance();
+		endCal.setTime(endDate);
+		
+		Calendar currentCal = Calendar.getInstance();
+		currentCal.setTime(startCal.getTime());
+		
+		while (!currentCal.after(endCal)) {
+			// Extract month, week, and day
+			int monthOfYear = currentCal.get(Calendar.MONTH);
+			int weekOfMonth = currentCal.get(Calendar.WEEK_OF_MONTH);
+			int dayOfWeek = currentCal.get(Calendar.DAY_OF_WEEK);
+			
+			String monthKey = new DateFormatSymbols().getMonths()[monthOfYear];
+			if (!monthKey.isEmpty()) {
+				yearlySummary.put(monthKey, yearlySummary.getOrDefault(monthKey, 0) + 1);
+			}
+			
+			String weekKey = "Week" + weekOfMonth;
+			monthlySummary.put(weekKey, monthlySummary.getOrDefault(weekKey, 0) + 1);
+			
+			String dayKey = new DateFormatSymbols().getShortWeekdays()[dayOfWeek];
+			weeklySummary.put(dayKey, weeklySummary.getOrDefault(dayKey, 0) + 1);
+			
+			currentCal.add(Calendar.DATE, 1);
+		}
+		
 		for (Patient patient : allPatients) {
-			ObjectNode patientObj = generatePatientObject(endDate, filterCategory, patient);
+			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient);
 			if (patientObj != null) {
 				patientList.add(patientObj);
-				
-				// Extract month, week, and day
-				Calendar calendar = Calendar.getInstance();
-				calendar.setTime(endDate);
-				int monthOfYear = calendar.get(Calendar.MONTH);
-				int weekOfMonth = calendar.get(Calendar.WEEK_OF_MONTH);
-				int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-				
-				// Update counts for month
-				String monthKey = new DateFormatSymbols().getMonths()[monthOfYear];
-				monthlySummary.put(monthKey, monthlySummary.getOrDefault(monthKey, 0) + 1);
-				
-				// Update counts for week
-				String weekKey = "Week" + weekOfMonth;
-				weeklySummary.put(weekKey, weeklySummary.getOrDefault(weekKey, 0) + 1);
-				
-				// Update counts for day
-				String dayKey = new DateFormatSymbols().getShortWeekdays()[dayOfWeek];
-				if (!dayKey.isEmpty()) {
-					yearlySummary.put(dayKey, yearlySummary.getOrDefault(dayKey, 0) + 1);
-				}
 			}
 		}
 		
-		// Construct summary object
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupMonth = JsonNodeFactory.instance.objectNode();
@@ -566,11 +576,13 @@ public class SSEMRWebServicesController {
 		return allPatientsObj.toString();
 	}
 	
-	private static ObjectNode generatePatientObject(Date endDate, filterCategory filterCategory, Patient patient) {
+	private static ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory,
+	        Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
-		Date startDate = new Date();
 		String dateEnrolled = getEnrolmentDate(patient);
 		String lastRefillDate = getLastRefillDate(patient);
+		String contact = String.valueOf(patient.getAttribute("Client Telephone Number"));
+		String alternateContact = String.valueOf(patient.getAttribute("AltTelephoneNo"));
 		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
@@ -581,6 +593,9 @@ public class SSEMRWebServicesController {
 		patientObj.put("identifier",
 		    patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString() : "");
 		patientObj.put("sex", patient.getGender());
+		patientObj.put("address", patient.getPersonAddress().toString());
+		patientObj.put("contact", contact != null ? contact : "");
+		patientObj.put("alternateContact", alternateContact != null ? alternateContact : "");
 		patientObj.put("dateEnrolled", dateEnrolled);
 		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
@@ -717,7 +732,7 @@ public class SSEMRWebServicesController {
 		
 		List<Obs> missedAppointmentObs = Context.getObsService().getObservations(null, missedAppointmentEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, null, endDate, false);
+		    null, null, null, null, null, null, startDate, endDate, false);
 		
 		HashSet<Patient> missedAppointmentPatientsFiltered = missedAppointmentObs.stream()
 		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
@@ -741,7 +756,7 @@ public class SSEMRWebServicesController {
 			        return false;
 		        }).collect(Collectors.toCollection(HashSet::new));
 		
-		return generatePatientListObj(missedAppointmentPatientsFiltered, endDate);
+		return generatePatientListObj(missedAppointmentPatientsFiltered, startDate, endDate);
 	}
 	
 	private static boolean determineIfPatientMissedAppointment(Patient patient) {
@@ -790,7 +805,7 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> highVLPatients = getPatientsWithHighVL(startDate, endDate);
 		
-		return generatePatientListObj(highVLPatients, endDate);
+		return generatePatientListObj(highVLPatients, startDate, endDate);
 	}
 	
 	// Get all patients who have high Viral Load
@@ -805,7 +820,7 @@ public class SSEMRWebServicesController {
 		
 		List<Obs> highVLObs = Context.getObsService().getObservations(null, encounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
-		    null, null, null, null, null, endDate, false);
+		    null, null, null, null, startDate, endDate, false);
 		
 		for (Obs obs : highVLObs) {
 			if (obs.getValueNumeric() != null && obs.getValueNumeric() >= THRESHOLD) {
@@ -859,7 +874,7 @@ public class SSEMRWebServicesController {
 		
 		viralLoadPatients.addAll(viralLoadCoveredClients);
 		
-		return generatePatientListObj(viralLoadPatients, endDate);
+		return generatePatientListObj(viralLoadPatients, startDate, endDate);
 	}
 	
 	/**
@@ -896,7 +911,7 @@ public class SSEMRWebServicesController {
 			}
 		}
 		
-		return generatePatientListObj(viralLoadSuppressedPatients, endDate);
+		return generatePatientListObj(viralLoadSuppressedPatients, startDate, endDate);
 	}
 	
 	private static boolean determineIfPatientIsDueForVl(Patient patient) {
@@ -940,13 +955,13 @@ public class SSEMRWebServicesController {
 		List<Obs> returnedToTreatmentObs = Context.getObsService().getObservations(null, returnedToTreatmentEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(RETURNING_TO_TREATMENT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)), null, null, null, null,
-		    null, null, endDate, false);
+		    null, startDate, endDate, false);
 		
 		HashSet<Patient> returnedToTreatmentEncountersClients = returnedToTreatmentObs.stream()
 		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson())
 		        .collect(Collectors.toCollection(HashSet::new));
 		
-		return generatePatientListObj(returnedToTreatmentEncountersClients, endDate);
+		return generatePatientListObj(returnedToTreatmentEncountersClients, startDate, endDate);
 	}
 	
 	// Determine if patient is returning to treatment
@@ -981,7 +996,7 @@ public class SSEMRWebServicesController {
 		
 		List<Obs> interruptedInTreatmentObs = Context.getObsService().getObservations(null, interruptedInTreatmentEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, null, endDate, false);
+		    null, null, null, null, null, null, startDate, endDate, false);
 		
 		HashSet<Patient> interruptedInTreatmentEncountersClients = interruptedInTreatmentObs.stream()
 		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
@@ -1005,7 +1020,7 @@ public class SSEMRWebServicesController {
 			        return false;
 		        }).collect(Collectors.toCollection(HashSet::new));
 		
-		return generatePatientListObj(interruptedInTreatmentEncountersClients, endDate);
+		return generatePatientListObj(interruptedInTreatmentEncountersClients, startDate, endDate);
 		
 	}
 	
@@ -1059,14 +1074,14 @@ public class SSEMRWebServicesController {
 		
 		List<Obs> regimenObs = Context.getObsService().getObservations(null, activeRegimenEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
-		    null, null, null, null, null, endDate, false);
+		    null, null, null, null, startDate, endDate, false);
 		
 		HashSet<Patient> activeClients = regimenObs.stream().filter(obs -> obs.getPerson() instanceof Patient)
 		        .map(obs -> (Patient) obs.getPerson()).collect(Collectors.toCollection(HashSet::new));
 		
 		activePatients.addAll(activeClients);
 		
-		return generatePatientListObj(activePatients, endDate);
+		return generatePatientListObj(activePatients, startDate, endDate);
 	}
 	
 	// Retrieves a list of encounters filtered by encounter types.
@@ -1115,7 +1130,7 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
-		return generatePatientListObj(enrolledPatients, endDate);
+		return generatePatientListObj(enrolledPatients, startDate, endDate);
 	}
 	
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
@@ -1133,7 +1148,7 @@ public class SSEMRWebServicesController {
 		List<Obs> transferInObs = Context.getObsService().getObservations(null, encounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TRANSFER_IN_CONCEPT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
-		    null, null, endDate, false);
+		    null, startDate, endDate, false);
 		// Extract patients from transfer in obs into a hashset to remove duplicates
 		HashSet<Person> transferInPatients = transferInObs.stream().map(Obs::getPerson).collect(HashSet::new, HashSet::add,
 		    HashSet::addAll);
