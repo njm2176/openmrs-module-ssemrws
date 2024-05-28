@@ -186,8 +186,6 @@ public class SSEMRWebServicesController {
 	
 	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
 	
-	public static final String TELEPHONE_NUMBER_UUID = "8f0a2a16-c073-4622-88ad-a11f2d6966ad";
-	
 	private static final double THRESHOLD = 1000.0;
 	
 	/** Logger for this class and subclasses */
@@ -508,13 +506,21 @@ public class SSEMRWebServicesController {
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate) {
 		return generatePatientListObj(allPatients, startDate, endDate, null);
 	}
-	
+
+	/**
+	 * Generates a summary of patient data within a specified date range, grouped by year, month, and week.
+	 *
+	 * @param allPatients A set of all patients to be considered for the summary.
+	 * @param startDate The start date of the range for which to generate the summary.
+	 * @param endDate The end date of the range for which to generate the summary.
+	 * @param filterCategory The category to filter patients.
+	 * @return A JSON string representing the summary of patient data.
+	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
 	        filterCategory filterCategory) {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
-		
-		// Initialize HashMaps to store counts
+
 		HashMap<String, Integer> yearlySummary = new HashMap<>();
 		HashMap<String, Integer> monthlySummary = new HashMap<>();
 		HashMap<String, Integer> weeklySummary = new HashMap<>();
@@ -523,48 +529,52 @@ public class SSEMRWebServicesController {
 		startCal.setTime(startDate);
 		Calendar endCal = Calendar.getInstance();
 		endCal.setTime(endDate);
-		
-		Calendar currentCal = Calendar.getInstance();
-		currentCal.setTime(startCal.getTime());
-		
-		while (!currentCal.after(endCal)) {
-			// Extract month, week, and day
-			int monthOfYear = currentCal.get(Calendar.MONTH);
-			int weekOfMonth = currentCal.get(Calendar.WEEK_OF_MONTH);
-			int dayOfWeek = currentCal.get(Calendar.DAY_OF_WEEK);
-			
-			String monthKey = new DateFormatSymbols().getMonths()[monthOfYear];
-			if (!monthKey.isEmpty()) {
-				yearlySummary.put(monthKey, yearlySummary.getOrDefault(monthKey, 0) + 1);
-			}
-			
-			String weekKey = "Week" + weekOfMonth;
-			monthlySummary.put(weekKey, monthlySummary.getOrDefault(weekKey, 0) + 1);
-			
-			String dayKey = new DateFormatSymbols().getShortWeekdays()[dayOfWeek];
-			weeklySummary.put(dayKey, weeklySummary.getOrDefault(dayKey, 0) + 1);
-			
-			currentCal.add(Calendar.DATE, 1);
-		}
-		
+
 		for (Patient patient : allPatients) {
 			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient);
 			if (patientObj != null) {
 				patientList.add(patientObj);
+
+				Calendar patientCal = Calendar.getInstance();
+				patientCal.setTime(patient.getDateCreated());
+				
+				if (!patientCal.before(startCal) && !patientCal.after(endCal)) {
+					int monthOfYear = patientCal.get(Calendar.MONTH);
+					int weekOfMonth = patientCal.get(Calendar.WEEK_OF_MONTH);
+					int dayOfWeek = patientCal.get(Calendar.DAY_OF_WEEK);
+
+					String monthKey = new DateFormatSymbols().getMonths()[monthOfYear];
+					if (!monthKey.isEmpty()) {
+						yearlySummary.put(monthKey, yearlySummary.getOrDefault(monthKey, 0) + 1);
+					}
+
+					String weekKey = "Week" + weekOfMonth;
+					monthlySummary.put(weekKey, monthlySummary.getOrDefault(weekKey, 0) + 1);
+
+					String dayKey = new DateFormatSymbols().getShortWeekdays()[dayOfWeek];
+					weeklySummary.put(dayKey, weeklySummary.getOrDefault(dayKey, 0) + 1);
+				}
 			}
 		}
-		
+
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupMonth = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupWeek = JsonNodeFactory.instance.objectNode();
 		
-		groupYear.putAll(yearlySummary.entrySet().stream()
-		        .collect(Collectors.toMap(Map.Entry::getKey, e -> JsonNodeFactory.instance.numberNode(e.getValue()))));
-		groupMonth.putAll(monthlySummary.entrySet().stream()
-		        .collect(Collectors.toMap(Map.Entry::getKey, e -> JsonNodeFactory.instance.numberNode(e.getValue()))));
-		groupWeek.putAll(weeklySummary.entrySet().stream()
-		        .collect(Collectors.toMap(Map.Entry::getKey, e -> JsonNodeFactory.instance.numberNode(e.getValue()))));
+		List<String> monthOrder = Arrays.asList("January", "February", "March", "April", "May", "June", "July", "August",
+		    "September", "October", "November", "December");
+		yearlySummary.entrySet().stream().sorted(Comparator.comparing(e -> monthOrder.indexOf(e.getKey())))
+		        .forEach(entry -> groupYear.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
+
+		monthlySummary.entrySet().stream().sorted((e1, e2) -> {
+			int week1 = Integer.parseInt(e1.getKey().replace("Week", ""));
+			int week2 = Integer.parseInt(e2.getKey().replace("Week", ""));
+			return Integer.compare(week1, week2);
+		}).forEach(entry -> groupMonth.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
+
+		weeklySummary.entrySet().stream().sorted((e1, e2) -> getDayOfWeekOrder(e1.getKey()) - getDayOfWeekOrder(e2.getKey()))
+		        .forEach(entry -> groupWeek.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
 		
 		groupingObj.put("groupYear", groupYear);
 		groupingObj.put("groupMonth", groupMonth);
@@ -574,6 +584,27 @@ public class SSEMRWebServicesController {
 		allPatientsObj.put("summary", groupingObj);
 		
 		return allPatientsObj.toString();
+	}
+	
+	private int getDayOfWeekOrder(String day) {
+		switch (day) {
+			case "Mon":
+				return 1;
+			case "Tue":
+				return 2;
+			case "Wed":
+				return 3;
+			case "Thu":
+				return 4;
+			case "Fri":
+				return 5;
+			case "Sat":
+				return 6;
+			case "Sun":
+				return 7;
+			default:
+				return 8;
+		}
 	}
 	
 	private static ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory,
@@ -1209,39 +1240,39 @@ public class SSEMRWebServicesController {
 		
 		return new ArrayList<>();
 	}
-	
+
 	private static class SummarySection extends ObjectNode {
-		
+
 		private ObjectNode groupWeek;
-		
+
 		private ObjectNode groupMonth;
-		
+
 		private ObjectNode groupYear;
-		
+
 		public SummarySection(JsonNodeFactory nc) {
 			super(nc);
 		}
-		
+
 		public void setGroupYear(ObjectNode groupYear) {
 			this.groupYear = groupYear;
 		}
-		
+
 		public ObjectNode getGroupYear() {
 			return groupYear;
 		}
-		
+
 		public void setGroupMonth(ObjectNode groupMonth) {
 			this.groupMonth = groupMonth;
 		}
-		
+
 		public ObjectNode getGroupMonth() {
 			return groupMonth;
 		}
-		
+
 		public void setGroupWeek(ObjectNode groupWeek) {
 			this.groupWeek = groupWeek;
 		}
-		
+
 		public ObjectNode getGroupWeek() {
 			return groupWeek;
 		}
