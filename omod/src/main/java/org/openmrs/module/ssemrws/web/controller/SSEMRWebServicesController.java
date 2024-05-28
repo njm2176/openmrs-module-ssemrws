@@ -92,6 +92,90 @@ public class SSEMRWebServicesController {
 	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
 	
 	public static final String TELEPHONE_NUMBER_UUID = "8f0a2a16-c073-4622-88ad-a11f2d6966ad";
+
+	public static final String regimen_1A = "9062c6d9-a650-44d2-8929-da84f617c427";
+
+	public static final String regimen_1B = "c22e6700-a937-4909-b4ad-e82ff51325ac";
+
+	public static final String regimen_1C = "a00d9620-e88b-4c2f-9293-b1ac9e5943f2";
+
+	public static final String regimen_1D = "5d500ca2-350a-49ee-a3d4-f340db32ff31";
+
+	public static final String regimen_1E = "3fd242a8-7ade-463c-8919-d82573ea8526";
+
+	public static final String regimen_1F = "91f5d0d6-eb81-484f-9376-4bfb926a5a81";
+
+	public static final String regimen_1G = "0dd3e78f-e1fc-47de-95bc-1f489d0dfcc5";
+
+	public static final String regimen_1H = "4a86fbee-07a9-422a-bf69-16256c0c2b8b";
+
+	public static final String regimen_1J = "03224cae-f115-4814-bd53-c99c72288446";
+
+	public static final String regimen_2A = "bd97cacd-4a91-4901-8803-3a4a2e5f1ca8";
+
+	public static final String regimen_2B = "ad6ff4ef-769e-4aec-b8bb-7f033fe6aaaa";
+
+	public static final String regimen_2C = "47167ec1-4957-4d0a-a58c-3894bdeb93ff";
+
+	public static final String regimen_2D = "e649a0ec-e193-4af0-bb49-02687107a893";
+
+	public static final String regimen_2E = "accca537-b8ee-41ec-b902-7de814d099b2";
+
+	public static final String regimen_2F = "77f201fc-aefc-4068-baa7-cb3284782a38";
+
+	public static final String regimen_2G = "cb0f9fcd-fb52-493f-95aa-d0197387fbdb";
+
+	public static final String regimen_2H = "28790bde-81db-4490-806b-ac10c17b41dc";
+
+	public static final String regimen_2I = "aae69cae-2806-4e8b-a916-f22ed733a19b";
+
+	public static final String regimen_2J = "64336206-c9bc-4d37-accf-c7abac7a37f6";
+
+	public static final String regimen_2K = "25f0cca5-902d-4e36-9e4f-5ce5da744a75";
+
+	public static final String regimen_4A = "c224b116-27ec-4156-93ba-d4838a3ac1c0";
+
+	public static final String regimen_4B = "5efe8d99-c65e-4136-8820-5f3646437ff7";
+
+	public static final String regimen_4C = "f8f64be8-ccb4-404d-b99e-3c4975155da5";
+
+	public static final String regimen_4D = "28c5d192-ba71-4ef5-8604-ecf6bd177126";
+
+	public static final String regimen_4E = "3eaf04dc-e284-42f7-860e-02cda37cf230";
+
+	public static final String regimen_4F = "0372f3fb-5e8a-474f-8250-01af7a485778";
+
+	public static final String regimen_4G = "ce2412c4-a041-4328-bfaa-35e041ca4802";
+
+	public static final String regimen_4H = "6ed47806-8809-4c5a-a1b6-fe2ec0158563";
+
+	public static final String regimen_4I = "f6b1c6ea-b0a2-46a0-b7e0-3038d268356c";
+
+	public static final String regimen_4J = "2e1ab9d3-7fe1-48ba-a12c-fd8d26bc161d";
+
+	public static final String regimen_4K = "99f54f96-e761-4d86-bb1b-0abc2a24fa16";
+
+	public static final String regimen_4L = "5287f2a4-23e5-4314-b60c-0a4b91753ec6";
+
+	public static final String regimen_5A = "b23cf614-dfec-48c9-a12f-ba577e28347d";
+
+	public static final String regimen_5B = "dabc93c3-8c3d-41e1-b3e3-d7e14c4765b6";
+
+	public static final String regimen_5C = "da3c6710-c431-4582-a444-a466d54693ec";
+
+	public static final String regimen_5D = "6c383d11-2b29-4cc2-bfa4-811ff7a988f1";
+
+	public static final String regimen_5E = "82725d14-00c6-4864-bf8b-ad5db0b3c3fa";
+
+	public static final String regimen_5F = "140ede93-5691-463b-9d17-2dc8834621f8";
+
+	public static final String regimen_5G = "06017ac1-2ce8-4689-a3bf-4e9f3d54978f";
+
+	public static final String regimen_5H = "2c0a5b91-7b2a-4f8e-86fd-a8007841fca8";
+
+	public static final String regimen_5I = "50b60d77-186d-4a0d-8784-659ee2d60ec9";
+
+	public static final String regimen_5J = "78e49624-0e33-4374-93b7-60b132b26dae";
 	
 	private static final double THRESHOLD = 1000.0;
 	
@@ -205,25 +289,84 @@ public class SSEMRWebServicesController {
 		
 		return generatePatientListObj((HashSet<Patient>) allPatients);
 	}
-	
+
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/adultRegimenTreatment")
-	// gets all visit forms for a patient
 	@ResponseBody
-	public Object getPatientsOnAdultRegimenTreatment(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		// Add logic to filter patients on Adult regimen treatment
-		
-		return generatePatientListObj((HashSet<Patient>) allPatients);
+	public Object getPatientsOnAdultRegimenTreatment(HttpServletRequest request,
+													 @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
+													 @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+
+		return getPatientsOnRegimenTreatment(qStartDate, qEndDate,
+				Arrays.asList(regimen_1A, regimen_1B, regimen_1C, regimen_1D, regimen_1E, regimen_1F, regimen_1G, regimen_1H,
+						regimen_1J, regimen_2A, regimen_2B, regimen_2C, regimen_2D, regimen_2E, regimen_2F, regimen_2G, regimen_2H,
+						regimen_2I, regimen_2J, regimen_2K),
+				ACTIVE_REGIMEN_CONCEPT_UUID);
 	}
-	
+
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/childRegimenTreatment")
-	// gets all visit forms for a patient
 	@ResponseBody
-	public Object getPatientsOnChildRegimenTreatment(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		// Add logic to filter patients on Child regimen treatment
-		
-		return generatePatientListObj((HashSet<Patient>) allPatients);
+	public Object getPatientsOnChildRegimenTreatment(HttpServletRequest request,
+													 @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
+													 @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+
+		return getPatientsOnRegimenTreatment(qStartDate, qEndDate,
+				Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
+						regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
+						regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
+				ACTIVE_REGIMEN_CONCEPT_UUID);
+	}
+
+	private Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
+												 String activeRegimenConceptUuid) throws ParseException {
+
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+
+		List<String> regimenTreatmentEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
+				FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+
+		List<Encounter> regimenTreatmentEncounters = getEncountersByEncounterTypes(regimenTreatmentEncounterTypeUuids,
+				startDate, endDate);
+
+		List<Concept> regimenConcepts = getConceptsByUuids(regimenConceptUuids);
+
+		List<Obs> regimenTreatmentObs = Context.getObsService().getObservations(null, regimenTreatmentEncounters,
+				Collections.singletonList(Context.getConceptService().getConceptByUuid(activeRegimenConceptUuid)),
+				regimenConcepts, null, null, null, null, null, null, endDate, false);
+
+		Map<String, Integer> regimenCounts = new HashMap<>();
+
+		for (Obs obs : regimenTreatmentObs) {
+			Concept regimenConcept = obs.getValueCoded();
+			if (regimenConcept != null) {
+				String conceptName = regimenConcept.getName().getName();
+				regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
+			}
+		}
+
+		Map<String, Object> results = new HashMap<>();
+		List<Map<String, Object>> regimenList = new ArrayList<>();
+
+		for (Map.Entry<String, Integer> entry : regimenCounts.entrySet()) {
+			Map<String, Object> regimenEntry = new HashMap<>();
+			regimenEntry.put("text", entry.getKey());
+			regimenEntry.put("total", entry.getValue());
+			regimenList.add(regimenEntry);
+		}
+
+		results.put("results", regimenList);
+		return results;
+	}
+
+	/**
+	 * Retrieves a list of concepts based on their UUIDs.
+	 *
+	 * @param conceptUuids A list of UUIDs of concepts to retrieve.
+	 * @return A list of concepts corresponding to the given UUIDs.
+	 */
+	private static List<Concept> getConceptsByUuids(List<String> conceptUuids) {
+		return conceptUuids.stream().map(uuid -> Context.getConceptService().getConceptByUuid(uuid))
+				.collect(Collectors.toList());
 	}
 
 	/**
