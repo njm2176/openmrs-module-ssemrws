@@ -167,6 +167,18 @@ public class SSEMRWebServicesController {
 	
 	public static final String regimen_5J = "78e49624-0e33-4374-93b7-60b132b26dae";
 	
+	public static final String HIGH_VL_ENCOUNTERTYPE_UUID = "f7f1c854-69e5-11ee-8c99-0242ac120002";
+	
+	public static final String BREASTFEEDING_CONCEPT_UUID = "cf5c7deb-f67c-4406-82ea-d619e502f47c";
+	
+	public static final String PREGNANT_CONCEPT_UUID = "5dcb1bc9-ee89-4b57-9493-a1f245c5ee8b";
+	
+	public static final String PMTCT_CONCEPT_UUID = "da20f4fc-94b4-421c-896c-cf16a834227a";
+	
+	public static final String EAC_SESSION_CONCEPT_UUID = "65536958-fc01-4002-8839-af4b6ab0489b";
+	
+	public static final String EXTENDED_EAC_CONCEPT_UUID = "99c7c0f1-3c7c-4e26-bf4b-60a74734bc7c";
+	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
@@ -187,6 +199,8 @@ public class SSEMRWebServicesController {
 	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
 	
 	private static final double THRESHOLD = 1000.0;
+	
+	private static final int SIX_MONTHS_IN_DAYS = 183;
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -292,11 +306,210 @@ public class SSEMRWebServicesController {
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
 		List<String> dueForVlEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
-		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		    FOLLOW_UP_FORM_ENCOUNTER_TYPE, HIGH_VL_ENCOUNTERTYPE_UUID);
+		
+		List<Encounter> dueForVlEncounters = getEncountersByEncounterTypes(dueForVlEncounterTypeUuids, startDate, endDate);
+		
+		List<String> dueforVLConceptUuids = Arrays.asList(ACTIVE_REGIMEN_CONCEPT_UUID, VIRAL_LOAD_CONCEPT_UUID,
+		    BREASTFEEDING_CONCEPT_UUID, PREGNANT_CONCEPT_UUID, PMTCT_CONCEPT_UUID, EAC_SESSION_CONCEPT_UUID,
+		    EXTENDED_EAC_CONCEPT_UUID);
+		
+		List<Concept> dueForVlConcepts = getConceptsByUuids(dueforVLConceptUuids);
+		
+		List<Obs> dueforVLObs = Context.getObsService().getObservations(null, dueForVlEncounters, dueForVlConcepts, null,
+		    null, null, null, null, null, startDate, endDate, false);
 		
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
 		
-		return generatePatientListObj((HashSet<Patient>) allPatients, startDate, endDate, filterCategory);
+		List<Patient> patientsDueForVl = new ArrayList<>();
+		
+		for (Patient patient : allPatients) {
+			if (isPatientDueForVl(patient, dueforVLObs, startDate, endDate)) {
+				patientsDueForVl.add(patient);
+			}
+		}
+		
+		return generatePatientListObj(new HashSet<>(patientsDueForVl), startDate, endDate);
+	}
+	
+	private boolean isPatientDueForVl(Patient patient, List<Obs> observations, Date startDate, Date endDate) {
+		boolean isDueForVl = false;
+		
+		// Iterate through observations to determine criteria fulfillment
+		for (Obs obs : observations) {
+			if (obs.getPerson().equals(patient)) {
+				// Add logic to check for each of the criteria based on observations
+				
+				// Criteria 1: Clients who are adults, have been on ART for more than 6 months,
+				// not breastfeeding and the VL result is suppressed (< 1000 copies/ml).
+				// If the VL results are suppressed the client will be due for VL in 6 months
+				// then 12 months and so on.
+				if (isAdult(patient) && onArtForMoreThanSixMonths(patient) && !isBreastfeeding(patient)
+				        && isViralLoadSuppressed(patient)) {
+					Date nextDueDate = calculateNextDueDate(obs, 6);
+					if (nextDueDate.before(endDate)) {
+						isDueForVl = true;
+						break;
+					}
+				}
+				
+				// Criteria 2: Child or adolescent up to 18 yrs of age. The will have the VL
+				// sample collected after 6 months and when they turn 19 yrs they join criteria
+				// 1.
+				if (isChildOrAdolescent(patient) && onArtForMoreThanSixMonths(patient)) {
+					Date nextDueDate = calculateNextDueDate(obs, 6);
+					if (nextDueDate.before(endDate)) {
+						isDueForVl = true;
+						break;
+					}
+				}
+				
+				// Criteria 3: Pregnant woman, newly enrolled on ART will be due for Viral load
+				// after every 3 months until they are no longer in PMTCT.
+				if (isPregnant(patient) && newlyEnrolledOnArt(patient)) {
+					Date nextDueDate = calculateNextDueDate(obs, 3);
+					if (nextDueDate.before(endDate)) {
+						isDueForVl = true;
+						break;
+					}
+				}
+				
+				// Criteria 4: Pregnant woman already on ART are eligible immediately they find
+				// out they are pregnant.
+				if (isPregnant(patient) && alreadyOnArt(patient)) {
+					isDueForVl = true;
+					break;
+				}
+				
+				// Criteria 5: After EAC 3, they are eligible for VL in the next one month.
+				if (afterEac3(patient)) {
+					Date nextDueDate = calculateNextDueDate(obs, 1);
+					if (nextDueDate.before(endDate)) {
+						isDueForVl = true;
+						break;
+					}
+				}
+			}
+		}
+		return isDueForVl;
+	}
+	
+	private boolean isAdult(Patient patient) {
+		Date birthdate = patient.getBirthdate();
+		if (birthdate == null) {
+			return false;
+		}
+		
+		Date currentDate = new Date();
+		long ageInMillis = currentDate.getTime() - birthdate.getTime();
+		long ageInYears = ageInMillis / (1000L * 60 * 60 * 24 * 365);
+		
+		return ageInYears >= 18;
+	}
+	
+	private boolean onArtForMoreThanSixMonths(Patient patient) {
+		List<Obs> onArtObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
+		    null, null, 1, null, null, null, false);
+		
+		if (onArtObs != null && !onArtObs.isEmpty()) {
+			Date startDate = onArtObs.get(0).getObsDatetime();
+			Date currentDate = new Date();
+			
+			// Calculate the difference in days between the current date and the start date
+			long diffInMillis = currentDate.getTime() - startDate.getTime();
+			long diffInDays = diffInMillis / (1000L * 60 * 60 * 24);
+			
+			return diffInDays > SIX_MONTHS_IN_DAYS;
+		}
+		return false;
+	}
+	
+	private boolean isBreastfeeding(Patient patient) {
+		List<Obs> breastFeedingObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(BREASTFEEDING_CONCEPT_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, 1, null,
+		    null, null, false);
+		
+		return breastFeedingObs != null && !breastFeedingObs.isEmpty();
+	}
+	
+	private boolean isViralLoadSuppressed(Patient patient) {
+		List<Obs> viralLoadSuppressedObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
+		    null, null, null, null, null, null, false);
+		
+		if (viralLoadSuppressedObs != null && !viralLoadSuppressedObs.isEmpty()) {
+			return viralLoadSuppressedObs.get(0).getValueNumeric() < THRESHOLD;
+		}
+		
+		return false;
+	}
+	
+	private boolean isChildOrAdolescent(Patient patient) {
+		Date birthdate = patient.getBirthdate();
+		if (birthdate == null) {
+			return false;
+		}
+		
+		Date currentDate = new Date();
+		long ageInMillis = currentDate.getTime() - birthdate.getTime();
+		long ageInYears = ageInMillis / (1000L * 60 * 60 * 24 * 365);
+		
+		return ageInYears < 18;
+	}
+	
+	private boolean isPregnant(Patient patient) {
+		List<Obs> pregnantObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(PREGNANT_CONCEPT_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, 1, null,
+		    null, null, false);
+		
+		return pregnantObs != null && !pregnantObs.isEmpty();
+	}
+	
+	private boolean newlyEnrolledOnArt(Patient patient) {
+		List<Obs> newlyEnrolledOnArtObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
+		    null, null, 1, null, null, null, false);
+		
+		if (newlyEnrolledOnArtObs != null && !newlyEnrolledOnArtObs.isEmpty()) {
+			Date startDate = newlyEnrolledOnArtObs.get(0).getObsDatetime();
+			Date currentDate = new Date();
+			
+			// Calculate the difference in days between the current date and the start date
+			long diffInMillis = currentDate.getTime() - startDate.getTime();
+			long diffInDays = diffInMillis / (1000L * 60 * 60 * 24);
+			
+			return diffInDays < SIX_MONTHS_IN_DAYS;
+		}
+		return false;
+	}
+	
+	private boolean alreadyOnArt(Patient patient) {
+		List<Obs> alreadyOnArtObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null,
+		    null, null, null, 1, null, null, null, false);
+		
+		return alreadyOnArtObs != null && !alreadyOnArtObs.isEmpty();
+	}
+	
+	private boolean afterEac3(Patient patient) {
+		List<Obs> extendedEacObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(EAC_SESSION_CONCEPT_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(EXTENDED_EAC_CONCEPT_UUID)), null, null,
+		    null, 1, null, null, null, false);
+		
+		return extendedEacObs != null && !extendedEacObs.isEmpty();
+	}
+	
+	private Date calculateNextDueDate(Obs obs, int months) {
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(obs.getObsDatetime());
+		calendar.add(Calendar.MONTH, months);
+		return calendar.getTime();
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/adultRegimenTreatment")
@@ -506,10 +719,11 @@ public class SSEMRWebServicesController {
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate) {
 		return generatePatientListObj(allPatients, startDate, endDate, null);
 	}
-
+	
 	/**
-	 * Generates a summary of patient data within a specified date range, grouped by year, month, and week.
-	 *
+	 * Generates a summary of patient data within a specified date range, grouped by year, month, and
+	 * week.
+	 * 
 	 * @param allPatients A set of all patients to be considered for the summary.
 	 * @param startDate The start date of the range for which to generate the summary.
 	 * @param endDate The end date of the range for which to generate the summary.
@@ -520,7 +734,7 @@ public class SSEMRWebServicesController {
 	        filterCategory filterCategory) {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
-
+		
 		HashMap<String, Integer> yearlySummary = new HashMap<>();
 		HashMap<String, Integer> monthlySummary = new HashMap<>();
 		HashMap<String, Integer> weeklySummary = new HashMap<>();
@@ -529,12 +743,12 @@ public class SSEMRWebServicesController {
 		startCal.setTime(startDate);
 		Calendar endCal = Calendar.getInstance();
 		endCal.setTime(endDate);
-
+		
 		for (Patient patient : allPatients) {
 			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient);
 			if (patientObj != null) {
 				patientList.add(patientObj);
-
+				
 				Calendar patientCal = Calendar.getInstance();
 				patientCal.setTime(patient.getDateCreated());
 				
@@ -542,21 +756,21 @@ public class SSEMRWebServicesController {
 					int monthOfYear = patientCal.get(Calendar.MONTH);
 					int weekOfMonth = patientCal.get(Calendar.WEEK_OF_MONTH);
 					int dayOfWeek = patientCal.get(Calendar.DAY_OF_WEEK);
-
+					
 					String monthKey = new DateFormatSymbols().getMonths()[monthOfYear];
 					if (!monthKey.isEmpty()) {
 						yearlySummary.put(monthKey, yearlySummary.getOrDefault(monthKey, 0) + 1);
 					}
-
+					
 					String weekKey = "Week" + weekOfMonth;
 					monthlySummary.put(weekKey, monthlySummary.getOrDefault(weekKey, 0) + 1);
-
+					
 					String dayKey = new DateFormatSymbols().getShortWeekdays()[dayOfWeek];
 					weeklySummary.put(dayKey, weeklySummary.getOrDefault(dayKey, 0) + 1);
 				}
 			}
 		}
-
+		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupMonth = JsonNodeFactory.instance.objectNode();
@@ -566,13 +780,13 @@ public class SSEMRWebServicesController {
 		    "September", "October", "November", "December");
 		yearlySummary.entrySet().stream().sorted(Comparator.comparing(e -> monthOrder.indexOf(e.getKey())))
 		        .forEach(entry -> groupYear.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
-
+		
 		monthlySummary.entrySet().stream().sorted((e1, e2) -> {
 			int week1 = Integer.parseInt(e1.getKey().replace("Week", ""));
 			int week2 = Integer.parseInt(e2.getKey().replace("Week", ""));
 			return Integer.compare(week1, week2);
 		}).forEach(entry -> groupMonth.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
-
+		
 		weeklySummary.entrySet().stream().sorted((e1, e2) -> getDayOfWeekOrder(e1.getKey()) - getDayOfWeekOrder(e2.getKey()))
 		        .forEach(entry -> groupWeek.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
 		
@@ -1240,39 +1454,39 @@ public class SSEMRWebServicesController {
 		
 		return new ArrayList<>();
 	}
-
+	
 	private static class SummarySection extends ObjectNode {
-
+		
 		private ObjectNode groupWeek;
-
+		
 		private ObjectNode groupMonth;
-
+		
 		private ObjectNode groupYear;
-
+		
 		public SummarySection(JsonNodeFactory nc) {
 			super(nc);
 		}
-
+		
 		public void setGroupYear(ObjectNode groupYear) {
 			this.groupYear = groupYear;
 		}
-
+		
 		public ObjectNode getGroupYear() {
 			return groupYear;
 		}
-
+		
 		public void setGroupMonth(ObjectNode groupMonth) {
 			this.groupMonth = groupMonth;
 		}
-
+		
 		public ObjectNode getGroupMonth() {
 			return groupMonth;
 		}
-
+		
 		public void setGroupWeek(ObjectNode groupWeek) {
 			this.groupWeek = groupWeek;
 		}
-
+		
 		public ObjectNode getGroupWeek() {
 			return groupWeek;
 		}
