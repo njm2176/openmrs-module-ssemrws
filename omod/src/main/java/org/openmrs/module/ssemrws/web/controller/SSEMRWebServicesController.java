@@ -338,7 +338,6 @@ public class SSEMRWebServicesController {
 		// Iterate through observations to determine criteria fulfillment
 		for (Obs obs : observations) {
 			if (obs.getPerson().equals(patient)) {
-				// Add logic to check for each of the criteria based on observations
 				
 				// Criteria 1: Clients who are adults, have been on ART for more than 6 months,
 				// not breastfeeding and the VL result is suppressed (< 1000 copies/ml).
@@ -639,8 +638,6 @@ public class SSEMRWebServicesController {
 	
 	private static ObjectNode generateDashboardSummaryFromObs(Date startDate, Date endDate, List<Obs> obsList,
 	        filterCategory filterCategory) {
-		// TODO: Implement filter category logic
-		
 		ObjectNode simpleObject = JsonNodeFactory.instance.objectNode();
 		String[] months = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
 		        "Dec" };
