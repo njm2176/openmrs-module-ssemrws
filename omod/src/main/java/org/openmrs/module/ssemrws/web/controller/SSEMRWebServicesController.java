@@ -19,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import ca.uhn.hl7v2.model.v23.datatype.ST;
 import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -179,6 +180,8 @@ public class SSEMRWebServicesController {
 	
 	public static final String EXTENDED_EAC_CONCEPT_UUID = "99c7c0f1-3c7c-4e26-bf4b-60a74734bc7c";
 	
+	public static final String VIRAL_LOAD_RESULTS_UUID = "8b5ef5c4-3c88-49b8-87e5-cb8d30caa77d";
+	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
@@ -332,7 +335,7 @@ public class SSEMRWebServicesController {
 		return generatePatientListObj(new HashSet<>(patientsDueForVl), startDate, endDate);
 	}
 	
-	private boolean isPatientDueForVl(Patient patient, List<Obs> observations, Date startDate, Date endDate) {
+	private static boolean isPatientDueForVl(Patient patient, List<Obs> observations, Date startDate, Date endDate) {
 		boolean isDueForVl = false;
 		
 		// Iterate through observations to determine criteria fulfillment
@@ -393,7 +396,7 @@ public class SSEMRWebServicesController {
 		return isDueForVl;
 	}
 	
-	private boolean isAdult(Patient patient) {
+	private static boolean isAdult(Patient patient) {
 		Date birthdate = patient.getBirthdate();
 		if (birthdate == null) {
 			return false;
@@ -406,7 +409,7 @@ public class SSEMRWebServicesController {
 		return ageInYears >= 18;
 	}
 	
-	private boolean onArtForMoreThanSixMonths(Patient patient) {
+	private static boolean onArtForMoreThanSixMonths(Patient patient) {
 		List<Obs> onArtObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
 		    null, null, 1, null, null, null, false);
@@ -424,7 +427,7 @@ public class SSEMRWebServicesController {
 		return false;
 	}
 	
-	private boolean isBreastfeeding(Patient patient) {
+	private static boolean isBreastfeeding(Patient patient) {
 		List<Obs> breastFeedingObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(BREASTFEEDING_CONCEPT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, 1, null,
@@ -433,7 +436,7 @@ public class SSEMRWebServicesController {
 		return breastFeedingObs != null && !breastFeedingObs.isEmpty();
 	}
 	
-	private boolean isViralLoadSuppressed(Patient patient) {
+	private static boolean isViralLoadSuppressed(Patient patient) {
 		List<Obs> viralLoadSuppressedObs = Context.getObsService().getObservations(
 		    Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
@@ -446,7 +449,7 @@ public class SSEMRWebServicesController {
 		return false;
 	}
 	
-	private boolean isChildOrAdolescent(Patient patient) {
+	private static boolean isChildOrAdolescent(Patient patient) {
 		Date birthdate = patient.getBirthdate();
 		if (birthdate == null) {
 			return false;
@@ -459,7 +462,7 @@ public class SSEMRWebServicesController {
 		return ageInYears < 18;
 	}
 	
-	private boolean isPregnant(Patient patient) {
+	private static boolean isPregnant(Patient patient) {
 		List<Obs> pregnantObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(PREGNANT_CONCEPT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, 1, null,
@@ -468,7 +471,7 @@ public class SSEMRWebServicesController {
 		return pregnantObs != null && !pregnantObs.isEmpty();
 	}
 	
-	private boolean newlyEnrolledOnArt(Patient patient) {
+	private static boolean newlyEnrolledOnArt(Patient patient) {
 		List<Obs> newlyEnrolledOnArtObs = Context.getObsService().getObservations(
 		    Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
@@ -487,7 +490,7 @@ public class SSEMRWebServicesController {
 		return false;
 	}
 	
-	private boolean alreadyOnArt(Patient patient) {
+	private static boolean alreadyOnArt(Patient patient) {
 		List<Obs> alreadyOnArtObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null,
 		    null, null, null, 1, null, null, null, false);
@@ -495,7 +498,7 @@ public class SSEMRWebServicesController {
 		return alreadyOnArtObs != null && !alreadyOnArtObs.isEmpty();
 	}
 	
-	private boolean afterEac3(Patient patient) {
+	private static boolean afterEac3(Patient patient) {
 		List<Obs> extendedEacObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(EAC_SESSION_CONCEPT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(EXTENDED_EAC_CONCEPT_UUID)), null, null,
@@ -504,7 +507,7 @@ public class SSEMRWebServicesController {
 		return extendedEacObs != null && !extendedEacObs.isEmpty();
 	}
 	
-	private Date calculateNextDueDate(Obs obs, int months) {
+	private static Date calculateNextDueDate(Obs obs, int months) {
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTime(obs.getObsDatetime());
 		calendar.add(Calendar.MONTH, months);
@@ -607,7 +610,7 @@ public class SSEMRWebServicesController {
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
 	@ResponseBody
-	public Object getViralLoadSamplesCollected(HttpServletRequest request,
+	public String getViralLoadSamplesCollected(HttpServletRequest request,
 	        @RequestParam(value = "startDate") String qStartDate, @RequestParam(value = "endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
 		try {
@@ -625,28 +628,31 @@ public class SSEMRWebServicesController {
 			    Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, startDate,
 			    endDate, false);
 			
-			ObjectNode simpleObject = generateDashboardSummaryFromObs(startDate, endDate, sampleCollectionDateObs,
+			// Generate the summary data
+			Object summaryData = generateDashboardSummaryFromObs(startDate, endDate, sampleCollectionDateObs,
 			    filterCategory);
 			
-			return simpleObject;
+			// Convert the summary data to JSON format
+			ObjectMapper objectMapper = new ObjectMapper();
+			String jsonResponse = objectMapper.writeValueAsString(summaryData);
+			
+			return jsonResponse;
 			
 		}
-		catch (APIException | ParseException e) {
+		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
 	
-	private static ObjectNode generateDashboardSummaryFromObs(Date startDate, Date endDate, List<Obs> obsList,
-	        filterCategory filterCategory) {
-		ObjectNode simpleObject = JsonNodeFactory.instance.objectNode();
+	private Map<String, Map<String, Integer>> generateDashboardSummaryFromObs(Date startDate, Date endDate,
+	        List<Obs> obsList, filterCategory filterCategory) {
 		String[] months = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
 		        "Dec" };
 		String[] days = new String[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
 		
-		HashMap<String, List<ObjectNode>> monthlyGrouping = new HashMap<>();
-		HashMap<String, Integer> weeklySummary = new HashMap<>();
-		HashMap<String, Integer> monthlySummary = new HashMap<>();
-		HashMap<String, Integer> dailySummary = new HashMap<>();
+		Map<String, Integer> monthlySummary = new HashMap<>();
+		Map<String, Integer> weeklySummary = new HashMap<>();
+		Map<String, Integer> dailySummary = new HashMap<>();
 		
 		for (Obs obs : obsList) {
 			if (obs.getValueDate().after(DateUtils.addDays(startDate, -1))
@@ -655,54 +661,63 @@ public class SSEMRWebServicesController {
 				calendar.setTime(obs.getValueDate());
 				String month = months[calendar.get(Calendar.MONTH)];
 				
-				Person person = obs.getPerson();
-				ObjectNode personObj = generatePatientObject(endDate, endDate, filterCategory, (Patient) person);
-				if (monthlyGrouping.containsKey(month)) {
-					// check if person already exists in the list for the month
-					List<ObjectNode> personList = monthlyGrouping.get(month);
-					if (!personList.contains(personObj)) {
-						personList.add(personObj);
-					}
-				} else {
-					List<ObjectNode> personList = new ArrayList<>();
-					personList.add(personObj);
-					monthlyGrouping.put(month, personList);
-				}
-				
 				// Group by month
 				monthlySummary.put(month, monthlySummary.getOrDefault(month, 0) + 1);
 				
-				// Group by week
+				// Group by week (using month name)
 				int week = calendar.get(Calendar.WEEK_OF_MONTH);
-				String weekOfTheMonth = String.format("%s_%s", month, week);
+				String weekOfTheMonth = String.format("%s_Week%s", month, week);
 				weeklySummary.put(weekOfTheMonth, weeklySummary.getOrDefault(weekOfTheMonth, 0) + 1);
 				
-				// Group by day
+				// Group by day (using day name)
 				int day = calendar.get(Calendar.DAY_OF_WEEK);
-				String day_in_week = String.format("%s_%s", week, days[day - 1]);
+				String day_in_week = String.format("%s_%s", month, days[day - 1]);
 				dailySummary.put(day_in_week, dailySummary.getOrDefault(day_in_week, 0) + 1);
 			}
 		}
 		
-		ObjectMapper mapper = new ObjectMapper();
-		ObjectNode summaryNode = mapper.createObjectNode();
-		summaryNode.put("groupYear", mapper.valueToTree(monthlySummary));
-		summaryNode.put("groupMonth", mapper.valueToTree(weeklySummary));
-		summaryNode.put("groupWeek", mapper.valueToTree(dailySummary));
+		Map<String, Map<String, Integer>> summary = new HashMap<>();
+		summary.put("groupYear", monthlySummary);
+		summary.put("groupMonth", weeklySummary);
+		summary.put("groupWeek", dailySummary);
 		
-		simpleObject.put("summary", summaryNode);
-		
-		return simpleObject;
+		return summary;
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadResults")
 	// gets all visit forms for a patient
 	@ResponseBody
-	public Object getViralLoadResults(HttpServletRequest request) {
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		// Add logic to filter patients on Child regimen treatment
-		
-		return generateViralLoadListObj(allPatients);
+	public Object getViralLoadResults(HttpServletRequest request, @RequestParam(value = "startDate") String qStartDate,
+	        @RequestParam(value = "endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
+		try {
+			Date startDate = dateTimeFormatter.parse(qStartDate);
+			Date endDate = dateTimeFormatter.parse(qEndDate);
+			
+			EncounterType viralLoadEncounterType = Context.getEncounterService()
+			        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, null, endDate, null,
+			        null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
+			List<Encounter> viralLoadSampleEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+			
+			Concept viralLoadResultConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
+			List<Obs> viralLoadResultObs = Context.getObsService().getObservations(null, viralLoadSampleEncounters,
+			    Collections.singletonList(viralLoadResultConcept), null, null, null, null, null, null, startDate, endDate,
+			    false);
+			
+			// Generate the summary data
+			Object summaryData = generateDashboardSummaryFromObs(startDate, endDate, viralLoadResultObs, filterCategory);
+			
+			// Convert the summary data to JSON format
+			ObjectMapper objectMapper = new ObjectMapper();
+			String jsonResponse = objectMapper.writeValueAsString(summaryData);
+			
+			return jsonResponse;
+			
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 	
 	private Object generatePatientListObj(HashSet<Patient> allPatients) {
@@ -823,8 +838,13 @@ public class SSEMRWebServicesController {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		String dateEnrolled = getEnrolmentDate(patient);
 		String lastRefillDate = getLastRefillDate(patient);
-		String contact = String.valueOf(patient.getAttribute("Client Telephone Number"));
-		String alternateContact = String.valueOf(patient.getAttribute("AltTelephoneNo"));
+		String artRegimen = getARTRegimen(patient);
+		String contact = patient.getAttribute("Client Telephone Number") != null
+		        ? String.valueOf(patient.getAttribute("Client Telephone Number"))
+		        : "";
+		String alternateContact = patient.getAttribute("AltTelephoneNo") != null
+		        ? String.valueOf(patient.getAttribute("AltTelephoneNo"))
+		        : "";
 		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
@@ -836,11 +856,12 @@ public class SSEMRWebServicesController {
 		    patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString() : "");
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("address", patient.getPersonAddress().toString());
-		patientObj.put("contact", contact != null ? contact : "");
-		patientObj.put("alternateContact", alternateContact != null ? alternateContact : "");
+		patientObj.put("contact", contact);
+		patientObj.put("alternateContact", alternateContact);
 		patientObj.put("dateEnrolled", dateEnrolled);
 		patientObj.put("lastRefillDate", lastRefillDate);
-		patientObj.put("newClient", determineIfPatientIsNewClient(patient, startDate, endDate));
+		patientObj.put("ARTRegimen", artRegimen);
+		patientObj.put("newClient", newlyEnrolledOnArt(patient));
 		patientObj.put("childOrAdolescent", age <= 19 ? true : false);
 		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
 		patientObj.put("IIT", determineIfPatientIsIIT(patient));
@@ -1163,11 +1184,21 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static boolean determineIfPatientIsNewClient(Patient patient, Date startDate, Date endDate) {
-		// return random true or false value for now
-		return Math.random() < 0.5;
-		// TODO: Add logic to determine if patient is new client - Check
-		// #logicToDetermineIfNewlyEnrolled method
-		// return false;
+		List<Obs> newClientObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null,
+		    null, null, null, 1, null, startDate, endDate, false);
+		
+		if (newClientObs != null && !newClientObs.isEmpty()) {
+			Date obsStartDate = newClientObs.get(0).getObsDatetime();
+			Date currentDate = new Date();
+			
+			// Calculate the difference in days between the current date and the start date
+			long diffInMillis = currentDate.getTime() - obsStartDate.getTime();
+			long diffInDays = diffInMillis / (1000L * 60 * 60 * 24);
+			
+			return diffInDays < SIX_MONTHS_IN_DAYS;
+		}
+		return false;
 	}
 	
 	/**
@@ -1431,6 +1462,18 @@ public class SSEMRWebServicesController {
 			if (lastRefillDate != null) {
 				return dateTimeFormatter.format(lastRefillDate);
 			}
+		}
+		return "";
+	}
+	
+	private static String getARTRegimen(Patient patient) {
+		List<Obs> artRegimenObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null,
+		    null, null, null, null, null, null, null, false);
+		
+		if (artRegimenObs != null && !artRegimenObs.isEmpty()) {
+			Obs lastartRegimenObs = artRegimenObs.get(0);
+			return lastartRegimenObs.getValueText();
 		}
 		return "";
 	}
