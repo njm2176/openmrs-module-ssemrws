@@ -646,42 +646,30 @@ public class SSEMRWebServicesController {
 	
 	private Map<String, Map<String, Integer>> generateDashboardSummaryFromObs(Date startDate, Date endDate,
 	        List<Obs> obsList, filterCategory filterCategory) {
-		String[] months = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
-		        "Dec" };
-		String[] days = new String[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
 		
-		Map<String, Integer> monthlySummary = new HashMap<>();
-		Map<String, Integer> weeklySummary = new HashMap<>();
-		Map<String, Integer> dailySummary = new HashMap<>();
+		if (obsList == null) {
+			throw new IllegalArgumentException("Observation list cannot be null");
+		}
 		
+		List<Date> dates = new ArrayList<>();
 		for (Obs obs : obsList) {
-			if (obs.getValueDate().after(DateUtils.addDays(startDate, -1))
-			        && obs.getValueDate().before(DateUtils.addDays(endDate, 1))) {
-				Calendar calendar = Calendar.getInstance();
-				calendar.setTime(obs.getValueDate());
-				String month = months[calendar.get(Calendar.MONTH)];
-				
-				// Group by month
-				monthlySummary.put(month, monthlySummary.getOrDefault(month, 0) + 1);
-				
-				// Group by week (using month name)
-				int week = calendar.get(Calendar.WEEK_OF_MONTH);
-				String weekOfTheMonth = String.format("%s_Week%s", month, week);
-				weeklySummary.put(weekOfTheMonth, weeklySummary.getOrDefault(weekOfTheMonth, 0) + 1);
-				
-				// Group by day (using day name)
-				int day = calendar.get(Calendar.DAY_OF_WEEK);
-				String day_in_week = String.format("%s_%s", month, days[day - 1]);
-				dailySummary.put(day_in_week, dailySummary.getOrDefault(day_in_week, 0) + 1);
+			if (obs == null) {
+				System.out.println("Encountered null observation");
+				continue;
+			}
+			
+			Date obsDate = obs.getObsDatetime();
+			if (obsDate == null) {
+				System.out.println("Encountered observation with null date: " + obs);
+				continue;
+			}
+			
+			if (obsDate.after(DateUtils.addDays(startDate, -1)) && obsDate.before(DateUtils.addDays(endDate, 1))) {
+				dates.add(obsDate);
 			}
 		}
 		
-		Map<String, Map<String, Integer>> summary = new HashMap<>();
-		summary.put("groupYear", monthlySummary);
-		summary.put("groupMonth", weeklySummary);
-		summary.put("groupWeek", dailySummary);
-		
-		return summary;
+		return generateSummary(dates);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadResults")
@@ -696,17 +684,36 @@ public class SSEMRWebServicesController {
 			
 			EncounterType viralLoadEncounterType = Context.getEncounterService()
 			        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+			if (viralLoadEncounterType == null) {
+				throw new RuntimeException("Encounter type not found: " + FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+			}
+			
 			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, null, endDate, null,
 			        null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
 			List<Encounter> viralLoadSampleEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+			if (viralLoadSampleEncounters == null || viralLoadSampleEncounters.isEmpty()) {
+				throw new RuntimeException("No encounters found for criteria");
+			}
 			
 			Concept viralLoadResultConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
+			if (viralLoadResultConcept == null) {
+				throw new RuntimeException("Concept not found: " + VIRAL_LOAD_RESULTS_UUID);
+			}
+			System.out.println("Fetched concept: " + viralLoadResultConcept);
+			
 			List<Obs> viralLoadResultObs = Context.getObsService().getObservations(null, viralLoadSampleEncounters,
 			    Collections.singletonList(viralLoadResultConcept), null, null, null, null, null, null, startDate, endDate,
 			    false);
+			if (viralLoadResultObs == null || viralLoadResultObs.isEmpty()) {
+				throw new RuntimeException("No observations found for the given criteria");
+			}
 			
 			// Generate the summary data
-			Object summaryData = generateDashboardSummaryFromObs(startDate, endDate, viralLoadResultObs, filterCategory);
+			Map<String, Map<String, Integer>> summaryData = generateDashboardSummaryFromObs(startDate, endDate,
+			    viralLoadResultObs, filterCategory);
+			if (summaryData == null || summaryData.isEmpty()) {
+				throw new RuntimeException("Failed to generate summary data");
+			}
 			
 			// Convert the summary data to JSON format
 			ObjectMapper objectMapper = new ObjectMapper();
@@ -716,7 +723,8 @@ public class SSEMRWebServicesController {
 			
 		}
 		catch (Exception e) {
-			throw new RuntimeException(e);
+			e.printStackTrace();
+			throw new RuntimeException("Error occurred while processing viral load results", e);
 		}
 	}
 	
@@ -744,13 +752,11 @@ public class SSEMRWebServicesController {
 	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
 	        filterCategory filterCategory) {
+		
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
-		HashMap<String, Integer> yearlySummary = new HashMap<>();
-		HashMap<String, Integer> monthlySummary = new HashMap<>();
-		HashMap<String, Integer> weeklySummary = new HashMap<>();
-		
+		List<Date> patientDates = new ArrayList<>();
 		Calendar startCal = Calendar.getInstance();
 		startCal.setTime(startDate);
 		Calendar endCal = Calendar.getInstance();
@@ -765,42 +771,21 @@ public class SSEMRWebServicesController {
 				patientCal.setTime(patient.getDateCreated());
 				
 				if (!patientCal.before(startCal) && !patientCal.after(endCal)) {
-					int monthOfYear = patientCal.get(Calendar.MONTH);
-					int weekOfMonth = patientCal.get(Calendar.WEEK_OF_MONTH);
-					int dayOfWeek = patientCal.get(Calendar.DAY_OF_WEEK);
-					
-					String monthKey = new DateFormatSymbols().getMonths()[monthOfYear];
-					if (!monthKey.isEmpty()) {
-						yearlySummary.put(monthKey, yearlySummary.getOrDefault(monthKey, 0) + 1);
-					}
-					
-					String weekKey = "Week" + weekOfMonth;
-					monthlySummary.put(weekKey, monthlySummary.getOrDefault(weekKey, 0) + 1);
-					
-					String dayKey = new DateFormatSymbols().getShortWeekdays()[dayOfWeek];
-					weeklySummary.put(dayKey, weeklySummary.getOrDefault(dayKey, 0) + 1);
+					patientDates.add(patient.getDateCreated());
 				}
 			}
 		}
+		
+		Map<String, Map<String, Integer>> summary = generateSummary(patientDates);
 		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupMonth = JsonNodeFactory.instance.objectNode();
 		ObjectNode groupWeek = JsonNodeFactory.instance.objectNode();
 		
-		List<String> monthOrder = Arrays.asList("January", "February", "March", "April", "May", "June", "July", "August",
-		    "September", "October", "November", "December");
-		yearlySummary.entrySet().stream().sorted(Comparator.comparing(e -> monthOrder.indexOf(e.getKey())))
-		        .forEach(entry -> groupYear.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
-		
-		monthlySummary.entrySet().stream().sorted((e1, e2) -> {
-			int week1 = Integer.parseInt(e1.getKey().replace("Week", ""));
-			int week2 = Integer.parseInt(e2.getKey().replace("Week", ""));
-			return Integer.compare(week1, week2);
-		}).forEach(entry -> groupMonth.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
-		
-		weeklySummary.entrySet().stream().sorted((e1, e2) -> getDayOfWeekOrder(e1.getKey()) - getDayOfWeekOrder(e2.getKey()))
-		        .forEach(entry -> groupWeek.put(entry.getKey(), JsonNodeFactory.instance.numberNode(entry.getValue())));
+		summary.get("groupYear").forEach(groupYear::put);
+		summary.get("groupMonth").forEach(groupMonth::put);
+		summary.get("groupWeek").forEach(groupWeek::put);
 		
 		groupingObj.put("groupYear", groupYear);
 		groupingObj.put("groupMonth", groupMonth);
@@ -812,25 +797,64 @@ public class SSEMRWebServicesController {
 		return allPatientsObj.toString();
 	}
 	
-	private int getDayOfWeekOrder(String day) {
-		switch (day) {
-			case "Mon":
-				return 1;
-			case "Tue":
-				return 2;
-			case "Wed":
-				return 3;
-			case "Thu":
-				return 4;
-			case "Fri":
-				return 5;
-			case "Sat":
-				return 6;
-			case "Sun":
-				return 7;
-			default:
-				return 8;
+	private Map<String, Map<String, Integer>> generateSummary(List<Date> dates) {
+		String[] months = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
+		        "Dec" };
+		String[] days = new String[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+		
+		Map<String, Integer> monthlySummary = new HashMap<>();
+		Map<String, Integer> weeklySummary = new HashMap<>();
+		Map<String, Integer> dailySummary = new HashMap<>();
+		
+		for (Date date : dates) {
+			Calendar calendar = Calendar.getInstance();
+			calendar.setTime(date);
+			
+			String month = months[calendar.get(Calendar.MONTH)];
+			monthlySummary.put(month, monthlySummary.getOrDefault(month, 0) + 1);
+			
+			int week = calendar.get(Calendar.WEEK_OF_MONTH);
+			String weekOfTheMonth = String.format("%s_Week%s", month, week);
+			weeklySummary.put(weekOfTheMonth, weeklySummary.getOrDefault(weekOfTheMonth, 0) + 1);
+			
+			int day = calendar.get(Calendar.DAY_OF_WEEK);
+			String dayInWeek = String.format("%s_%s", month, days[day - 1]);
+			dailySummary.put(dayInWeek, dailySummary.getOrDefault(dayInWeek, 0) + 1);
 		}
+		
+		// Sorting the summaries
+		Map<String, Integer> sortedMonthlySummary = monthlySummary.entrySet().stream()
+		        .sorted(Comparator.comparingInt(e -> Arrays.asList(months).indexOf(e.getKey())))
+		        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+		
+		Map<String, Integer> sortedWeeklySummary = weeklySummary.entrySet().stream().sorted((e1, e2) -> {
+			String[] parts1 = e1.getKey().split("_Week");
+			String[] parts2 = e2.getKey().split("_Week");
+			int monthCompare = Arrays.asList(months).indexOf(parts1[0]) - Arrays.asList(months).indexOf(parts2[0]);
+			if (monthCompare != 0) {
+				return monthCompare;
+			} else {
+				return Integer.parseInt(parts1[1]) - Integer.parseInt(parts2[1]);
+			}
+		}).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+		
+		Map<String, Integer> sortedDailySummary = dailySummary.entrySet().stream().sorted((e1, e2) -> {
+			String[] parts1 = e1.getKey().split("_");
+			String[] parts2 = e2.getKey().split("_");
+			int monthCompare = Arrays.asList(months).indexOf(parts1[0]) - Arrays.asList(months).indexOf(parts2[0]);
+			if (monthCompare != 0) {
+				return monthCompare;
+			} else {
+				return Arrays.asList(days).indexOf(parts1[1]) - Arrays.asList(days).indexOf(parts2[1]);
+			}
+		}).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+		
+		Map<String, Map<String, Integer>> summary = new HashMap<>();
+		summary.put("groupYear", sortedMonthlySummary);
+		summary.put("groupMonth", sortedWeeklySummary);
+		summary.put("groupWeek", sortedDailySummary);
+		
+		return summary;
 	}
 	
 	private static ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory,
@@ -1337,24 +1361,20 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
-		List<String> encounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
+		List<String> activeClientsEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
 		
-		List<Encounter> activeRegimenEncounters = getEncountersByEncounterTypes(encounterTypeUuids, startDate, endDate);
+		List<Encounter> activeClientsEncounters = getEncountersByEncounterTypes(activeClientsEncounterTypeUuids, startDate,
+		    endDate);
 		
-		HashSet<Patient> activePatients = activeRegimenEncounters.stream().map(Encounter::getPatient)
-		        .collect(Collectors.toCollection(HashSet::new));
-		
-		List<Obs> regimenObs = Context.getObsService().getObservations(null, activeRegimenEncounters,
+		List<Obs> activeClientsObs = Context.getObsService().getObservations(null, activeClientsEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
 		    null, null, null, null, startDate, endDate, false);
 		
-		HashSet<Patient> activeClients = regimenObs.stream().filter(obs -> obs.getPerson() instanceof Patient)
+		HashSet<Patient> activeClients = activeClientsObs.stream().filter(obs -> obs.getPerson() instanceof Patient)
 		        .map(obs -> (Patient) obs.getPerson()).collect(Collectors.toCollection(HashSet::new));
 		
-		activePatients.addAll(activeClients);
-		
-		return generatePatientListObj(activePatients, startDate, endDate);
+		return generatePatientListObj(activeClients, startDate, endDate);
 	}
 	
 	// Retrieves a list of encounters filtered by encounter types.
@@ -1471,64 +1491,45 @@ public class SSEMRWebServicesController {
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null,
 		    null, null, null, null, null, null, null, false);
 		
-		if (artRegimenObs != null && !artRegimenObs.isEmpty()) {
-			Obs lastartRegimenObs = artRegimenObs.get(0);
-			return lastartRegimenObs.getValueText();
+		artRegimenObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		for (Obs obs : artRegimenObs) {
+			if (obs.getValueCoded() != null) {
+				return obs.getValueCoded().getName().getName();
+			}
 		}
 		return "";
 	}
 	
-	private Object generateViralLoadListObj(List<Patient> allPatients) {
-		// The expected output for this method should resemble this JSON output
-		// [{
-		// "Jan"":[{""patient1""},{""patient2""}...],
-		// "Feb"":[{""patient1""},{""patient2""}...],
-		// "Mar"":[{""patient1""},{""patient2""}...],
-		// "Apr"":[{""patient1""},{""patient2""}...],
-		// "May"":[{""patient1""},{""patient2""}...],
-		// "Jun"":[{""patient1""},{""patient2""}...],
-		// }]"
-		// }
-		// ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
-		// ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
-		
-		return new ArrayList<>();
+	private List<Encounter> getEncountersByDateRange(List<String> encounterTypeUuids, Date startDate, Date endDate) {
+		return getEncountersByEncounterTypes(encounterTypeUuids, startDate, endDate);
 	}
 	
-	private static class SummarySection extends ObjectNode {
-		
-		private ObjectNode groupWeek;
-		
-		private ObjectNode groupMonth;
-		
-		private ObjectNode groupYear;
-		
-		public SummarySection(JsonNodeFactory nc) {
-			super(nc);
+	private List<Obs> getObservationsByDateRange(List<Encounter> encounters, List<Concept> concepts, Date startDate,
+	        Date endDate) {
+		return Context.getObsService().getObservations(null, encounters, concepts, null, null, null, null, null, null,
+		    startDate, endDate, false);
+	}
+	
+	private HashSet<Patient> extractPatientsFromEncounters(List<Encounter> encounters) {
+		HashSet<Patient> patients = new HashSet<>();
+		for (Encounter encounter : encounters) {
+			patients.add(encounter.getPatient());
 		}
-		
-		public void setGroupYear(ObjectNode groupYear) {
-			this.groupYear = groupYear;
+		return patients;
+	}
+	
+	private HashSet<Patient> extractPatientsFromObservations(List<Obs> observations) {
+		HashSet<Patient> patients = new HashSet<>();
+		for (Obs obs : observations) {
+			Person person = obs.getPerson();
+			if (person != null) {
+				Patient patient = Context.getPatientService().getPatient(person.getPersonId());
+				if (patient != null) {
+					patients.add(patient);
+				}
+			}
 		}
-		
-		public ObjectNode getGroupYear() {
-			return groupYear;
-		}
-		
-		public void setGroupMonth(ObjectNode groupMonth) {
-			this.groupMonth = groupMonth;
-		}
-		
-		public ObjectNode getGroupMonth() {
-			return groupMonth;
-		}
-		
-		public void setGroupWeek(ObjectNode groupWeek) {
-			this.groupWeek = groupWeek;
-		}
-		
-		public ObjectNode getGroupWeek() {
-			return groupWeek;
-		}
+		return patients;
 	}
 }
