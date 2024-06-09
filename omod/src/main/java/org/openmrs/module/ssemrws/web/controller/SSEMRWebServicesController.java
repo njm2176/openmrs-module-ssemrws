@@ -182,6 +182,16 @@ public class SSEMRWebServicesController {
 	
 	public static final String VIRAL_LOAD_RESULTS_UUID = "8b5ef5c4-3c88-49b8-87e5-cb8d30caa77d";
 	
+	public static final String FIRST_EAC_SESSION = "37f1e487-24f7-48f3-a347-391e877152e4";
+	
+	public static final String SECOND_EAC_SESSION = "348c5147-4e54-420a-a035-b322e1ba0b6e";
+	
+	public static final String THIRD_EAC_SESSION = "60966dae-3999-42b9-aec1-6161cebb22c1";
+	
+	public static final String REAPEAT_VL_COLLECTION = "06cee3e6-daaa-48cf-aa53-296254ee61a3";
+	
+	public static final String REPEAT_VL_RESULTS = "68c60487-62b5-45af-9773-0bc163b9e076";
+	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
@@ -1097,26 +1107,89 @@ public class SSEMRWebServicesController {
 	
 	// Get all patients who have high Viral Load
 	private HashSet<Patient> getPatientsWithHighVL(Date startDate, Date endDate) {
-		EncounterType followUpEncounterType = Context.getEncounterService()
-		        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		return getPatientsWithVL(startDate, endDate, FOLLOW_UP_FORM_ENCOUNTER_TYPE, VIRAL_LOAD_CONCEPT_UUID);
+	}
+	
+	private HashSet<Patient> getPatientsWithPersistentHighVL(Date startDate, Date endDate) {
+		return getPatientsWithVL(startDate, endDate, HIGH_VL_ENCOUNTERTYPE_UUID, REPEAT_VL_RESULTS);
+	}
+	
+	private HashSet<Patient> getPatientsWithVL(Date startDate, Date endDate, String encounterTypeUuid, String conceptUuid) {
+		EncounterType encounterType = Context.getEncounterService().getEncounterTypeByUuid(encounterTypeUuid);
 		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
-		        null, Collections.singletonList(followUpEncounterType), null, null, null, false);
+		        null, Collections.singletonList(encounterType), null, null, null, false);
 		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
 		
-		HashSet<Patient> highVLPatients = new HashSet<>();
+		HashSet<Patient> vlPatients = new HashSet<>();
 		
-		List<Obs> highVLObs = Context.getObsService().getObservations(null, encounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
-		    null, null, null, null, startDate, endDate, false);
+		List<Obs> vlObs = Context.getObsService().getObservations(null, encounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(conceptUuid)), null, null, null, null,
+		    null, null, startDate, endDate, false);
 		
-		for (Obs obs : highVLObs) {
+		for (Obs obs : vlObs) {
 			if (obs.getValueNumeric() != null && obs.getValueNumeric() >= THRESHOLD) {
-				highVLPatients.add((Patient) obs.getPerson());
+				vlPatients.add((Patient) obs.getPerson());
 			}
 		}
 		
-		return highVLPatients;
+		return vlPatients;
+	}
+	
+	private HashSet<Patient> getPatientsWithRepeatedVL(Date startDate, Date endDate) {
+		EncounterType repeatViralLoadEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(HIGH_VL_ENCOUNTERTYPE_UUID);
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(repeatViralLoadEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
 		
+		HashSet<Patient> repeatviralLoadPatients = new HashSet<>();
+		
+		List<Obs> repeatviralLoadObs = Context.getObsService().getObservations(null, encounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(REAPEAT_VL_COLLECTION)), null, null, null,
+		    null, null, null, startDate, endDate, false);
+		
+		for (Obs obs : repeatviralLoadObs) {
+			if (obs != null) {
+				repeatviralLoadPatients.add((Patient) obs.getPerson());
+			}
+		}
+		
+		return repeatviralLoadPatients;
+		
+	}
+	
+	private HashSet<Patient> getPatientsWithSwitchART(Date startDate, Date endDate) {
+		EncounterType switchARTRegimenEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(switchARTRegimenEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		
+		HashSet<Patient> switchARTRegimenPatients = new HashSet<>();
+		Map<Patient, String> patientPreviousRegimen = new HashMap<>();
+		
+		List<Obs> switchARTRegimenObs = Context.getObsService().getObservations(null, encounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
+		    null, null, null, null, startDate, endDate, false);
+		
+		for (Obs obs : switchARTRegimenObs) {
+			if (obs != null && obs.getPerson() instanceof Patient) {
+				Patient patient = (Patient) obs.getPerson();
+				String currentRegimen = obs.getValueCoded() != null ? obs.getValueCoded().getUuid() : null;
+				
+				if (currentRegimen != null) {
+					if (patientPreviousRegimen.containsKey(patient)) {
+						String previousRegimen = patientPreviousRegimen.get(patient);
+						if (!currentRegimen.equals(previousRegimen)) {
+							switchARTRegimenPatients.add(patient);
+						}
+					}
+					patientPreviousRegimen.put(patient, currentRegimen);
+				}
+			}
+		}
+		
+		return switchARTRegimenPatients;
 	}
 	
 	// Determine if Patient is High Viral Load and return true if it is equal or
@@ -1363,18 +1436,20 @@ public class SSEMRWebServicesController {
 		
 		List<String> activeClientsEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-		
-		List<Encounter> activeClientsEncounters = getEncountersByEncounterTypes(activeClientsEncounterTypeUuids, startDate,
+		List<Encounter> activeRegimenEncounters = getEncountersByDateRange(activeClientsEncounterTypeUuids, startDate,
 		    endDate);
 		
-		List<Obs> activeClientsObs = Context.getObsService().getObservations(null, activeClientsEncounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
-		    null, null, null, null, startDate, endDate, false);
+		HashSet<Patient> activePatients = extractPatientsFromEncounters(activeRegimenEncounters);
 		
-		HashSet<Patient> activeClients = activeClientsObs.stream().filter(obs -> obs.getPerson() instanceof Patient)
-		        .map(obs -> (Patient) obs.getPerson()).collect(Collectors.toCollection(HashSet::new));
+		Concept activeRegimenConcept = Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID);
+		List<Obs> regimenObs = getObservationsByDateRange(activeRegimenEncounters,
+		    Collections.singletonList(activeRegimenConcept), startDate, endDate);
 		
-		return generatePatientListObj(activeClients, startDate, endDate);
+		HashSet<Patient> activeClients = extractPatientsFromObservations(regimenObs);
+		
+		activePatients.addAll(activeClients);
+		
+		return generatePatientListObj(activePatients, startDate, endDate);
 	}
 	
 	// Retrieves a list of encounters filtered by encounter types.
@@ -1486,6 +1561,13 @@ public class SSEMRWebServicesController {
 		return "";
 	}
 	
+	/**
+	 * Retrieves the ART Regimen of a patient from their Observations.
+	 * 
+	 * @param patient The patient for whom the ART Regimen is to be retrieved.
+	 * @return A string representing the ART Regimen of the patient. If no ART Regimen is found, an
+	 *         empty string is returned.
+	 */
 	private static String getARTRegimen(Patient patient) {
 		List<Obs> artRegimenObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null,
@@ -1531,5 +1613,79 @@ public class SSEMRWebServicesController {
 			}
 		}
 		return patients;
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCascade")
+	@ResponseBody
+	public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		return getViralLoadCascade(qStartDate, qEndDate,
+		    Arrays.asList(FIRST_EAC_SESSION, SECOND_EAC_SESSION, THIRD_EAC_SESSION, EXTENDED_EAC_CONCEPT_UUID,
+		        REAPEAT_VL_COLLECTION, REPEAT_VL_RESULTS, HIGH_VL_ENCOUNTERTYPE_UUID, ACTIVE_REGIMEN_CONCEPT_UUID),
+		    EAC_SESSION_CONCEPT_UUID);
+	}
+	
+	private Object getViralLoadCascade(String qStartDate, String qEndDate, List<String> vlCascadeConceptUuids,
+	        String eacSessionConceptUuid) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<String> viralLoadCascadeEncounterTypeUuids = Arrays.asList(HIGH_VL_ENCOUNTERTYPE_UUID,
+		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		
+		List<Encounter> viralLoadCascadeEncounters = getEncountersByEncounterTypes(viralLoadCascadeEncounterTypeUuids,
+		    startDate, endDate);
+		
+		List<Concept> viralLoadCascadeConcepts = getConceptsByUuids(vlCascadeConceptUuids);
+		
+		List<Obs> viralLoadCascadeObs = Context.getObsService().getObservations(null, viralLoadCascadeEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(eacSessionConceptUuid)),
+		    viralLoadCascadeConcepts, null, null, null, null, null, null, endDate, false);
+		
+		Map<String, Integer> viralLoadCascadeCounts = new HashMap<>();
+		
+		Set<Patient> patientsWithHighViralLoad = getPatientsWithHighVL(startDate, endDate);
+		Set<Patient> patientsWithPersistentHighVL = getPatientsWithPersistentHighVL(startDate, endDate);
+		Set<Patient> patientsWithRepeatedVL = getPatientsWithRepeatedVL(startDate, endDate);
+		Set<Patient> patientsWithSwitchART = getPatientsWithSwitchART(startDate, endDate);
+		
+		for (Obs obs : viralLoadCascadeObs) {
+			Concept viralLoadCascadeConcept = obs.getValueCoded();
+			if (viralLoadCascadeConcept != null) {
+				String conceptName = viralLoadCascadeConcept.getName().getName();
+				viralLoadCascadeCounts.put(conceptName, viralLoadCascadeCounts.getOrDefault(conceptName, 0) + 1);
+			}
+		}
+		
+		// Combine the results
+		Map<String, Object> results = new HashMap<>();
+		List<Map<String, Object>> viralLoadCascadeList = new ArrayList<>();
+		
+		// Add the entries in the desired order
+		viralLoadCascadeList.add(createCascadeEntry("High Viral Load (>=1000 copies/ml)", patientsWithHighViralLoad.size()));
+		viralLoadCascadeList
+		        .add(createCascadeEntry("First EAC Session", viralLoadCascadeCounts.getOrDefault("First EAC Session", 0)));
+		viralLoadCascadeList
+		        .add(createCascadeEntry("Second EAC Session", viralLoadCascadeCounts.getOrDefault("Second EAC Session", 0)));
+		viralLoadCascadeList
+		        .add(createCascadeEntry("Third EAC Session", viralLoadCascadeCounts.getOrDefault("Third EAC Session", 0)));
+		viralLoadCascadeList.add(
+		    createCascadeEntry("Extended EAC Session", viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 0)));
+		viralLoadCascadeList.add(createCascadeEntry("Repeat Viral Load Collected", patientsWithRepeatedVL.size()));
+		viralLoadCascadeList.add(createCascadeEntry("Persistent High Viral Load", patientsWithPersistentHighVL.size()));
+		viralLoadCascadeList.add(createCascadeEntry("ART Switch", patientsWithSwitchART.size()));
+		
+		results.put("results", viralLoadCascadeList);
+		return results;
+	}
+	
+	private Map<String, Object> createCascadeEntry(String text, int total) {
+		Map<String, Object> entry = new HashMap<>();
+		entry.put("text", text);
+		entry.put("total", total);
+		return entry;
 	}
 }
