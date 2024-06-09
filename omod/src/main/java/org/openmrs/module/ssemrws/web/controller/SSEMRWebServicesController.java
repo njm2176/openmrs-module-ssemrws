@@ -1615,68 +1615,91 @@ public class SSEMRWebServicesController {
 		return patients;
 	}
 	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCascade")
-	@ResponseBody
-	public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		
-		return getViralLoadCascade(qStartDate, qEndDate,
-		    Arrays.asList(FIRST_EAC_SESSION, SECOND_EAC_SESSION, THIRD_EAC_SESSION, EXTENDED_EAC_CONCEPT_UUID,
-		        REAPEAT_VL_COLLECTION, REPEAT_VL_RESULTS, HIGH_VL_ENCOUNTERTYPE_UUID, ACTIVE_REGIMEN_CONCEPT_UUID),
-		    EAC_SESSION_CONCEPT_UUID);
-	}
-	
+	/**
+ * This method handles the viral load cascade endpoint for the ART dashboard.
+ * It retrieves the necessary data from the database and calculates the viral load cascade.
+ *
+ * @param request The HTTP request object.
+ * @param qStartDate The start date for the viral load cascade in the format "yyyy-MM-dd".
+ * @param qEndDate The end date for the viral load cascade in the format "yyyy-MM-dd".
+ * @param filterCategory The filter category for the viral load cascade.
+ * @return A JSON object containing the results of the viral load cascade.
+ * @throws ParseException If the start or end date cannot be parsed.
+ */
+@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCascade")
+@ResponseBody
+public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+        @RequestParam("endDate") String qEndDate,
+        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+
+    return getViralLoadCascade(qStartDate, qEndDate,
+            Arrays.asList(FIRST_EAC_SESSION, SECOND_EAC_SESSION, THIRD_EAC_SESSION, EXTENDED_EAC_CONCEPT_UUID,
+                    REAPEAT_VL_COLLECTION, REPEAT_VL_RESULTS, HIGH_VL_ENCOUNTERTYPE_UUID, ACTIVE_REGIMEN_CONCEPT_UUID),
+            EAC_SESSION_CONCEPT_UUID);
+}
+
+	/**
+	 * This method calculates the viral load cascade for the ART dashboard.
+	 * It retrieves the necessary data from the database, calculates the viral load cascade,
+	 * and returns the results in a JSON object format.
+	 *
+	 * @param qStartDate The start date for the viral load cascade in the format "yyyy-MM-dd".
+	 * @param qEndDate The end date for the viral load cascade in the format "yyyy-MM-dd".
+	 * @param vlCascadeConceptUuids A list of UUIDs representing the concepts related to the viral load cascade.
+	 * @param eacSessionConceptUuid The UUID of the concept representing the EAC session.
+	 * @return A JSON object containing the results of the viral load cascade.
+	 * @throws ParseException If the start or end date cannot be parsed.
+	 */
 	private Object getViralLoadCascade(String qStartDate, String qEndDate, List<String> vlCascadeConceptUuids,
 	        String eacSessionConceptUuid) throws ParseException {
-		
+
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
-		
+
 		List<String> viralLoadCascadeEncounterTypeUuids = Arrays.asList(HIGH_VL_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-		
+
 		List<Encounter> viralLoadCascadeEncounters = getEncountersByEncounterTypes(viralLoadCascadeEncounterTypeUuids,
 		    startDate, endDate);
-		
+
 		List<Concept> viralLoadCascadeConcepts = getConceptsByUuids(vlCascadeConceptUuids);
-		
+
 		List<Obs> viralLoadCascadeObs = Context.getObsService().getObservations(null, viralLoadCascadeEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(eacSessionConceptUuid)),
 		    viralLoadCascadeConcepts, null, null, null, null, null, null, endDate, false);
-		
+
 		Map<String, Integer> viralLoadCascadeCounts = new HashMap<>();
 		Map<String, Double> totalTurnaroundTime = new HashMap<>();
-		
+
 		Set<Patient> patientsWithHighViralLoad = getPatientsWithHighVL(startDate, endDate);
 		Set<Patient> patientsWithPersistentHighVL = getPatientsWithPersistentHighVL(startDate, endDate);
 		Set<Patient> patientsWithRepeatedVL = getPatientsWithRepeatedVL(startDate, endDate);
 		Set<Patient> patientsWithSwitchART = getPatientsWithSwitchART(startDate, endDate);
-		
+
 		for (Obs obs : viralLoadCascadeObs) {
 			Concept viralLoadCascadeConcept = obs.getValueCoded();
 			if (viralLoadCascadeConcept != null) {
 				String conceptName = viralLoadCascadeConcept.getName().getName();
 				viralLoadCascadeCounts.put(conceptName, viralLoadCascadeCounts.getOrDefault(conceptName, 0) + 1);
-				
+
 				double turnaroundTimeInMonths = calculateTurnaroundTimeInMonths(obs.getObsDatetime(), endDate);
 				totalTurnaroundTime.put(conceptName,
 				    totalTurnaroundTime.getOrDefault(conceptName, 0.0) + turnaroundTimeInMonths);
 			}
 		}
-		
+
 		// Calculate the total number of patients involved in the cascade
 		int totalPatients = patientsWithHighViralLoad.size() + patientsWithPersistentHighVL.size()
 		        + patientsWithRepeatedVL.size() + patientsWithSwitchART.size();
-		
+
 		for (int count : viralLoadCascadeCounts.values()) {
 			totalPatients += count;
 		}
-		
+
 		// Combine the results
 		Map<String, Object> results = new HashMap<>();
 		List<Map<String, Object>> viralLoadCascadeList = new ArrayList<>();
-		
+
 		// Add the entries in the desired order
 		addCascadeEntry(viralLoadCascadeList, "High Viral Load (>=1000 copies/ml)", patientsWithHighViralLoad.size(),
 		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithHighViralLoad.size()));
@@ -1702,11 +1725,11 @@ public class SSEMRWebServicesController {
 		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithPersistentHighVL.size()));
 		addCascadeEntry(viralLoadCascadeList, "ART Switch", patientsWithSwitchART.size(), totalPatients,
 		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()));
-		
+
 		results.put("results", viralLoadCascadeList);
 		return results;
 	}
-	
+
 	private void addCascadeEntry(List<Map<String, Object>> cascadeList, String text, int count, int total,
 	        double avgTurnaroundTime) {
 		Map<String, Object> entry = new HashMap<>();
@@ -1716,19 +1739,19 @@ public class SSEMRWebServicesController {
 		entry.put("averageTurnaroundTimeMonths", avgTurnaroundTime);
 		cascadeList.add(entry);
 	}
-	
+
 	private double calculateTurnaroundTimeInMonths(Date startDate, Date endDate) {
 		Calendar start = Calendar.getInstance();
 		start.setTime(startDate);
 		Calendar end = Calendar.getInstance();
 		end.setTime(endDate);
-		
+
 		int yearsDifference = end.get(Calendar.YEAR) - start.get(Calendar.YEAR);
 		int monthsDifference = end.get(Calendar.MONTH) - start.get(Calendar.MONTH);
-		
+
 		return yearsDifference * 12 + monthsDifference;
 	}
-	
+
 	private double calculateAverageTurnaroundTime(Date startDate, Date endDate, int count) {
 		double totalTurnaroundTime = calculateTurnaroundTimeInMonths(startDate, endDate) * count;
 		return count > 0 ? totalTurnaroundTime / count : 0;
