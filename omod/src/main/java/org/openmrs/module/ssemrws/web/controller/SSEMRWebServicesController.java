@@ -1646,6 +1646,7 @@ public class SSEMRWebServicesController {
 		    viralLoadCascadeConcepts, null, null, null, null, null, null, endDate, false);
 		
 		Map<String, Integer> viralLoadCascadeCounts = new HashMap<>();
+		Map<String, Double> totalTurnaroundTime = new HashMap<>();
 		
 		Set<Patient> patientsWithHighViralLoad = getPatientsWithHighVL(startDate, endDate);
 		Set<Patient> patientsWithPersistentHighVL = getPatientsWithPersistentHighVL(startDate, endDate);
@@ -1657,7 +1658,19 @@ public class SSEMRWebServicesController {
 			if (viralLoadCascadeConcept != null) {
 				String conceptName = viralLoadCascadeConcept.getName().getName();
 				viralLoadCascadeCounts.put(conceptName, viralLoadCascadeCounts.getOrDefault(conceptName, 0) + 1);
+				
+				double turnaroundTimeInMonths = calculateTurnaroundTimeInMonths(obs.getObsDatetime(), endDate);
+				totalTurnaroundTime.put(conceptName,
+				    totalTurnaroundTime.getOrDefault(conceptName, 0.0) + turnaroundTimeInMonths);
 			}
+		}
+		
+		// Calculate the total number of patients involved in the cascade
+		int totalPatients = patientsWithHighViralLoad.size() + patientsWithPersistentHighVL.size()
+		        + patientsWithRepeatedVL.size() + patientsWithSwitchART.size();
+		
+		for (int count : viralLoadCascadeCounts.values()) {
+			totalPatients += count;
 		}
 		
 		// Combine the results
@@ -1665,27 +1678,59 @@ public class SSEMRWebServicesController {
 		List<Map<String, Object>> viralLoadCascadeList = new ArrayList<>();
 		
 		// Add the entries in the desired order
-		viralLoadCascadeList.add(createCascadeEntry("High Viral Load (>=1000 copies/ml)", patientsWithHighViralLoad.size()));
-		viralLoadCascadeList
-		        .add(createCascadeEntry("First EAC Session", viralLoadCascadeCounts.getOrDefault("First EAC Session", 0)));
-		viralLoadCascadeList
-		        .add(createCascadeEntry("Second EAC Session", viralLoadCascadeCounts.getOrDefault("Second EAC Session", 0)));
-		viralLoadCascadeList
-		        .add(createCascadeEntry("Third EAC Session", viralLoadCascadeCounts.getOrDefault("Third EAC Session", 0)));
-		viralLoadCascadeList.add(
-		    createCascadeEntry("Extended EAC Session", viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 0)));
-		viralLoadCascadeList.add(createCascadeEntry("Repeat Viral Load Collected", patientsWithRepeatedVL.size()));
-		viralLoadCascadeList.add(createCascadeEntry("Persistent High Viral Load", patientsWithPersistentHighVL.size()));
-		viralLoadCascadeList.add(createCascadeEntry("ART Switch", patientsWithSwitchART.size()));
+		addCascadeEntry(viralLoadCascadeList, "High Viral Load (>=1000 copies/ml)", patientsWithHighViralLoad.size(),
+		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithHighViralLoad.size()));
+		addCascadeEntry(viralLoadCascadeList, "First EAC Session",
+		    viralLoadCascadeCounts.getOrDefault("First EAC Session", 0), totalPatients,
+		    totalTurnaroundTime.getOrDefault("First EAC Session", 0.0)
+		            / viralLoadCascadeCounts.getOrDefault("First EAC Session", 1));
+		addCascadeEntry(viralLoadCascadeList, "Second EAC Session",
+		    viralLoadCascadeCounts.getOrDefault("Second EAC Session", 0), totalPatients,
+		    totalTurnaroundTime.getOrDefault("Second EAC Session", 0.0)
+		            / viralLoadCascadeCounts.getOrDefault("Second EAC Session", 1));
+		addCascadeEntry(viralLoadCascadeList, "Third EAC Session",
+		    viralLoadCascadeCounts.getOrDefault("Third EAC Session", 0), totalPatients,
+		    totalTurnaroundTime.getOrDefault("Third EAC Session", 0.0)
+		            / viralLoadCascadeCounts.getOrDefault("Third EAC Session", 1));
+		addCascadeEntry(viralLoadCascadeList, "Extended EAC Session",
+		    viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 0), totalPatients,
+		    totalTurnaroundTime.getOrDefault("Extended EAC Session", 0.0)
+		            / viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 1));
+		addCascadeEntry(viralLoadCascadeList, "Repeat Viral Load Collected", patientsWithRepeatedVL.size(), totalPatients,
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithRepeatedVL.size()));
+		addCascadeEntry(viralLoadCascadeList, "Persistent High Viral Load", patientsWithPersistentHighVL.size(),
+		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithPersistentHighVL.size()));
+		addCascadeEntry(viralLoadCascadeList, "ART Switch", patientsWithSwitchART.size(), totalPatients,
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()));
 		
 		results.put("results", viralLoadCascadeList);
 		return results;
 	}
 	
-	private Map<String, Object> createCascadeEntry(String text, int total) {
+	private void addCascadeEntry(List<Map<String, Object>> cascadeList, String text, int count, int total,
+	        double avgTurnaroundTime) {
 		Map<String, Object> entry = new HashMap<>();
 		entry.put("text", text);
-		entry.put("total", total);
-		return entry;
+		entry.put("total", count);
+		entry.put("percentage", total > 0 ? (count * 100.0 / total) : 0);
+		entry.put("averageTurnaroundTimeMonths", avgTurnaroundTime);
+		cascadeList.add(entry);
+	}
+	
+	private double calculateTurnaroundTimeInMonths(Date startDate, Date endDate) {
+		Calendar start = Calendar.getInstance();
+		start.setTime(startDate);
+		Calendar end = Calendar.getInstance();
+		end.setTime(endDate);
+		
+		int yearsDifference = end.get(Calendar.YEAR) - start.get(Calendar.YEAR);
+		int monthsDifference = end.get(Calendar.MONTH) - start.get(Calendar.MONTH);
+		
+		return yearsDifference * 12 + monthsDifference;
+	}
+	
+	private double calculateAverageTurnaroundTime(Date startDate, Date endDate, int count) {
+		double totalTurnaroundTime = calculateTurnaroundTimeInMonths(startDate, endDate) * count;
+		return count > 0 ? totalTurnaroundTime / count : 0;
 	}
 }
