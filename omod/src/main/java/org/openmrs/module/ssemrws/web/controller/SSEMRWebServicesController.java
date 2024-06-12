@@ -205,6 +205,7 @@ public class SSEMRWebServicesController {
 		
 		return generatePatientListObj((HashSet<Patient>) allPatients);
 	}
+
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/adultRegimenTreatment")
 	// gets all visit forms for a patient
 	@ResponseBody
