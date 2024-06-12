@@ -900,6 +900,18 @@ public class SSEMRWebServicesController {
 			identifiersArray.add(identifierObj);
 		}
 		
+		String landmark = "";
+		String village = "";
+		for (PersonAddress address : patient.getAddresses()) {
+			if (address.getAddress5() != null) {
+				village = address.getAddress5();
+			}
+			if (address.getAddress6() != null) {
+				landmark = address.getAddress6();
+			}
+		}
+		String fullAddress = "Landmark: " + landmark + ", Village: " + village;
+		
 		ClinicalStatus clinicalStatus = determineClinicalStatus(patient, startDate, endDate);
 		
 		patientObj.put("uuid", patient.getUuid());
@@ -909,7 +921,7 @@ public class SSEMRWebServicesController {
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("age", age);
 		patientObj.put("identifiers", identifiersArray);
-		patientObj.put("address", patient.getAddresses().toString());
+		patientObj.put("address", fullAddress);
 		patientObj.put("contact", contact);
 		patientObj.put("alternateContact", alternateContact);
 		patientObj.put("dateEnrolled", dateEnrolled);
@@ -1456,6 +1468,12 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
+		HashSet<Patient> activePatients = getActiveClients(startDate, endDate);
+		
+		return generatePatientListObj(activePatients, startDate, endDate);
+	}
+	
+	private HashSet<Patient> getActiveClients(Date startDate, Date endDate) throws ParseException {
 		List<String> activeClientsEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
 		List<Encounter> activeRegimenEncounters = getEncountersByDateRange(activeClientsEncounterTypeUuids, startDate,
@@ -1471,7 +1489,7 @@ public class SSEMRWebServicesController {
 		
 		activePatients.addAll(activeClients);
 		
-		return generatePatientListObj(activePatients, startDate, endDate);
+		return activePatients;
 	}
 	
 	// Retrieves a list of encounters filtered by encounter types.
@@ -1910,5 +1928,19 @@ public class SSEMRWebServicesController {
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
 		    endDate);
 		return activeRegimenObs.stream().anyMatch(obs -> obs.getPerson().equals(patient));
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/waterfallAnalysis")
+	@ResponseBody
+	public Object getWaterfallAnalysis(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		
+		return generatePatientListObj(new HashSet<>(deceasedPatients), startDate, endDate);
 	}
 }
