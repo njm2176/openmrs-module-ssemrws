@@ -30,6 +30,7 @@ import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.APIException;
+import org.openmrs.api.PatientService;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
@@ -191,6 +192,12 @@ public class SSEMRWebServicesController {
 	public static final String REAPEAT_VL_COLLECTION = "06cee3e6-daaa-48cf-aa53-296254ee61a3";
 	
 	public static final String REPEAT_VL_RESULTS = "68c60487-62b5-45af-9773-0bc163b9e076";
+	
+	public static final String END_OF_FOLLOW_UP_ENCOUTERTYPE_UUID = "3bf40d2b-c8a2-4a7d-9da2-adb33860e0f8";
+	
+	public static final String TRANSFERRED_OUT_CONCEPT_UUID = "68f68ae1-272c-44e4-85af-009e46e60015";
+	
+	public static final String DATE_OF_ART_INITIATION_CONCEPT_UUID = "30f1f347-d72c-4920-9962-6d55d138e8e5";
 	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
@@ -873,6 +880,7 @@ public class SSEMRWebServicesController {
 		String dateEnrolled = getEnrolmentDate(patient);
 		String lastRefillDate = getLastRefillDate(patient);
 		String artRegimen = getARTRegimen(patient);
+		String artInitiationDate = getArtInitiationDate(patient);
 		String contact = patient.getAttribute("Client Telephone Number") != null
 		        ? String.valueOf(patient.getAttribute("Client Telephone Number"))
 		        : "";
@@ -884,17 +892,31 @@ public class SSEMRWebServicesController {
 		Date currentDate = new Date();
 		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
 		
+		ArrayNode identifiersArray = JsonNodeFactory.instance.arrayNode();
+		for (PatientIdentifier identifier : patient.getIdentifiers()) {
+			ObjectNode identifierObj = JsonNodeFactory.instance.objectNode();
+			identifierObj.put("identifier", identifier.getIdentifier());
+			identifierObj.put("identifierType", identifier.getIdentifierType().getName());
+			identifiersArray.add(identifierObj);
+		}
+		
+		ClinicalStatus clinicalStatus = determineClinicalStatus(patient, startDate, endDate);
+		
 		patientObj.put("uuid", patient.getUuid());
 		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
 		patientObj.put("identifier",
 		    patient.getPatientIdentifier() != null ? patient.getPatientIdentifier().toString() : "");
 		patientObj.put("sex", patient.getGender());
-		patientObj.put("address", patient.getPersonAddress().toString());
+		patientObj.put("age", age);
+		patientObj.put("identifiers", identifiersArray);
+		patientObj.put("address", patient.getAddresses().toString());
 		patientObj.put("contact", contact);
 		patientObj.put("alternateContact", alternateContact);
 		patientObj.put("dateEnrolled", dateEnrolled);
 		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("ARTRegimen", artRegimen);
+		patientObj.put("initiationDate", artInitiationDate);
+		patientObj.put("clinicalStatus", clinicalStatus.toString());
 		patientObj.put("newClient", newlyEnrolledOnArt(patient));
 		patientObj.put("childOrAdolescent", age <= 19 ? true : false);
 		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
@@ -1561,6 +1583,23 @@ public class SSEMRWebServicesController {
 		return "";
 	}
 	
+	// Retrieve the Initiation Date from Patient Observation
+	private static String getArtInitiationDate(Patient patient) {
+		List<Obs> initiationDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ART_INITIATION_CONCEPT_UUID)),
+		    null, null, null, null, null, null, null, null, false);
+		
+		if (initiationDateObs != null && !initiationDateObs.isEmpty()) {
+			Obs lastObs = initiationDateObs.get(0);
+			Date initiationDate = lastObs.getValueDate();
+			if (initiationDate != null) {
+				return dateTimeFormatter.format(initiationDate);
+			}
+		}
+		return "";
+	}
+	
 	/**
 	 * Retrieves the ART Regimen of a patient from their Observations.
 	 * 
@@ -1583,11 +1622,11 @@ public class SSEMRWebServicesController {
 		return "";
 	}
 	
-	private List<Encounter> getEncountersByDateRange(List<String> encounterTypeUuids, Date startDate, Date endDate) {
+	private static List<Encounter> getEncountersByDateRange(List<String> encounterTypeUuids, Date startDate, Date endDate) {
 		return getEncountersByEncounterTypes(encounterTypeUuids, startDate, endDate);
 	}
 	
-	private List<Obs> getObservationsByDateRange(List<Encounter> encounters, List<Concept> concepts, Date startDate,
+	private static List<Obs> getObservationsByDateRange(List<Encounter> encounters, List<Concept> concepts, Date startDate,
 	        Date endDate) {
 		return Context.getObsService().getObservations(null, encounters, concepts, null, null, null, null, null, null,
 		    startDate, endDate, false);
@@ -1616,93 +1655,94 @@ public class SSEMRWebServicesController {
 	}
 	
 	/**
- * This method handles the viral load cascade endpoint for the ART dashboard.
- * It retrieves the necessary data from the database and calculates the viral load cascade.
- *
- * @param request The HTTP request object.
- * @param qStartDate The start date for the viral load cascade in the format "yyyy-MM-dd".
- * @param qEndDate The end date for the viral load cascade in the format "yyyy-MM-dd".
- * @param filterCategory The filter category for the viral load cascade.
- * @return A JSON object containing the results of the viral load cascade.
- * @throws ParseException If the start or end date cannot be parsed.
- */
-@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCascade")
-@ResponseBody
-public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-        @RequestParam("endDate") String qEndDate,
-        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-
-    return getViralLoadCascade(qStartDate, qEndDate,
-            Arrays.asList(FIRST_EAC_SESSION, SECOND_EAC_SESSION, THIRD_EAC_SESSION, EXTENDED_EAC_CONCEPT_UUID,
-                    REAPEAT_VL_COLLECTION, REPEAT_VL_RESULTS, HIGH_VL_ENCOUNTERTYPE_UUID, ACTIVE_REGIMEN_CONCEPT_UUID),
-            EAC_SESSION_CONCEPT_UUID);
-}
-
-	/**
-	 * This method calculates the viral load cascade for the ART dashboard.
-	 * It retrieves the necessary data from the database, calculates the viral load cascade,
-	 * and returns the results in a JSON object format.
-	 *
+	 * This method handles the viral load cascade endpoint for the ART dashboard. It retrieves the
+	 * necessary data from the database and calculates the viral load cascade.
+	 * 
+	 * @param request The HTTP request object.
 	 * @param qStartDate The start date for the viral load cascade in the format "yyyy-MM-dd".
 	 * @param qEndDate The end date for the viral load cascade in the format "yyyy-MM-dd".
-	 * @param vlCascadeConceptUuids A list of UUIDs representing the concepts related to the viral load cascade.
+	 * @param filterCategory The filter category for the viral load cascade.
+	 * @return A JSON object containing the results of the viral load cascade.
+	 * @throws ParseException If the start or end date cannot be parsed.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCascade")
+	@ResponseBody
+	public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		return getViralLoadCascade(qStartDate, qEndDate,
+		    Arrays.asList(FIRST_EAC_SESSION, SECOND_EAC_SESSION, THIRD_EAC_SESSION, EXTENDED_EAC_CONCEPT_UUID,
+		        REAPEAT_VL_COLLECTION, REPEAT_VL_RESULTS, HIGH_VL_ENCOUNTERTYPE_UUID, ACTIVE_REGIMEN_CONCEPT_UUID),
+		    EAC_SESSION_CONCEPT_UUID);
+	}
+	
+	/**
+	 * This method calculates the viral load cascade for the ART dashboard. It retrieves the necessary
+	 * data from the database, calculates the viral load cascade, and returns the results in a JSON
+	 * object format.
+	 * 
+	 * @param qStartDate The start date for the viral load cascade in the format "yyyy-MM-dd".
+	 * @param qEndDate The end date for the viral load cascade in the format "yyyy-MM-dd".
+	 * @param vlCascadeConceptUuids A list of UUIDs representing the concepts related to the viral load
+	 *            cascade.
 	 * @param eacSessionConceptUuid The UUID of the concept representing the EAC session.
 	 * @return A JSON object containing the results of the viral load cascade.
 	 * @throws ParseException If the start or end date cannot be parsed.
 	 */
 	private Object getViralLoadCascade(String qStartDate, String qEndDate, List<String> vlCascadeConceptUuids,
 	        String eacSessionConceptUuid) throws ParseException {
-
+		
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
-
+		
 		List<String> viralLoadCascadeEncounterTypeUuids = Arrays.asList(HIGH_VL_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-
+		
 		List<Encounter> viralLoadCascadeEncounters = getEncountersByEncounterTypes(viralLoadCascadeEncounterTypeUuids,
 		    startDate, endDate);
-
+		
 		List<Concept> viralLoadCascadeConcepts = getConceptsByUuids(vlCascadeConceptUuids);
-
+		
 		List<Obs> viralLoadCascadeObs = Context.getObsService().getObservations(null, viralLoadCascadeEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(eacSessionConceptUuid)),
 		    viralLoadCascadeConcepts, null, null, null, null, null, null, endDate, false);
-
+		
 		Map<String, Integer> viralLoadCascadeCounts = new HashMap<>();
 		Map<String, Double> totalTurnaroundTime = new HashMap<>();
-
+		
 		Set<Patient> patientsWithHighViralLoad = getPatientsWithHighVL(startDate, endDate);
 		Set<Patient> patientsWithPersistentHighVL = getPatientsWithPersistentHighVL(startDate, endDate);
 		Set<Patient> patientsWithRepeatedVL = getPatientsWithRepeatedVL(startDate, endDate);
 		Set<Patient> patientsWithSwitchART = getPatientsWithSwitchART(startDate, endDate);
-
+		
 		for (Obs obs : viralLoadCascadeObs) {
 			Concept viralLoadCascadeConcept = obs.getValueCoded();
 			if (viralLoadCascadeConcept != null) {
 				String conceptName = viralLoadCascadeConcept.getName().getName();
 				viralLoadCascadeCounts.put(conceptName, viralLoadCascadeCounts.getOrDefault(conceptName, 0) + 1);
-
+				
 				double turnaroundTimeInMonths = calculateTurnaroundTimeInMonths(obs.getObsDatetime(), endDate);
 				totalTurnaroundTime.put(conceptName,
 				    totalTurnaroundTime.getOrDefault(conceptName, 0.0) + turnaroundTimeInMonths);
 			}
 		}
-
+		
 		// Calculate the total number of patients involved in the cascade
 		int totalPatients = patientsWithHighViralLoad.size() + patientsWithPersistentHighVL.size()
 		        + patientsWithRepeatedVL.size() + patientsWithSwitchART.size();
-
+		
 		for (int count : viralLoadCascadeCounts.values()) {
 			totalPatients += count;
 		}
-
+		
 		// Combine the results
 		Map<String, Object> results = new HashMap<>();
 		List<Map<String, Object>> viralLoadCascadeList = new ArrayList<>();
-
+		
 		// Add the entries in the desired order
-		addCascadeEntry(viralLoadCascadeList, "High Viral Load (>=1000 copies/ml)", patientsWithHighViralLoad.size(),
-		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithHighViralLoad.size()));
+		addCascadeEntry(viralLoadCascadeList, "HVL(≥1000 c/ml)", patientsWithHighViralLoad.size(), totalPatients,
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithHighViralLoad.size()));
 		addCascadeEntry(viralLoadCascadeList, "First EAC Session",
 		    viralLoadCascadeCounts.getOrDefault("First EAC Session", 0), totalPatients,
 		    totalTurnaroundTime.getOrDefault("First EAC Session", 0.0)
@@ -1725,11 +1765,11 @@ public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startD
 		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithPersistentHighVL.size()));
 		addCascadeEntry(viralLoadCascadeList, "ART Switch", patientsWithSwitchART.size(), totalPatients,
 		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()));
-
+		
 		results.put("results", viralLoadCascadeList);
 		return results;
 	}
-
+	
 	private void addCascadeEntry(List<Map<String, Object>> cascadeList, String text, int count, int total,
 	        double avgTurnaroundTime) {
 		Map<String, Object> entry = new HashMap<>();
@@ -1739,21 +1779,136 @@ public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startD
 		entry.put("averageTurnaroundTimeMonths", avgTurnaroundTime);
 		cascadeList.add(entry);
 	}
-
+	
 	private double calculateTurnaroundTimeInMonths(Date startDate, Date endDate) {
 		Calendar start = Calendar.getInstance();
 		start.setTime(startDate);
 		Calendar end = Calendar.getInstance();
 		end.setTime(endDate);
-
+		
 		int yearsDifference = end.get(Calendar.YEAR) - start.get(Calendar.YEAR);
 		int monthsDifference = end.get(Calendar.MONTH) - start.get(Calendar.MONTH);
-
+		
 		return yearsDifference * 12 + monthsDifference;
 	}
-
+	
 	private double calculateAverageTurnaroundTime(Date startDate, Date endDate, int count) {
 		double totalTurnaroundTime = calculateTurnaroundTimeInMonths(startDate, endDate) * count;
 		return count > 0 ? totalTurnaroundTime / count : 0;
+	}
+	
+	/**
+	 * This method handles the HTTP GET request for retrieving the list of patients who have been
+	 * transferred out.
+	 * 
+	 * @param request The HTTP request object.
+	 * @param qStartDate The start date for the transferred out patients in the format "yyyy-MM-dd".
+	 * @param qEndDate The end date for the transferred out patients in the format "yyyy-MM-dd".
+	 * @param filterCategory The filter category for the transferred out patients.
+	 * @return A JSON object containing the list of transferred out patients.
+	 * @throws ParseException If the start or end date cannot be parsed.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/transferredOut")
+	@ResponseBody
+	public Object getTransferredOutPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
+		return generatePatientListObj(transferredOutPatients, startDate, endDate);
+	}
+	
+	private static HashSet<Patient> getTransferredOutPatients(Date startDate, Date endDate) {
+		EncounterType transferredOutEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(END_OF_FOLLOW_UP_ENCOUTERTYPE_UUID);
+		
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(transferredOutEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		
+		HashSet<Patient> transferredOutPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
+		    HashSet::add, HashSet::addAll);
+		// Get Patients who were transferred out
+		List<Obs> transferredOutObs = Context.getObsService().getObservations(null, encounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TRANSFERRED_OUT_CONCEPT_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
+		    null, startDate, endDate, false);
+		// Extract patients from transfer out obs into a hashset to remove duplicates
+		HashSet<Person> transferOutPatients = transferredOutObs.stream().map(Obs::getPerson).collect(HashSet::new,
+		    HashSet::add, HashSet::addAll);
+		
+		transferredOutPatients.removeIf(transferOutPatients::contains);
+		
+		return transferredOutPatients;
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/deceased")
+	@ResponseBody
+	public Object getDeceasedPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		
+		return generatePatientListObj(new HashSet<>(deceasedPatients), startDate, endDate);
+	}
+	
+	private List<Patient> getDeceasedPatientsByDateRange(Date startDate, Date endDate) {
+		PatientService patientService = Context.getPatientService();
+		List<Patient> allPatients = patientService.getAllPatients();
+		
+		return allPatients.stream()
+		        .filter(patient -> patient.isDead() && patient.getDeathDate() != null
+		                && !patient.getDeathDate().before(startDate) && !patient.getDeathDate().after(endDate))
+		        .collect(Collectors.toList());
+	}
+	
+	public enum ClinicalStatus {
+		INTERRUPTED_IN_TREATMENT,
+		DIED,
+		ACTIVE,
+		TRANSFERRED_OUT,
+		INACTIVE
+	}
+	
+	public static ClinicalStatus determineClinicalStatus(Patient patient, Date startDate, Date endDate) {
+		if (patient.isDead() && patient.getDeathDate() != null && !patient.getDeathDate().before(startDate)
+		        && !patient.getDeathDate().after(endDate)) {
+			return ClinicalStatus.DIED;
+		}
+		
+		if (hasActiveEncountersOrObservations(patient, startDate, endDate)) {
+			return ClinicalStatus.ACTIVE;
+		}
+		
+		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
+		if (transferredOutPatients.contains(patient)) {
+			return ClinicalStatus.TRANSFERRED_OUT;
+		}
+		
+		if (determineIfPatientIsIIT(patient)) {
+			return ClinicalStatus.INTERRUPTED_IN_TREATMENT;
+		}
+		
+		return ClinicalStatus.INACTIVE;
+	}
+	
+	private static boolean hasActiveEncountersOrObservations(Patient patient, Date startDate, Date endDate) {
+		List<Encounter> activeEncounters = getEncountersByDateRange(
+		    Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID, FOLLOW_UP_FORM_ENCOUNTER_TYPE), startDate, endDate);
+		if (activeEncounters.stream().anyMatch(encounter -> encounter.getPatient().equals(patient))) {
+			return true;
+		}
+		
+		List<Obs> activeRegimenObs = getObservationsByDateRange(activeEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
+		    endDate);
+		return activeRegimenObs.stream().anyMatch(obs -> obs.getPerson().equals(patient));
 	}
 }
