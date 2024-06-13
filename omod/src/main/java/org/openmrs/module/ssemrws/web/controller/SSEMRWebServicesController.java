@@ -932,7 +932,7 @@ public class SSEMRWebServicesController {
 		patientObj.put("newClient", newlyEnrolledOnArt(patient));
 		patientObj.put("childOrAdolescent", age <= 19 ? true : false);
 		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
-		patientObj.put("IIT", determineIfPatientIsIIT(patient));
+		patientObj.put("IIT", determineIfPatientIsIIT(patient, startDate, endDate));
 		patientObj.put("returningToTreatment", determineIfPatientIsReturningToTreatment(patient));
 		patientObj.put("dueForVl", determineIfPatientIsDueForVl(patient));
 		patientObj.put("highVl", determineIfPatientIsHighVl(patient));
@@ -953,7 +953,7 @@ public class SSEMRWebServicesController {
 					}
 					break;
 				case IIT:
-					if (determineIfPatientIsIIT(patient)) {
+					if (determineIfPatientIsIIT(patient, startDate, endDate)) {
 						return patientObj;
 					}
 					break;
@@ -1350,6 +1350,12 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
+		HashSet<Patient> returnToTreatmentPatients = getReturnToTreatmentPatients(startDate, endDate);
+		
+		return generatePatientListObj(new HashSet<>(returnToTreatmentPatients), startDate, endDate);
+	}
+	
+	private static HashSet<Patient> getReturnToTreatmentPatients(Date startDate, Date endDate) {
 		List<String> returnedToTreatmentencounterTypeUuids = Collections
 		        .singletonList(ART_TREATMENT_INTURRUPTION_ENCOUNTER_TYPE_UUID);
 		
@@ -1361,11 +1367,14 @@ public class SSEMRWebServicesController {
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(CONCEPT_BY_UUID)), null, null, null, null,
 		    null, startDate, endDate, false);
 		
-		HashSet<Patient> returnedToTreatmentEncountersClients = returnedToTreatmentObs.stream()
-		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson())
-		        .collect(Collectors.toCollection(HashSet::new));
+		HashSet<Patient> returnToTreatmentPatients = new HashSet<>();
 		
-		return generatePatientListObj(returnedToTreatmentEncountersClients, startDate, endDate);
+		for (Obs obs : returnedToTreatmentObs) {
+			Patient patient = (Patient) obs.getPerson();
+			returnToTreatmentPatients.add(patient);
+		}
+		
+		return returnToTreatmentPatients;
 	}
 	
 	// Determine if patient is returning to treatment
@@ -1393,66 +1402,58 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
-		List<String> interruptedInTreatmentEncounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatmentPatients(startDate, endDate);
 		
-		List<Encounter> interruptedInTreatmentEncounters = getEncountersByEncounterTypes(
-		    interruptedInTreatmentEncounterTypeUuids, startDate, endDate);
-		
-		List<Obs> interruptedInTreatmentObs = Context.getObsService().getObservations(null, interruptedInTreatmentEncounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, startDate, endDate, false);
-		
-		HashSet<Patient> interruptedInTreatmentEncountersClients = interruptedInTreatmentObs.stream()
-		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
-			        Date appointmentScheduledDate = null;
-			        for (Obs obs : interruptedInTreatmentObs) {
-				        if (obs.getPerson().equals(patient)
-				                && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
-					        appointmentScheduledDate = obs.getValueDatetime();
-					        break;
-				        }
-			        }
-			        
-			        if (appointmentScheduledDate != null) {
-				        LocalDate today = LocalDate.now();
-				        LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
-				                .toLocalDate();
-				        long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-				        
-				        return diffInDays >= 28;
-			        }
-			        return false;
-		        }).collect(Collectors.toCollection(HashSet::new));
-		
-		return generatePatientListObj(interruptedInTreatmentEncountersClients, startDate, endDate);
-		
+		return generatePatientListObj(new HashSet<>(interruptedInTreatmentPatients), startDate, endDate);
 	}
 	
 	// Determine if patient is Interrupted In Treatment
-	private static boolean determineIfPatientIsIIT(Patient patient) {
+	private static boolean determineIfPatientIsIIT(Patient patient, Date startDate, Date endDate) {
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
 		    null, null, null, null, null, null, null, null, false);
 		
-		if (!obsList.isEmpty()) {
-			Date appointmentScheduledDate = null;
-			for (Obs obs : obsList) {
-				if (obs.getPerson().equals(patient)
-				        && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
-					appointmentScheduledDate = obs.getValueDatetime();
-					break;
+		return !getInterruptedInTreatmentPatients(startDate, endDate).isEmpty();
+	}
+	
+	private static HashSet<Patient> getInterruptedInTreatmentPatients(Date startDate, Date endDate) {
+		List<String> interruptedInTreatmentEncounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		
+		// Get encounters for the specified date range and encounter types
+		List<Encounter> interruptedInTreatmentEncounters = getEncountersByEncounterTypes(
+		    interruptedInTreatmentEncounterTypeUuids, startDate, endDate);
+		
+		// Get observations related to interrupted in-treatment concept within the date
+		// range
+		Concept dateAppointmentScheduledConcept = Context.getConceptService()
+		        .getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID);
+		List<Obs> interruptedInTreatmentObs = Context.getObsService().getObservations(null, interruptedInTreatmentEncounters,
+		    Collections.singletonList(dateAppointmentScheduledConcept), null, null, null, null, null, null, startDate,
+		    endDate, false);
+		
+		// Filter patients who are interrupted in treatment based on appointment
+		// scheduled date
+		HashSet<Patient> interruptedPatients = new HashSet<>();
+		
+		for (Obs obs : interruptedInTreatmentObs) {
+			if (obs.getPerson() instanceof Patient) {
+				Patient patient = (Patient) obs.getPerson();
+				Date appointmentScheduledDate = obs.getValueDatetime();
+				
+				if (appointmentScheduledDate != null) {
+					LocalDate today = LocalDate.now();
+					LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
+					        .toLocalDate();
+					long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
+					
+					if (diffInDays >= 28) {
+						interruptedPatients.add(patient);
+					}
 				}
 			}
-			
-			if (appointmentScheduledDate != null) {
-				LocalDate today = LocalDate.now();
-				LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-				long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-				
-				return diffInDays >= 28;
-			}
 		}
-		return false;
+		
+		return interruptedPatients;
 	}
 	
 	/**
@@ -1474,20 +1475,34 @@ public class SSEMRWebServicesController {
 	}
 	
 	private HashSet<Patient> getActiveClients(Date startDate, Date endDate) throws ParseException {
+		// Get all patients enrolled on ART within the specified date range
 		List<String> activeClientsEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
 		List<Encounter> activeRegimenEncounters = getEncountersByDateRange(activeClientsEncounterTypeUuids, startDate,
 		    endDate);
-		
 		HashSet<Patient> activePatients = extractPatientsFromEncounters(activeRegimenEncounters);
 		
-		Concept activeRegimenConcept = Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID);
 		List<Obs> regimenObs = getObservationsByDateRange(activeRegimenEncounters,
-		    Collections.singletonList(activeRegimenConcept), startDate, endDate);
-		
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
+		    endDate);
 		HashSet<Patient> activeClients = extractPatientsFromObservations(regimenObs);
 		
 		activePatients.addAll(activeClients);
+		
+		HashSet<Patient> returnToTreatment = getReturnToTreatmentPatients(startDate, endDate);
+		
+		activePatients.addAll(returnToTreatment);
+		
+		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatmentPatients(startDate, endDate);
+		
+		List<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		
+		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
+		
+		// Calculate active clients
+		activePatients.removeAll(interruptedInTreatmentPatients);
+		activePatients.removeAll(deceasedPatients);
+		activePatients.removeAll(transferredOutPatients);
 		
 		return activePatients;
 	}
@@ -1910,7 +1925,7 @@ public class SSEMRWebServicesController {
 			return ClinicalStatus.TRANSFERRED_OUT;
 		}
 		
-		if (determineIfPatientIsIIT(patient)) {
+		if (determineIfPatientIsIIT(patient, startDate, endDate)) {
 			return ClinicalStatus.INTERRUPTED_IN_TREATMENT;
 		}
 		
