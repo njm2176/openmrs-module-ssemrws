@@ -10,7 +10,6 @@
 package org.openmrs.module.ssemrws.web.controller;
 
 import javax.servlet.http.HttpServletRequest;
-import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -19,7 +18,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import ca.uhn.hl7v2.model.v23.datatype.ST;
 import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -29,7 +27,6 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
-import org.openmrs.api.APIException;
 import org.openmrs.api.PatientService;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.webservices.rest.web.RestConstants;
@@ -1490,16 +1487,16 @@ public class SSEMRWebServicesController {
 		activePatients.addAll(activeClients);
 		
 		HashSet<Patient> returnToTreatment = getReturnToTreatmentPatients(startDate, endDate);
+		HashSet<Patient> transferInPatients = getTransferredInPatients(startDate, endDate);
 		
 		activePatients.addAll(returnToTreatment);
+		activePatients.addAll(transferInPatients);
 		
 		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatmentPatients(startDate, endDate);
-		
 		List<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
-		
 		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
 		
-		// Calculate active clients
+		// Remove IIT, Deceased and Tranferred Out Patinet from active clients
 		activePatients.removeAll(interruptedInTreatmentPatients);
 		activePatients.removeAll(deceasedPatients);
 		activePatients.removeAll(transferredOutPatients);
@@ -1878,6 +1875,43 @@ public class SSEMRWebServicesController {
 		return transferredOutPatients;
 	}
 	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/transferredIn")
+	@ResponseBody
+	public Object getTransferredInPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
+		return generatePatientListObj(transferredInPatients, startDate, endDate);
+	}
+	
+	private static HashSet<Patient> getTransferredInPatients(Date startDate, Date endDate) {
+		EncounterType transferredInEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(ENROLMENT_ENCOUNTER_TYPE_UUID);
+		
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(transferredInEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		
+		// Get Patients who are transferred in
+		List<Obs> transferInObs = Context.getObsService().getObservations(null, encounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TRANSFER_IN_CONCEPT_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
+		    null, startDate, endDate, false);
+		
+		HashSet<Patient> transferInPatients = new HashSet<>();
+		
+		for (Obs obs : transferInObs) {
+			Patient patient = (Patient) obs.getPerson();
+			transferInPatients.add(patient);
+		}
+		
+		return transferInPatients;
+	}
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/deceased")
 	@ResponseBody
 	public Object getDeceasedPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
@@ -1951,11 +1985,157 @@ public class SSEMRWebServicesController {
 	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		
+		return getWaterfallAnalysisChart(qStartDate, qEndDate);
+	}
+	
+	private Object getWaterfallAnalysisChart(String qStartDate, String qEndDate) throws ParseException {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
-		List<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		// Define the start and end date of the previous month
+		Date previousMonthStartDate = getPreviousMonthStartDate(startDate);
+		Date previousMonthEndDate = getPreviousMonthEndDate(startDate);
 		
-		return generatePatientListObj(new HashSet<>(deceasedPatients), startDate, endDate);
+		// Get all necessary patient sets
+		HashSet<Patient> activeClientsPreviousMonth = getActiveClients(previousMonthStartDate, previousMonthEndDate);
+		HashSet<Patient> activeClientsCurrentMonth = getActiveClients(startDate, endDate);
+		
+		HashSet<Patient> transferredInPatientsPreviousMonth = getTransferredInPatients(previousMonthStartDate,
+		    previousMonthEndDate);
+		HashSet<Patient> transferredInPatientsCurrentMonth = getTransferredInPatients(startDate, endDate);
+		
+		HashSet<Patient> returnToTreatmentPatientsPreviousMonth = getReturnToTreatmentPatients(previousMonthStartDate,
+		    previousMonthEndDate);
+		HashSet<Patient> returnToTreatmentPatientsCurrentMonth = getReturnToTreatmentPatients(startDate, endDate);
+		
+		HashSet<Patient> transferredOutPatientsPreviousMonth = getTransferredOutPatients(previousMonthStartDate,
+		    previousMonthEndDate);
+		HashSet<Patient> transferredOutPatientsCurrentMonth = getTransferredOutPatients(startDate, endDate);
+		
+		HashSet<Patient> deceasedPatientsPreviousMonth = new HashSet<>(
+		        getDeceasedPatientsByDateRange(previousMonthStartDate, previousMonthEndDate));
+		HashSet<Patient> deceasedPatientsCurrentMonth = new HashSet<>(getDeceasedPatientsByDateRange(startDate, endDate));
+		
+		HashSet<Patient> interruptedInTreatmentPatientsPreviousMonth = getInterruptedInTreatmentPatients(
+		    previousMonthStartDate, previousMonthEndDate);
+		HashSet<Patient> interruptedInTreatmentPatientsCurrentMonth = getInterruptedInTreatmentPatients(startDate, endDate);
+		
+		// TX_CURR
+		int txCurrPreviousMonth = activeClientsPreviousMonth.size();
+		
+		// TX_NEW
+		activeClientsCurrentMonth.removeAll(activeClientsPreviousMonth);
+		int txNewCurrentMonth = activeClientsCurrentMonth.size();
+		
+		// Transfer In
+		transferredInPatientsCurrentMonth.removeAll(transferredInPatientsPreviousMonth);
+		int transferInCurrentMonth = transferredInPatientsCurrentMonth.size();
+		
+		// TX_RTT
+		returnToTreatmentPatientsCurrentMonth.removeAll(returnToTreatmentPatientsPreviousMonth);
+		int txRttCurrentMonth = returnToTreatmentPatientsCurrentMonth.size();
+		
+		// Transfer Out
+		transferredOutPatientsCurrentMonth.removeAll(transferredOutPatientsPreviousMonth);
+		int transferOutCurrentMonth = transferredOutPatientsCurrentMonth.size();
+		
+		// TX_DEATH
+		deceasedPatientsCurrentMonth.removeAll(deceasedPatientsPreviousMonth);
+		int txDeathCurrentMonth = deceasedPatientsCurrentMonth.size();
+		
+		// TX_ML_IIT (on ART <3 mo)
+		HashSet<Patient> interruptedInTreatmentLessThan3Months = filterInterruptedInTreatmentPatients(
+		    interruptedInTreatmentPatientsCurrentMonth, 3, false);
+		int txMlIitLessThan3MoCurrentMonth = interruptedInTreatmentLessThan3Months.size();
+		
+		// TX_ML_IIT (on ART 3+ mo)
+		HashSet<Patient> interruptedInTreatmentMoreThan3Months = filterInterruptedInTreatmentPatients(
+		    interruptedInTreatmentPatientsCurrentMonth, 3, true);
+		int txMlIitMoreThan3MoCurrentMonth = interruptedInTreatmentMoreThan3Months.size();
+		
+		// Potential TX_CURR
+		int potentialTxCurr = txNewCurrentMonth + txCurrPreviousMonth + transferInCurrentMonth + txRttCurrentMonth;
+		
+		// CALCULATED TX_CURR
+		int calculatedTxCurr = potentialTxCurr - transferOutCurrentMonth - txDeathCurrentMonth
+		        - txMlIitLessThan3MoCurrentMonth - txMlIitMoreThan3MoCurrentMonth;
+		
+		// Prepare the results
+		List<Map<String, Object>> waterfallAnalysisList = new ArrayList<>();
+		
+		waterfallAnalysisList.add(createResultMap("TX_CURR", txCurrPreviousMonth));
+		waterfallAnalysisList.add(createResultMap("TX_NEW", txNewCurrentMonth));
+		waterfallAnalysisList.add(createResultMap("Transfer In", transferInCurrentMonth));
+		waterfallAnalysisList.add(createResultMap("TX_RTT", txRttCurrentMonth));
+		waterfallAnalysisList.add(createResultMap("Potential TX_CURR", potentialTxCurr));
+		waterfallAnalysisList.add(createResultMap("Transfer Out", transferOutCurrentMonth));
+		waterfallAnalysisList.add(createResultMap("TX_DEATH", txDeathCurrentMonth));
+		waterfallAnalysisList.add(createResultMap("TX_ML_Self Transfer", 0));
+		waterfallAnalysisList.add(createResultMap("TX_ML_Refusal/Stopped", 0));
+		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (on ART <3 mo)", txMlIitLessThan3MoCurrentMonth));
+		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (on ART 3+ mo)", txMlIitMoreThan3MoCurrentMonth));
+		waterfallAnalysisList.add(createResultMap("CALCULATED TX_CURR", calculatedTxCurr));
+		
+		// Combine the results
+		Map<String, Object> results = new HashMap<>();
+		results.put("results", waterfallAnalysisList);
+		return results;
+	}
+	
+	private HashSet<Patient> filterInterruptedInTreatmentPatients(HashSet<Patient> patients, int months, boolean moreThan) {
+		HashSet<Patient> filteredPatients = new HashSet<>();
+		LocalDate currentDate = LocalDate.now();
+		
+		for (Patient patient : patients) {
+			Date enrollmentDate = getInitiationDate(patient);
+			if (enrollmentDate != null) {
+				LocalDate enrollmentLocalDate = enrollmentDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+				long monthsOnTreatment = ChronoUnit.MONTHS.between(enrollmentLocalDate, currentDate);
+				
+				if ((moreThan && monthsOnTreatment >= months) || (!moreThan && monthsOnTreatment < months)) {
+					filteredPatients.add(patient);
+				}
+			}
+		}
+		
+		return filteredPatients;
+	}
+	
+	private Date getInitiationDate(Patient patient) {
+		List<Obs> initiationDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ART_INITIATION_CONCEPT_UUID)),
+		    null, null, null, null, null, null, null, null, false);
+		
+		if (initiationDateObs != null && !initiationDateObs.isEmpty()) {
+			Obs lastObs = initiationDateObs.get(0);
+			Date initiationDate = lastObs.getValueDate();
+			if (initiationDate != null) {
+				return initiationDate;
+			}
+		}
+		return null;
+	}
+	
+	private Map<String, Object> createResultMap(String key, int value) {
+		Map<String, Object> resultMap = new HashMap<>();
+		resultMap.put(key, value);
+		return resultMap;
+	}
+	
+	private Date getPreviousMonthStartDate(Date date) {
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(date);
+		cal.add(Calendar.MONTH, -1);
+		cal.set(Calendar.DAY_OF_MONTH, 1);
+		return cal.getTime();
+	}
+	
+	private Date getPreviousMonthEndDate(Date date) {
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(date);
+		cal.set(Calendar.DAY_OF_MONTH, 1);
+		cal.add(Calendar.DAY_OF_MONTH, -1);
+		return cal.getTime();
 	}
 }
