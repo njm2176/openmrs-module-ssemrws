@@ -2119,7 +2119,6 @@ public class SSEMRWebServicesController {
 	}
 	
 	private HashSet<Patient> getActiveClientsForWaterfall(Date startDate, Date endDate) throws ParseException {
-		// Get all patients enrolled on ART within the specified date range
 		List<String> activeClientsForWaterfallEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
 		List<Encounter> activeClientsForWaterfallRegimenEncounters = getEncountersByDateRange(
