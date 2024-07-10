@@ -1664,7 +1664,7 @@ public class SSEMRWebServicesController {
 		    startDate, endDate, false);
 	}
 	
-	private HashSet<Patient> extractPatientsFromEncounters(List<Encounter> encounters) {
+	private static HashSet<Patient> extractPatientsFromEncounters(List<Encounter> encounters) {
 		HashSet<Patient> patients = new HashSet<>();
 		for (Encounter encounter : encounters) {
 			patients.add(encounter.getPatient());
@@ -1672,7 +1672,7 @@ public class SSEMRWebServicesController {
 		return patients;
 	}
 	
-	private HashSet<Patient> extractPatientsFromObservations(List<Obs> observations) {
+	private static HashSet<Patient> extractPatientsFromObservations(List<Obs> observations) {
 		HashSet<Patient> patients = new HashSet<>();
 		for (Obs obs : observations) {
 			Person person = obs.getPerson();
@@ -1871,6 +1871,10 @@ public class SSEMRWebServicesController {
 		    HashSet::add, HashSet::addAll);
 		
 		transferredOutPatients.removeIf(transferOutPatients::contains);
+
+		// Get deceased patients and remove them from the transferred out list
+		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		transferredOutPatients.removeAll(deceasedPatients);
 		
 		return transferredOutPatients;
 	}
@@ -1912,7 +1916,7 @@ public class SSEMRWebServicesController {
 		return generatePatientListObj(new HashSet<>(deceasedPatients), startDate, endDate);
 	}
 	
-	private HashSet<Patient> getDeceasedPatientsByDateRange(Date startDate, Date endDate) {
+	private static HashSet<Patient> getDeceasedPatientsByDateRange(Date startDate, Date endDate) {
 		List<String> decesedPatientsEncounterType = Arrays.asList(END_OF_FOLLOW_UP_ENCOUTERTYPE_UUID);
 		List<Encounter> deceasedPatientsEncounters = getEncountersByDateRange(decesedPatientsEncounterType, startDate,
 		    endDate);
@@ -1939,8 +1943,8 @@ public class SSEMRWebServicesController {
 	}
 	
 	public static ClinicalStatus determineClinicalStatus(Patient patient, Date startDate, Date endDate) {
-		if (patient.isDead() && patient.getDeathDate() != null && !patient.getDeathDate().before(startDate)
-		        && !patient.getDeathDate().after(endDate)) {
+		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		if (deceasedPatients.contains(patient)) {
 			return ClinicalStatus.DIED;
 		}
 		
