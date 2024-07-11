@@ -1556,26 +1556,22 @@ public class SSEMRWebServicesController {
 	}
 	
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
-		// Get all patients who were enrolled within the specified date range
-		EncounterType enrolmentEncounterType = Context.getEncounterService()
-		        .getEncounterTypeByUuid(ENROLMENT_ENCOUNTER_TYPE_UUID);
-		// Add a filter for current location
-		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
-		        null, Collections.singletonList(enrolmentEncounterType), null, null, null, false);
-		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
-		// Extract patients from encounters into a hashset to remove duplicates
-		HashSet<Patient> enrolledPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
-		    HashSet::add, HashSet::addAll);
-		// Get Patients who were transferred in
-		List<Obs> transferInObs = Context.getObsService().getObservations(null, encounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TRANSFER_IN_CONCEPT_UUID)),
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
-		    null, startDate, endDate, false);
-		// Extract patients from transfer in obs into a hashset to remove duplicates
-		HashSet<Person> transferInPatients = transferInObs.stream().map(Obs::getPerson).collect(HashSet::new, HashSet::add,
-		    HashSet::addAll);
-		
-		enrolledPatients.removeIf(transferInPatients::contains);
+		List<String> anrolledClientsEncounterTypeUuids = Arrays.asList(ADULT_AND_ADOLESCENT_INTAKE_FORM,
+				PEDIATRIC_INTAKE_FORM);
+		List<Encounter> enrolledEncounters = getEncountersByDateRange(anrolledClientsEncounterTypeUuids, startDate,
+				endDate);
+		HashSet<Patient> enrolledPatients = extractPatientsFromEncounters(enrolledEncounters);
+
+		List<Obs> enrollmentObs = getObservationsByDateRange(enrolledEncounters,
+				Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
+				endDate);
+		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
+
+		enrolledPatients.addAll(enrolledClients);
+
+		// Get Transferred In patients and remove them from the Newly Enrolled patients list
+		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
+		enrolledPatients.removeAll(transferredInPatients);
 		
 		return enrolledPatients;
 		
