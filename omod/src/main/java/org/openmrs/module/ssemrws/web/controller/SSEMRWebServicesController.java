@@ -29,8 +29,6 @@ import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.PatientService;
 import org.openmrs.api.context.Context;
-import org.openmrs.module.appointments.model.Appointment;
-import org.openmrs.module.appointments.model.AppointmentProvider;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
 import org.springframework.http.HttpHeaders;
@@ -309,79 +307,78 @@ public class SSEMRWebServicesController {
 	@ResponseBody
 	public Object getAllPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
 	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
+	        @RequestParam(value = "page", defaultValue = "0") int page,
+	        @RequestParam(value = "size", defaultValue = "50") int size) throws ParseException {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		return generatePatientListObj(new HashSet<>(allPatients), startDate, endDate, filterCategory);
+		
+		int startIndex = page * size;
+		int endIndex = Math.min(startIndex + size, allPatients.size());
+		
+		List<Patient> patients = allPatients.subList(startIndex, endIndex);
+		
+		return generatePatientListObj(new HashSet<>(patients), startDate, endDate, filterCategory);
 	}
-
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/dueForVl")
-// gets all visit forms for a patient
+	// gets all visit forms for a patient
 	@ResponseBody
 	public Object getPatientsDueForVl(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-									  @RequestParam("endDate") String qEndDate,
-									  @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
-
+		
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-
+		
 		List<Patient> patientsDueForVl = new ArrayList<>();
-
+		
 		for (Patient patient : allPatients) {
 			if (isPatientDueForVl(patient, startDate, endDate)) {
 				patientsDueForVl.add(patient);
 			}
 		}
-
+		
 		return generatePatientListObj(new HashSet<>(patientsDueForVl), startDate, endDate);
 	}
-
+	
 	private static boolean isPatientDueForVl(Patient patient, Date startDate, Date endDate) {
 		boolean isDueForVl = false;
-
-		List<String> dueForVlEncounterTypeUuids = Arrays.asList(
-				PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
-				FOLLOW_UP_FORM_ENCOUNTER_TYPE,
-				HIGH_VL_ENCOUNTERTYPE_UUID
-		);
-
-		List<String> dueForVlConceptUuids = Arrays.asList(
-				ACTIVE_REGIMEN_CONCEPT_UUID,
-				VIRAL_LOAD_CONCEPT_UUID,
-				BREASTFEEDING_CONCEPT_UUID,
-				PREGNANT_CONCEPT_UUID,
-				PMTCT_CONCEPT_UUID,
-				EAC_SESSION_CONCEPT_UUID,
-				EXTENDED_EAC_CONCEPT_UUID
-		);
-
+		
+		List<String> dueForVlEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
+		    FOLLOW_UP_FORM_ENCOUNTER_TYPE, HIGH_VL_ENCOUNTERTYPE_UUID);
+		
+		List<String> dueForVlConceptUuids = Arrays.asList(ACTIVE_REGIMEN_CONCEPT_UUID, VIRAL_LOAD_CONCEPT_UUID,
+		    BREASTFEEDING_CONCEPT_UUID, PREGNANT_CONCEPT_UUID, PMTCT_CONCEPT_UUID, EAC_SESSION_CONCEPT_UUID,
+		    EXTENDED_EAC_CONCEPT_UUID);
+		
 		List<Encounter> dueForVlEncounters = getEncountersByEncounterTypes(dueForVlEncounterTypeUuids, startDate, endDate);
 		List<Concept> dueForVlConcepts = getConceptsByUuids(dueForVlConceptUuids);
-
+		
 		// Retrieve the observations for the patient within the given date range
 		List<Obs> observations = Context.getObsService().getObservations(null, dueForVlEncounters, dueForVlConcepts, null,
-				null, null, null, null, null, startDate, endDate, false);
-
+		    null, null, null, null, null, startDate, endDate, false);
+		
 		// Iterate through observations to determine criteria fulfillment
 		for (Obs obs : observations) {
 			if (obs.getPerson().equals(patient)) {
-
+				
 				// Criteria 1: Clients who are adults, have been on ART for more than 6 months,
 				// not breastfeeding and the VL result is suppressed (< 1000 copies/ml).
 				// If the VL results are suppressed the client will be due for VL in 6 months
 				// then 12 months and so on.
 				if (isAdult(patient) && onArtForMoreThanSixMonths(patient) && !isBreastfeeding(patient)
-						&& isViralLoadSuppressed(patient)) {
+				        && isViralLoadSuppressed(patient)) {
 					Date nextDueDate = calculateNextDueDate(obs, 6);
 					if (nextDueDate.before(endDate)) {
 						isDueForVl = true;
 						break;
 					}
 				}
-
+				
 				// Criteria 2: Child or adolescent up to 18 yrs of age. The will have the VL
 				// sample collected after 6 months and when they turn 19 yrs they join criteria
 				// 1.
@@ -392,7 +389,7 @@ public class SSEMRWebServicesController {
 						break;
 					}
 				}
-
+				
 				// Criteria 3: Pregnant woman, newly enrolled on ART will be due for Viral load
 				// after every 3 months until they are no longer in PMTCT.
 				if (isPregnant(patient) && newlyEnrolledOnArt(patient)) {
@@ -402,14 +399,14 @@ public class SSEMRWebServicesController {
 						break;
 					}
 				}
-
+				
 				// Criteria 4: Pregnant woman already on ART are eligible immediately they find
 				// out they are pregnant.
 				if (isPregnant(patient) && alreadyOnArt(patient)) {
 					isDueForVl = true;
 					break;
 				}
-
+				
 				// Criteria 5: After EAC 3, they are eligible for VL in the next one month.
 				if (afterEac3(patient)) {
 					Date nextDueDate = calculateNextDueDate(obs, 1);
@@ -909,7 +906,7 @@ public class SSEMRWebServicesController {
 			identifierObj.put("identifierType", identifier.getIdentifierType().getName());
 			identifiersArray.add(identifierObj);
 		}
-
+		
 		String village = "";
 		String landmark = "";
 		for (PersonAddress address : patient.getAddresses()) {
@@ -924,6 +921,7 @@ public class SSEMRWebServicesController {
 		
 		ClinicalStatus clinicalStatus = determineClinicalStatus(patient, startDate, endDate);
 		
+		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
 		patientObj.put("uuid", patient.getUuid());
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("age", age);
@@ -1057,16 +1055,16 @@ public class SSEMRWebServicesController {
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
-
+		
 		List<String> misseAppointmentencounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-
+		
 		List<Encounter> missedAppointmentEncounters = getEncountersByEncounterTypes(misseAppointmentencounterTypeUuids,
 		    startDate, endDate);
-
+		
 		List<Obs> missedAppointmentObs = Context.getObsService().getObservations(null, missedAppointmentEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
 		    null, null, null, null, null, null, startDate, endDate, false);
-
+		
 		HashSet<Patient> missedAppointmentPatientsFiltered = missedAppointmentObs.stream()
 		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
 			        Date appointmentScheduledDate = null;
@@ -1077,18 +1075,18 @@ public class SSEMRWebServicesController {
 					        break;
 				        }
 			        }
-
+			        
 			        if (appointmentScheduledDate != null) {
 				        LocalDate today = LocalDate.now();
 				        LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
 				                .toLocalDate();
 				        long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-
+				        
 				        return diffInDays >= 1 && diffInDays < 28;
 			        }
 			        return false;
 		        }).collect(Collectors.toCollection(HashSet::new));
-
+		
 		return generatePatientListObj(missedAppointmentPatientsFiltered, startDate, endDate);
 	}
 	
@@ -1546,44 +1544,53 @@ public class SSEMRWebServicesController {
 		
 		return !obsList.isEmpty();
 	}
-
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
 	@ResponseBody
 	public Object getNewPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-								 @RequestParam("endDate") String qEndDate,
-								 @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		// Calculate the start date as 30 days before the end date
 		Date startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
-
+		
 		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
 		return generatePatientListObj(enrolledPatients, startDate, endDate);
 	}
-
+	
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
 		List<String> enrolledClientsEncounterTypeUuids = Arrays.asList(ADULT_AND_ADOLESCENT_INTAKE_FORM,
-				PEDIATRIC_INTAKE_FORM);
+		    PEDIATRIC_INTAKE_FORM, FOLLOW_UP_FORM_ENCOUNTER_TYPE, PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID);
 		List<Encounter> enrolledEncounters = getEncountersByDateRange(enrolledClientsEncounterTypeUuids, startDate, endDate);
 		HashSet<Patient> enrolledPatients = extractPatientsFromEncounters(enrolledEncounters);
-
+		
+		// Add patients with recorded enrollment data in the past 30 days
 		List<Obs> enrollmentObs = getObservationsByDateRange(enrolledEncounters,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
-				endDate);
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
+		    endDate);
 		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
-
+		
+		// Add patients enrolled in a regimen in the past 30 days
+		List<Obs> regimenObs = getObservationsByDateRange(enrolledEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
+		    endDate);
+		HashSet<Patient> regimenPatients = extractPatientsFromObservations(regimenObs);
+		
 		enrolledPatients.addAll(enrolledClients);
-
-		// Get Transferred In patients and remove them from the Newly Enrolled patients list
+		enrolledPatients.addAll(regimenPatients);
+		
+		// Get Transferred In patients and remove them from the Newly Enrolled patients
+		// list
 		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
-
+		
 		// Remove Deceased and Transferred Out Patients from active clients
 		enrolledPatients.removeAll(transferredInPatients);
 		enrolledPatients.removeAll(transferredOutPatients);
 		enrolledPatients.removeAll(deceasedPatients);
-
+		
 		return enrolledPatients;
 	}
 	
@@ -1801,6 +1808,10 @@ public class SSEMRWebServicesController {
 		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithRepeatedVL.size()));
 		addCascadeEntry(viralLoadCascadeList, "Persistent High Viral Load", patientsWithPersistentHighVL.size(),
 		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithPersistentHighVL.size()));
+		addCascadeEntry(viralLoadCascadeList, "ART Switch", patientsWithSwitchART.size(), totalPatients,
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()));
+		addCascadeEntry(viralLoadCascadeList, "ART Switch (2nd Line)", patientsWithSwitchART.size(), totalPatients,
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()));
 		
 		results.put("results", viralLoadCascadeList);
 		return results;
@@ -1877,7 +1888,7 @@ public class SSEMRWebServicesController {
 		    HashSet::add, HashSet::addAll);
 		
 		transferredOutPatients.removeIf(transferOutPatients::contains);
-
+		
 		// Get deceased patients and remove them from the transferred out list
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		transferredOutPatients.removeAll(deceasedPatients);
@@ -2077,8 +2088,8 @@ public class SSEMRWebServicesController {
 		waterfallAnalysisList.add(createResultMap("TX_DEATH", txDeathCurrentQuarter));
 		waterfallAnalysisList.add(createResultMap("TX_ML_Self Transfer", 0));
 		waterfallAnalysisList.add(createResultMap("TX_ML_Refusal/Stopped", 0));
-		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (on ART <3 mo)", txMlIitLessThan3MoCurrentQuarter));
-		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (on ART 3+ mo)", txMlIitMoreThan3MoCurrentQuarter));
+		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (<3 mo)", txMlIitLessThan3MoCurrentQuarter));
+		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (3+ mo)", txMlIitMoreThan3MoCurrentQuarter));
 		waterfallAnalysisList.add(createResultMap("CALCULATED TX_CURR", calculatedTxCurr));
 		
 		// Combine the results
