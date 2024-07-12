@@ -310,6 +310,7 @@ public class SSEMRWebServicesController {
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
 	        @RequestParam(value = "page", defaultValue = "0") int page,
 	        @RequestParam(value = "size", defaultValue = "50") int size) throws ParseException {
+
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
