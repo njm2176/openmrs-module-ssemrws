@@ -221,6 +221,19 @@ public class SSEMRWebServicesController {
 	
 	private static final int SIX_MONTHS_IN_DAYS = 183;
 	
+	public static final Set<String> SECOND_LINE_REGIMENS = new HashSet<>(
+	        Arrays.asList("b23cf614-dfec-48c9-a12f-ba577e28347d", "dabc93c3-8c3d-41e1-b3e3-d7e14c4765b6",
+	            "da3c6710-c431-4582-a444-a466d54693ec", "6c383d11-2b29-4cc2-bfa4-811ff7a988f1",
+	            "82725d14-00c6-4864-bf8b-ad5db0b3c3fa", "140ede93-5691-463b-9d17-2dc8834621f8",
+	            "06017ac1-2ce8-4689-a3bf-4e9f3d54978f", "2c0a5b91-7b2a-4f8e-86fd-a8007841fca8",
+	            "50b60d77-186d-4a0d-8784-659ee2d60ec9", "78e49624-0e33-4374-93b7-60b132b26dae",
+	            "bd97cacd-4a91-4901-8803-3a4a2e5f1ca8", "ad6ff4ef-769e-4aec-b8bb-7f033fe6aaaa",
+	            "47167ec1-4957-4d0a-a58c-3894bdeb93ff", "e649a0ec-e193-4af0-bb49-02687107a893",
+	            "accca537-b8ee-41ec-b902-7de814d099b2", "77f201fc-aefc-4068-baa7-cb3284782a38",
+	            "cb0f9fcd-fb52-493f-95aa-d0197387fbdb", "28790bde-81db-4490-806b-ac10c17b41dc",
+	            "aae69cae-2806-4e8b-a916-f22ed733a19b", "64336206-c9bc-4d37-accf-c7abac7a37f6",
+	            "25f0cca5-902d-4e36-9e4f-5ce5da744a75"));
+	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
 	
@@ -310,7 +323,7 @@ public class SSEMRWebServicesController {
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
 	        @RequestParam(value = "page", defaultValue = "0") int page,
 	        @RequestParam(value = "size", defaultValue = "50") int size) throws ParseException {
-
+		
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
@@ -724,7 +737,6 @@ public class SSEMRWebServicesController {
 			if (viralLoadResultConcept == null) {
 				throw new RuntimeException("Concept not found: " + VIRAL_LOAD_RESULTS_UUID);
 			}
-			System.out.println("Fetched concept: " + viralLoadResultConcept);
 			
 			List<Obs> viralLoadResultObs = Context.getObsService().getObservations(null, viralLoadSampleEncounters,
 			    Collections.singletonList(viralLoadResultConcept), null, null, null, null, null, null, startDate, endDate,
@@ -1225,6 +1237,33 @@ public class SSEMRWebServicesController {
 		}
 		
 		return switchARTRegimenPatients;
+	}
+	
+	public HashSet<Patient> getPatientsWithSecondLineSwitchART(Date startDate, Date endDate) {
+		EncounterType secondLineSwitchARTRegimenEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
+		        null, Collections.singletonList(secondLineSwitchARTRegimenEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		
+		HashSet<Patient> secondLineSwitchARTRegimenPatients = new HashSet<>();
+		
+		List<Obs> secondLineSwitchARTRegimenObs = Context.getObsService().getObservations(null, encounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null, null,
+		    null, null, null, null, startDate, endDate, false);
+		
+		for (Obs obs : secondLineSwitchARTRegimenObs) {
+			if (obs != null && obs.getPerson() instanceof Patient) {
+				Patient patient = (Patient) obs.getPerson();
+				String currentRegimen = obs.getValueCoded() != null ? obs.getValueCoded().getUuid() : null;
+				
+				if (currentRegimen != null && SECOND_LINE_REGIMENS.contains(currentRegimen)) {
+					secondLineSwitchARTRegimenPatients.add(patient);
+				}
+			}
+		}
+		
+		return secondLineSwitchARTRegimenPatients;
 	}
 	
 	// Determine if Patient is High Viral Load and return true if it is equal or
@@ -1758,13 +1797,25 @@ public class SSEMRWebServicesController {
 		Map<String, Double> totalTurnaroundTime = new HashMap<>();
 		
 		Set<Patient> patientsWithHighViralLoad = getPatientsWithHighVL(startDate, endDate);
-		Set<Patient> patientsWithPersistentHighVL = getPatientsWithPersistentHighVL(startDate, endDate);
-		Set<Patient> patientsWithRepeatedVL = getPatientsWithRepeatedVL(startDate, endDate);
-		Set<Patient> patientsWithSwitchART = getPatientsWithSwitchART(startDate, endDate);
 		
+		// Filter other sets to include only patients with high viral load
+		Set<Patient> patientsWithPersistentHighVL = getPatientsWithPersistentHighVL(startDate, endDate).stream()
+		        .filter(patientsWithHighViralLoad::contains).collect(Collectors.toSet());
+		
+		Set<Patient> patientsWithRepeatedVL = getPatientsWithRepeatedVL(startDate, endDate).stream()
+		        .filter(patientsWithHighViralLoad::contains).collect(Collectors.toSet());
+		
+		Set<Patient> patientsWithSwitchART = getPatientsWithSwitchART(startDate, endDate).stream()
+		        .filter(patientsWithHighViralLoad::contains).collect(Collectors.toSet());
+		
+		Set<Patient> patientsWithSecondSwitchART = getPatientsWithSecondLineSwitchART(startDate, endDate).stream()
+		        .filter(patientsWithHighViralLoad::contains).collect(Collectors.toSet());
+		
+		// Filter the observations to only include patients with high viral load
 		for (Obs obs : viralLoadCascadeObs) {
 			Concept viralLoadCascadeConcept = obs.getValueCoded();
-			if (viralLoadCascadeConcept != null) {
+			Patient patient = (Patient) obs.getPerson();
+			if (viralLoadCascadeConcept != null && patientsWithHighViralLoad.contains(patient)) {
 				String conceptName = viralLoadCascadeConcept.getName().getName();
 				viralLoadCascadeCounts.put(conceptName, viralLoadCascadeCounts.getOrDefault(conceptName, 0) + 1);
 				
@@ -1774,13 +1825,14 @@ public class SSEMRWebServicesController {
 			}
 		}
 		
-		// Calculate the total number of patients involved in the cascade
-		int totalPatients = patientsWithHighViralLoad.size() + patientsWithPersistentHighVL.size()
-		        + patientsWithRepeatedVL.size() + patientsWithSwitchART.size();
+		// The total number of patients involved in the cascade is the number of
+		// patients with high viral load
+		int totalPatients = patientsWithHighViralLoad.size();
 		
-		for (int count : viralLoadCascadeCounts.values()) {
-			totalPatients += count;
-		}
+		// Sum of all cascade counts (excluding the base count)
+		int sumOfSubsets = viralLoadCascadeCounts.values().stream().mapToInt(Integer::intValue).sum()
+		        + patientsWithRepeatedVL.size() + patientsWithPersistentHighVL.size() + patientsWithSwitchART.size()
+		        + patientsWithSecondSwitchART.size();
 		
 		// Combine the results
 		Map<String, Object> results = new HashMap<>();
@@ -1788,42 +1840,49 @@ public class SSEMRWebServicesController {
 		
 		// Add the entries in the desired order
 		addCascadeEntry(viralLoadCascadeList, "HVL(≥1000 c/ml)", patientsWithHighViralLoad.size(), totalPatients,
-		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithHighViralLoad.size()));
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithHighViralLoad.size()), true, sumOfSubsets);
 		addCascadeEntry(viralLoadCascadeList, "First EAC Session",
-		    viralLoadCascadeCounts.getOrDefault("First EAC Session", 0), totalPatients,
+		    viralLoadCascadeCounts.getOrDefault("First EAC Session", 0), patientsWithHighViralLoad.size(),
 		    totalTurnaroundTime.getOrDefault("First EAC Session", 0.0)
-		            / viralLoadCascadeCounts.getOrDefault("First EAC Session", 1));
+		            / Math.max(viralLoadCascadeCounts.getOrDefault("First EAC Session", 1), 1),
+		    false, sumOfSubsets);
 		addCascadeEntry(viralLoadCascadeList, "Second EAC Session",
-		    viralLoadCascadeCounts.getOrDefault("Second EAC Session", 0), totalPatients,
+		    viralLoadCascadeCounts.getOrDefault("Second EAC Session", 0), patientsWithHighViralLoad.size(),
 		    totalTurnaroundTime.getOrDefault("Second EAC Session", 0.0)
-		            / viralLoadCascadeCounts.getOrDefault("Second EAC Session", 1));
+		            / Math.max(viralLoadCascadeCounts.getOrDefault("Second EAC Session", 1), 1),
+		    false, sumOfSubsets);
 		addCascadeEntry(viralLoadCascadeList, "Third EAC Session",
-		    viralLoadCascadeCounts.getOrDefault("Third EAC Session", 0), totalPatients,
+		    viralLoadCascadeCounts.getOrDefault("Third EAC Session", 0), patientsWithHighViralLoad.size(),
 		    totalTurnaroundTime.getOrDefault("Third EAC Session", 0.0)
-		            / viralLoadCascadeCounts.getOrDefault("Third EAC Session", 1));
+		            / Math.max(viralLoadCascadeCounts.getOrDefault("Third EAC Session", 1), 1),
+		    false, sumOfSubsets);
 		addCascadeEntry(viralLoadCascadeList, "Extended EAC Session",
-		    viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 0), totalPatients,
+		    viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 0), patientsWithHighViralLoad.size(),
 		    totalTurnaroundTime.getOrDefault("Extended EAC Session", 0.0)
-		            / viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 1));
-		addCascadeEntry(viralLoadCascadeList, "Repeat Viral Load Collected", patientsWithRepeatedVL.size(), totalPatients,
-		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithRepeatedVL.size()));
+		            / Math.max(viralLoadCascadeCounts.getOrDefault("Extended EAC Session", 1), 1),
+		    false, sumOfSubsets);
+		addCascadeEntry(viralLoadCascadeList, "Repeat Viral Load Collected", patientsWithRepeatedVL.size(),
+		    patientsWithHighViralLoad.size(),
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithRepeatedVL.size()), false, sumOfSubsets);
 		addCascadeEntry(viralLoadCascadeList, "Persistent High Viral Load", patientsWithPersistentHighVL.size(),
-		    totalPatients, calculateAverageTurnaroundTime(startDate, endDate, patientsWithPersistentHighVL.size()));
-		addCascadeEntry(viralLoadCascadeList, "ART Switch", patientsWithSwitchART.size(), totalPatients,
-		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()));
-		addCascadeEntry(viralLoadCascadeList, "ART Switch (2nd Line)", patientsWithSwitchART.size(), totalPatients,
-		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()));
+		    patientsWithHighViralLoad.size(),
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithPersistentHighVL.size()), false, sumOfSubsets);
+		addCascadeEntry(viralLoadCascadeList, "ART Switch", patientsWithSwitchART.size(), patientsWithHighViralLoad.size(),
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSwitchART.size()), false, sumOfSubsets);
+		addCascadeEntry(viralLoadCascadeList, "ART Switch (2nd Line)", patientsWithSecondSwitchART.size(),
+		    patientsWithHighViralLoad.size(),
+		    calculateAverageTurnaroundTime(startDate, endDate, patientsWithSecondSwitchART.size()), false, sumOfSubsets);
 		
 		results.put("results", viralLoadCascadeList);
 		return results;
 	}
 	
 	private void addCascadeEntry(List<Map<String, Object>> cascadeList, String text, int count, int total,
-	        double avgTurnaroundTime) {
+	        double avgTurnaroundTime, boolean isBase, int sumOfSubsets) {
 		Map<String, Object> entry = new HashMap<>();
 		entry.put("text", text);
 		entry.put("total", count);
-		entry.put("percentage", total > 0 ? (count * 100.0 / total) : 0);
+		entry.put("percentage", isBase ? 100.0 : (count * 100.0 / sumOfSubsets));
 		entry.put("averageTurnaroundTimeMonths", avgTurnaroundTime);
 		cascadeList.add(entry);
 	}
@@ -1979,7 +2038,7 @@ public class SSEMRWebServicesController {
 			return ClinicalStatus.INTERRUPTED_IN_TREATMENT;
 		}
 		
-		return ClinicalStatus.INACTIVE;
+		return ClinicalStatus.ACTIVE;
 	}
 	
 	private static boolean hasActiveEncountersOrObservations(Patient patient, Date startDate, Date endDate) {
@@ -2003,81 +2062,62 @@ public class SSEMRWebServicesController {
 		
 		return getWaterfallAnalysisChart(qStartDate, qEndDate);
 	}
-	
+
 	private Object getWaterfallAnalysisChart(String qStartDate, String qEndDate) throws ParseException {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
-		
-		// Define the start and end date of the first month
-		Calendar firstMonthEndCal = Calendar.getInstance();
-		firstMonthEndCal.setTime(startDate);
-		firstMonthEndCal.set(Calendar.DAY_OF_MONTH, firstMonthEndCal.getActualMaximum(Calendar.DAY_OF_MONTH));
-		Date firstMonthEndDate = firstMonthEndCal.getTime();
-		
-		// Define the start and end date of the second month
-		Calendar secondMonthStartCal = Calendar.getInstance();
-		secondMonthStartCal.setTime(startDate);
-		secondMonthStartCal.add(Calendar.MONTH, 1);
-		secondMonthStartCal.set(Calendar.DAY_OF_MONTH, 1);
-		Date secondMonthStartDate = secondMonthStartCal.getTime();
-		
-		Calendar secondMonthEndCal = Calendar.getInstance();
-		secondMonthEndCal.setTime(secondMonthStartDate);
-		secondMonthEndCal.set(Calendar.DAY_OF_MONTH, secondMonthEndCal.getActualMaximum(Calendar.DAY_OF_MONTH));
-		Date secondMonthEndDate = secondMonthEndCal.getTime();
-		
-		// Define the start and end date of the third month
-		Calendar thirdMonthStartCal = Calendar.getInstance();
-		thirdMonthStartCal.setTime(secondMonthEndDate);
-		thirdMonthStartCal.add(Calendar.DAY_OF_MONTH, 1);
-		Date thirdMonthStartDate = thirdMonthStartCal.getTime();
-		
-		// Get active clients for the first and second month
-		HashSet<Patient> activeClientsFirstMonth = getActiveClientsForWaterfall(startDate, firstMonthEndDate);
-		HashSet<Patient> activeClientsSecondMonth = getActiveClientsForWaterfall(secondMonthStartDate, secondMonthEndDate);
-		HashSet<Patient> activeClientsFirstTwoMonths = new HashSet<>(activeClientsFirstMonth);
-		activeClientsFirstTwoMonths.addAll(activeClientsSecondMonth);
-		
-		// TX_CURR is the total number of active clients in the first two months
-		int txCurrFirstTwoMonths = activeClientsFirstTwoMonths.size();
-		
+
+		// Get all active clients for the entire period
+		HashSet<Patient> activeClientsEntirePeriod = getActiveClients(startDate, endDate);
+
+		// Get active clients for the last 30 days
+		Calendar last30DaysCal = Calendar.getInstance();
+		last30DaysCal.setTime(endDate);
+		last30DaysCal.add(Calendar.DAY_OF_MONTH, -30);
+		Date last30DaysStartDate = last30DaysCal.getTime();
+		HashSet<Patient> activeClientsLast30Days = getActiveClients(last30DaysStartDate, endDate);
+
+		// Exclude active clients from the last 30 days
+		activeClientsEntirePeriod.removeAll(activeClientsLast30Days);
+
+		// TX_CURR is the total number of active clients excluding the last 30 days
+		int txCurrFirstTwoMonths = activeClientsEntirePeriod.size();
+
 		// Get active clients for the third month
-		HashSet<Patient> activeClientsThirdMonth = getActiveClientsForWaterfall(thirdMonthStartDate, endDate);
-		
-		// TX_NEW is the new clients in the third month, excluding those from the first
-		// two months
+		HashSet<Patient> activeClientsThirdMonth = getActiveClients(startDate, endDate);
+
+		// TX_NEW is the new clients in the third month, excluding those from the first two months
 		HashSet<Patient> newClientsThirdMonth = new HashSet<>(activeClientsThirdMonth);
-		newClientsThirdMonth.removeAll(activeClientsFirstTwoMonths);
+		newClientsThirdMonth.removeAll(activeClientsEntirePeriod);
 		int txNewThirdMonth = newClientsThirdMonth.size();
-		
+
 		// Other calculations remain unchanged
 		HashSet<Patient> transferredInPatientsCurrentQuarter = getTransferredInPatients(startDate, endDate);
 		HashSet<Patient> returnToTreatmentPatientsCurrentQuarter = getReturnToTreatmentPatients(startDate, endDate);
 		HashSet<Patient> transferredOutPatientsCurrentQuarter = getTransferredOutPatients(startDate, endDate);
 		HashSet<Patient> deceasedPatientsCurrentQuarter = new HashSet<>(getDeceasedPatientsByDateRange(startDate, endDate));
-		HashSet<Patient> interruptedInTreatmentPatientsCurrentQuarter = getInterruptedInTreatmentPatients(startDate,
-		    endDate);
-		
+		HashSet<Patient> interruptedInTreatmentPatientsCurrentQuarter = getInterruptedInTreatmentPatients(startDate, endDate);
+
 		int transferInCurrentQuarter = transferredInPatientsCurrentQuarter.size();
 		int txRttCurrentQuarter = returnToTreatmentPatientsCurrentQuarter.size();
 		int transferOutCurrentQuarter = transferredOutPatientsCurrentQuarter.size();
 		int txDeathCurrentQuarter = deceasedPatientsCurrentQuarter.size();
-		
+
 		HashSet<Patient> interruptedInTreatmentLessThan3Months = filterInterruptedInTreatmentPatients(
-		    interruptedInTreatmentPatientsCurrentQuarter, 3, false);
+				interruptedInTreatmentPatientsCurrentQuarter, 3, false);
 		int txMlIitLessThan3MoCurrentQuarter = interruptedInTreatmentLessThan3Months.size();
-		
+
 		HashSet<Patient> interruptedInTreatmentMoreThan3Months = filterInterruptedInTreatmentPatients(
-		    interruptedInTreatmentPatientsCurrentQuarter, 3, true);
+				interruptedInTreatmentPatientsCurrentQuarter, 3, true);
 		int txMlIitMoreThan3MoCurrentQuarter = interruptedInTreatmentMoreThan3Months.size();
-		
+
 		// Potential TX_CURR
 		int potentialTxCurr = txNewThirdMonth + txCurrFirstTwoMonths + transferInCurrentQuarter + txRttCurrentQuarter;
-		
+
 		// CALCULATED TX_CURR
 		int calculatedTxCurr = potentialTxCurr - transferOutCurrentQuarter - txDeathCurrentQuarter
-		        - txMlIitLessThan3MoCurrentQuarter - txMlIitMoreThan3MoCurrentQuarter;
-		
+				- txMlIitLessThan3MoCurrentQuarter - txMlIitMoreThan3MoCurrentQuarter;
+
 		// Prepare the results
 		List<Map<String, Object>> waterfallAnalysisList = new ArrayList<>();
 		waterfallAnalysisList.add(createResultMap("TX_CURR", txCurrFirstTwoMonths));
@@ -2092,7 +2132,7 @@ public class SSEMRWebServicesController {
 		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (<3 mo)", txMlIitLessThan3MoCurrentQuarter));
 		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (3+ mo)", txMlIitMoreThan3MoCurrentQuarter));
 		waterfallAnalysisList.add(createResultMap("CALCULATED TX_CURR", calculatedTxCurr));
-		
+
 		// Combine the results
 		Map<String, Object> results = new HashMap<>();
 		results.put("results", waterfallAnalysisList);
@@ -2139,22 +2179,5 @@ public class SSEMRWebServicesController {
 		resultMap.put(key, value);
 		return resultMap;
 	}
-	
-	private HashSet<Patient> getActiveClientsForWaterfall(Date startDate, Date endDate) throws ParseException {
-		List<String> activeClientsForWaterfallEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
-		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-		List<Encounter> activeClientsForWaterfallRegimenEncounters = getEncountersByDateRange(
-		    activeClientsForWaterfallEncounterTypeUuids, startDate, endDate);
-		HashSet<Patient> activePatientsForWaterfall = extractPatientsFromEncounters(
-		    activeClientsForWaterfallRegimenEncounters);
-		
-		List<Obs> regimenObs = getObservationsByDateRange(activeClientsForWaterfallRegimenEncounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
-		    endDate);
-		HashSet<Patient> activeClientsForWaterfall = extractPatientsFromObservations(regimenObs);
-		
-		activePatientsForWaterfall.addAll(activeClientsForWaterfall);
-		
-		return activePatientsForWaterfall;
-	}
+
 }
