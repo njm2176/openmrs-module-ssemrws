@@ -1179,6 +1179,12 @@ public class SSEMRWebServicesController {
 			}
 		}
 		
+		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
+		
+		vlPatients.removeAll(deceasedPatients);
+		vlPatients.removeAll(transferredOutPatients);
+		
 		return vlPatients;
 	}
 	
@@ -1587,50 +1593,62 @@ public class SSEMRWebServicesController {
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
 	@ResponseBody
-	public Object getNewPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
+	public Object getNewPatients(HttpServletRequest request,
+	        @RequestParam(required = false, value = "startDate") String qStartDate,
+	        @RequestParam(required = false, value = "endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		
-		Date endDate = dateTimeFormatter.parse(qEndDate);
-		// Calculate the start date as 30 days before the end date
-		Date startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
-		
+
+		Date endDate;
+		Date startDate;
+
+		if (qEndDate == null) {
+			endDate = new Date();
+		} else {
+			endDate = dateTimeFormatter.parse(qEndDate);
+		}
+
+		if (qStartDate == null) {
+			startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
+		} else {
+			startDate = dateTimeFormatter.parse(qStartDate);
+		}
+
 		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
 		return generatePatientListObj(enrolledPatients, startDate, endDate);
 	}
-	
+
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
 		List<String> enrolledClientsEncounterTypeUuids = Arrays.asList(ADULT_AND_ADOLESCENT_INTAKE_FORM,
 		    PEDIATRIC_INTAKE_FORM, FOLLOW_UP_FORM_ENCOUNTER_TYPE, PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID);
 		List<Encounter> enrolledEncounters = getEncountersByDateRange(enrolledClientsEncounterTypeUuids, startDate, endDate);
 		HashSet<Patient> enrolledPatients = extractPatientsFromEncounters(enrolledEncounters);
-		
+
 		// Add patients with recorded enrollment data in the past 30 days
 		List<Obs> enrollmentObs = getObservationsByDateRange(enrolledEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
 		    endDate);
 		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
-		
+
 		// Add patients enrolled in a regimen in the past 30 days
 		List<Obs> regimenObs = getObservationsByDateRange(enrolledEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
 		    endDate);
 		HashSet<Patient> regimenPatients = extractPatientsFromObservations(regimenObs);
-		
+
 		enrolledPatients.addAll(enrolledClients);
 		enrolledPatients.addAll(regimenPatients);
-		
+
 		// Get Transferred In patients and remove them from the Newly Enrolled patients
 		// list
 		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
-		
+
 		// Remove Deceased and Transferred Out Patients from active clients
 		enrolledPatients.removeAll(transferredInPatients);
 		enrolledPatients.removeAll(transferredOutPatients);
 		enrolledPatients.removeAll(deceasedPatients);
-		
+
 		return enrolledPatients;
 	}
 	
