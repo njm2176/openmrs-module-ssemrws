@@ -56,7 +56,7 @@ public class SSEMRWebServicesController {
 	
 	public static final String SAMPLE_COLLECTION_DATE_UUID = "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d";
 	
-	public static final String YES_CONCEPT = "78763e68-104e-465d-8ce3-35f9edfb083d";
+	public static final String YES_CONCEPT = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
 	public static final String LAST_REFILL_DATE_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
 	
@@ -215,7 +215,7 @@ public class SSEMRWebServicesController {
 	
 	private static final String CURRENTLY_PREGNANT_CONCEPT_UUID = "235a6246-6179-4309-ba84-6f0ec337eb48";
 	
-	public static final String CONCEPT_BY_UUID = "78763e68-104e-465d-8ce3-35f9edfb083d";
+	public static final String CONCEPT_BY_UUID = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
 	private static final double THRESHOLD = 1000.0;
 	
@@ -2062,62 +2062,64 @@ public class SSEMRWebServicesController {
 		
 		return getWaterfallAnalysisChart(qStartDate, qEndDate);
 	}
-
+	
 	private Object getWaterfallAnalysisChart(String qStartDate, String qEndDate) throws ParseException {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
-
+		
 		// Get all active clients for the entire period
 		HashSet<Patient> activeClientsEntirePeriod = getActiveClients(startDate, endDate);
-
+		
 		// Get active clients for the last 30 days
 		Calendar last30DaysCal = Calendar.getInstance();
 		last30DaysCal.setTime(endDate);
 		last30DaysCal.add(Calendar.DAY_OF_MONTH, -30);
 		Date last30DaysStartDate = last30DaysCal.getTime();
 		HashSet<Patient> activeClientsLast30Days = getActiveClients(last30DaysStartDate, endDate);
-
+		
 		// Exclude active clients from the last 30 days
 		activeClientsEntirePeriod.removeAll(activeClientsLast30Days);
-
+		
 		// TX_CURR is the total number of active clients excluding the last 30 days
 		int txCurrFirstTwoMonths = activeClientsEntirePeriod.size();
-
+		
 		// Get active clients for the third month
 		HashSet<Patient> activeClientsThirdMonth = getActiveClients(startDate, endDate);
-
-		// TX_NEW is the new clients in the third month, excluding those from the first two months
+		
+		// TX_NEW is the new clients in the third month, excluding those from the first
+		// two months
 		HashSet<Patient> newClientsThirdMonth = new HashSet<>(activeClientsThirdMonth);
 		newClientsThirdMonth.removeAll(activeClientsEntirePeriod);
 		int txNewThirdMonth = newClientsThirdMonth.size();
-
+		
 		// Other calculations remain unchanged
 		HashSet<Patient> transferredInPatientsCurrentQuarter = getTransferredInPatients(startDate, endDate);
 		HashSet<Patient> returnToTreatmentPatientsCurrentQuarter = getReturnToTreatmentPatients(startDate, endDate);
 		HashSet<Patient> transferredOutPatientsCurrentQuarter = getTransferredOutPatients(startDate, endDate);
 		HashSet<Patient> deceasedPatientsCurrentQuarter = new HashSet<>(getDeceasedPatientsByDateRange(startDate, endDate));
-		HashSet<Patient> interruptedInTreatmentPatientsCurrentQuarter = getInterruptedInTreatmentPatients(startDate, endDate);
-
+		HashSet<Patient> interruptedInTreatmentPatientsCurrentQuarter = getInterruptedInTreatmentPatients(startDate,
+		    endDate);
+		
 		int transferInCurrentQuarter = transferredInPatientsCurrentQuarter.size();
 		int txRttCurrentQuarter = returnToTreatmentPatientsCurrentQuarter.size();
 		int transferOutCurrentQuarter = transferredOutPatientsCurrentQuarter.size();
 		int txDeathCurrentQuarter = deceasedPatientsCurrentQuarter.size();
-
+		
 		HashSet<Patient> interruptedInTreatmentLessThan3Months = filterInterruptedInTreatmentPatients(
-				interruptedInTreatmentPatientsCurrentQuarter, 3, false);
+		    interruptedInTreatmentPatientsCurrentQuarter, 3, false);
 		int txMlIitLessThan3MoCurrentQuarter = interruptedInTreatmentLessThan3Months.size();
-
+		
 		HashSet<Patient> interruptedInTreatmentMoreThan3Months = filterInterruptedInTreatmentPatients(
-				interruptedInTreatmentPatientsCurrentQuarter, 3, true);
+		    interruptedInTreatmentPatientsCurrentQuarter, 3, true);
 		int txMlIitMoreThan3MoCurrentQuarter = interruptedInTreatmentMoreThan3Months.size();
-
+		
 		// Potential TX_CURR
 		int potentialTxCurr = txNewThirdMonth + txCurrFirstTwoMonths + transferInCurrentQuarter + txRttCurrentQuarter;
-
+		
 		// CALCULATED TX_CURR
 		int calculatedTxCurr = potentialTxCurr - transferOutCurrentQuarter - txDeathCurrentQuarter
-				- txMlIitLessThan3MoCurrentQuarter - txMlIitMoreThan3MoCurrentQuarter;
-
+		        - txMlIitLessThan3MoCurrentQuarter - txMlIitMoreThan3MoCurrentQuarter;
+		
 		// Prepare the results
 		List<Map<String, Object>> waterfallAnalysisList = new ArrayList<>();
 		waterfallAnalysisList.add(createResultMap("TX_CURR", txCurrFirstTwoMonths));
@@ -2132,7 +2134,7 @@ public class SSEMRWebServicesController {
 		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (<3 mo)", txMlIitLessThan3MoCurrentQuarter));
 		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (3+ mo)", txMlIitMoreThan3MoCurrentQuarter));
 		waterfallAnalysisList.add(createResultMap("CALCULATED TX_CURR", calculatedTxCurr));
-
+		
 		// Combine the results
 		Map<String, Object> results = new HashMap<>();
 		results.put("results", waterfallAnalysisList);
@@ -2179,5 +2181,5 @@ public class SSEMRWebServicesController {
 		resultMap.put(key, value);
 		return resultMap;
 	}
-
+	
 }
