@@ -22,6 +22,7 @@ import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.logging.log4j.util.PropertySource;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
@@ -198,6 +199,30 @@ public class SSEMRWebServicesController {
 	
 	public static final String DECEASED_CONCEPT_UUID = "417b7273-8d62-4720-9fb6-075e9d1530ec";
 	
+	public static final String LAST_CD4_COUNT_UUID = "809dd0f5-ce54-441c-b835-a2a8b06a6140";
+	
+	public static final String TB_STATUS_CONCEPT_UUID = "9a1a731e-937b-46fe-aca2-acf83a326b71";
+	
+	public static final String ARV_REGIMEN_DOSE_UUID = "3fa33347-9871-497b-81f3-7a791b9f4bae";
+	
+	public static final String WHO_CLINICAL_UUID = "e38e6ce2-92d9-4382-927b-5555ff9fa850";
+	
+	public static final String DATE_VL_RESULTS_RECEIVED_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
+	
+	public static final String CHW_NAME_UUID = "5b258179-1872-4339-8b29-5ecf618bd4d3";
+	
+	public static final String CHW_PHONE_UUID = "cb3385ee-18c3-4856-a410-c7b4d105a779";
+	
+	public static final String CHW_ADDRESS_UUID = "77a35b01-7713-437a-a82b-7f74c75ea41d";
+	
+	public static final String BDL_CONCENT_UUID = "62df0577-a1f7-493e-80d2-e458998f1a2f";
+	
+	public static final String BMI_CONCEPT_UUID = "1342AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	
+	public static final String MUAC_CONCEPT_UUID = "1343AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	
+	public static final String WHO_CLINICAL_STAGE_INTAKE_UUID = "a90652b2-f2c7-471f-a287-64495d2a6791";
+	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
 	public enum filterCategory {
@@ -206,10 +231,6 @@ public class SSEMRWebServicesController {
 		IIT,
 		RETURN_TO_TREATMENT
 	};
-	
-	public static final String ENROLMENT_ENCOUNTER_TYPE_UUID = "f469b65f-a4f6-4723-989a-46090de6a0e5";
-	
-	public static final String TRANSFER_IN_CONCEPT_UUID = "735cd395-0ef1-4832-a58c-e8afb567d3b3";
 	
 	public static final String CURRENTLY_BREASTFEEDING_CONCEPT_UUID = "e288fc7d-bbc5-479a-b94d-857e3819f926";
 	
@@ -221,18 +242,29 @@ public class SSEMRWebServicesController {
 	
 	private static final int SIX_MONTHS_IN_DAYS = 183;
 	
+	public static final Set<String> FIRST_LINE_REGIMENS = new HashSet<>(
+	        Arrays.asList("9062c6d9-a650-44d2-8929-da84f617c427", "c22e6700-a937-4909-b4ad-e82ff51325ac",
+	            "91f5d0d6-eb81-484f-9376-4bfb926a5a81", "0dd3e78f-e1fc-47de-95bc-1f489d0dfcc5",
+	            "4a86fbee-07a9-422a-bf69-16256c0c2b8b", "03224cae-f115-4814-bd53-c99c72288446",
+	            "c224b116-27ec-4156-93ba-d4838a3ac1c0", "5efe8d99-c65e-4136-8820-5f3646437ff7",
+	            "f8f64be8-ccb4-404d-b99e-3c4975155da5", "28c5d192-ba71-4ef5-8604-ecf6bd177126",
+	            "3eaf04dc-e284-42f7-860e-02cda37cf230", "0372f3fb-5e8a-474f-8250-01af7a485778",
+	            "ce2412c4-a041-4328-bfaa-35e041ca4802", "6ed47806-8809-4c5a-a1b6-fe2ec0158563",
+	            "f6b1c6ea-b0a2-46a0-b7e0-3038d268356c", "2e1ab9d3-7fe1-48ba-a12c-fd8d26bc161d",
+	            "99f54f96-e761-4d86-bb1b-0abc2a24fa16", "5287f2a4-23e5-4314-b60c-0a4b91753ec6"));
+	
 	public static final Set<String> SECOND_LINE_REGIMENS = new HashSet<>(
-	        Arrays.asList("b23cf614-dfec-48c9-a12f-ba577e28347d", "dabc93c3-8c3d-41e1-b3e3-d7e14c4765b6",
-	            "da3c6710-c431-4582-a444-a466d54693ec", "6c383d11-2b29-4cc2-bfa4-811ff7a988f1",
-	            "82725d14-00c6-4864-bf8b-ad5db0b3c3fa", "140ede93-5691-463b-9d17-2dc8834621f8",
-	            "06017ac1-2ce8-4689-a3bf-4e9f3d54978f", "2c0a5b91-7b2a-4f8e-86fd-a8007841fca8",
-	            "50b60d77-186d-4a0d-8784-659ee2d60ec9", "78e49624-0e33-4374-93b7-60b132b26dae",
-	            "bd97cacd-4a91-4901-8803-3a4a2e5f1ca8", "ad6ff4ef-769e-4aec-b8bb-7f033fe6aaaa",
+	        Arrays.asList("bd97cacd-4a91-4901-8803-3a4a2e5f1ca8", "ad6ff4ef-769e-4aec-b8bb-7f033fe6aaaa",
 	            "47167ec1-4957-4d0a-a58c-3894bdeb93ff", "e649a0ec-e193-4af0-bb49-02687107a893",
 	            "accca537-b8ee-41ec-b902-7de814d099b2", "77f201fc-aefc-4068-baa7-cb3284782a38",
 	            "cb0f9fcd-fb52-493f-95aa-d0197387fbdb", "28790bde-81db-4490-806b-ac10c17b41dc",
 	            "aae69cae-2806-4e8b-a916-f22ed733a19b", "64336206-c9bc-4d37-accf-c7abac7a37f6",
-	            "25f0cca5-902d-4e36-9e4f-5ce5da744a75"));
+	            "25f0cca5-902d-4e36-9e4f-5ce5da744a75", "b23cf614-dfec-48c9-a12f-ba577e28347d",
+	            "dabc93c3-8c3d-41e1-b3e3-d7e14c4765b6", "da3c6710-c431-4582-a444-a466d54693ec",
+	            "6c383d11-2b29-4cc2-bfa4-811ff7a988f1", "82725d14-00c6-4864-bf8b-ad5db0b3c3fa",
+	            "140ede93-5691-463b-9d17-2dc8834621f8", "06017ac1-2ce8-4689-a3bf-4e9f3d54978f",
+	            "2c0a5b91-7b2a-4f8e-86fd-a8007841fca8", "50b60d77-186d-4a0d-8784-659ee2d60ec9",
+	            "78e49624-0e33-4374-93b7-60b132b26dae"));
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -901,6 +933,16 @@ public class SSEMRWebServicesController {
 		String lastRefillDate = getLastRefillDate(patient);
 		String artRegimen = getARTRegimen(patient);
 		String artInitiationDate = getArtInitiationDate(patient);
+		Double lastCD4Count = getLastCD4Count(patient);
+		String tbStatus = getTbStatus(patient);
+		String arvRegimenDose = getARVRegimenDose(patient);
+		String whoClinicalStage = getWHOClinicalStage(patient);
+		String dateVLResultsReceived = getDateVLResultsReceived(patient);
+		String vlResult = getVLResults(patient);
+		Double bmiMuac = getBMIMUAC(patient);
+		String chwName = getCHWName(patient);
+		String chwPhone = getCHWPhone(patient);
+		String chwAddress = getCHWAddress(patient);
 		String contact = patient.getAttribute("Client Telephone Number") != null
 		        ? String.valueOf(patient.getAttribute("Client Telephone Number"))
 		        : "";
@@ -942,10 +984,6 @@ public class SSEMRWebServicesController {
 		patientObj.put("address", fullAddress);
 		patientObj.put("contact", contact);
 		patientObj.put("alternateContact", alternateContact);
-		patientObj.put("dateEnrolled", dateEnrolled);
-		patientObj.put("lastRefillDate", lastRefillDate);
-		patientObj.put("ARTRegimen", artRegimen);
-		patientObj.put("initiationDate", artInitiationDate);
 		patientObj.put("clinicalStatus", clinicalStatus.toString());
 		patientObj.put("newClient", newlyEnrolledOnArt(patient));
 		patientObj.put("childOrAdolescent", age <= 19 ? true : false);
@@ -956,6 +994,21 @@ public class SSEMRWebServicesController {
 		patientObj.put("highVl", determineIfPatientIsHighVl(patient));
 		patientObj.put("onAppointment", determineIfPatientIsOnAppointment(patient));
 		patientObj.put("missedAppointment", determineIfPatientMissedAppointment(patient));
+		patientObj.put("dateEnrolled", dateEnrolled);
+		patientObj.put("lastRefillDate", lastRefillDate);
+		patientObj.put("ARTRegimen", artRegimen);
+		patientObj.put("initiationDate", artInitiationDate);
+		patientObj.put("lastCd4Count", lastCD4Count);
+		patientObj.put("BMI/MUAC", bmiMuac);
+		patientObj.put("tbStatus", tbStatus);
+		patientObj.put("arvRegimenDose", arvRegimenDose);
+		patientObj.put("nextVisitDate", "");
+		patientObj.put("whoHivClinicalStage", whoClinicalStage);
+		patientObj.put("dateVLResultsReceived", dateVLResultsReceived);
+		patientObj.put("vlResult", vlResult);
+		patientObj.put("chwName", chwName);
+		patientObj.put("chwPhone", chwPhone);
+		patientObj.put("chwAddress", chwAddress);
 		
 		// check filter category and filter patients based on the category
 		if (filterCategory != null) {
@@ -980,6 +1033,13 @@ public class SSEMRWebServicesController {
 		}
 		return null;
 	}
+	
+	// public List<AppointmentsService> getAllAppointments(@RequestParam(value =
+	// "forDate", required = false) String forDate) throws ParseException {
+	// List<Appointment> appointments =
+	// appointmentsService.getAllAppointments(DateUtil.convertToLocalDateFromUTC(forDate));
+	// return appointmentMapper.constructResponse(appointments);
+	// }
 	
 	/**
 	 * Returns a list of patients on appointment.
@@ -1677,7 +1737,9 @@ public class SSEMRWebServicesController {
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), null,
 		    null, null, null, null, null, null, null, false);
 		
-		if (enrollmentDateObs != null && !enrollmentDateObs.isEmpty()) {
+		enrollmentDateObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!enrollmentDateObs.isEmpty()) {
 			Obs dateObs = enrollmentDateObs.get(0);
 			Date enrollmentDate = dateObs.getValueDate();
 			if (enrollmentDate != null) {
@@ -1694,7 +1756,9 @@ public class SSEMRWebServicesController {
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID)), null, null,
 		    null, null, null, null, null, null, false);
 		
-		if (lastRefillDateObs != null && !lastRefillDateObs.isEmpty()) {
+		lastRefillDateObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!lastRefillDateObs.isEmpty()) {
 			Obs lastObs = lastRefillDateObs.get(0);
 			Date lastRefillDate = lastObs.getValueDate();
 			if (lastRefillDate != null) {
@@ -1711,7 +1775,9 @@ public class SSEMRWebServicesController {
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ART_INITIATION_CONCEPT_UUID)),
 		    null, null, null, null, null, null, null, null, false);
 		
-		if (initiationDateObs != null && !initiationDateObs.isEmpty()) {
+		initiationDateObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!initiationDateObs.isEmpty()) {
 			Obs lastObs = initiationDateObs.get(0);
 			Date initiationDate = lastObs.getValueDate();
 			if (initiationDate != null) {
@@ -2202,7 +2268,9 @@ public class SSEMRWebServicesController {
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ART_INITIATION_CONCEPT_UUID)),
 		    null, null, null, null, null, null, null, null, false);
 		
-		if (initiationDateObs != null && !initiationDateObs.isEmpty()) {
+		initiationDateObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!initiationDateObs.isEmpty()) {
 			Obs lastObs = initiationDateObs.get(0);
 			Date initiationDate = lastObs.getValueDate();
 			if (initiationDate != null) {
@@ -2216,6 +2284,186 @@ public class SSEMRWebServicesController {
 		Map<String, Object> resultMap = new HashMap<>();
 		resultMap.put(key, value);
 		return resultMap;
+	}
+	
+	private static Double getLastCD4Count(Patient patient) {
+		Concept lastCD4CountConcept = Context.getConceptService().getConceptByUuid(LAST_CD4_COUNT_UUID);
+		List<Obs> lastCD4CountObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(lastCD4CountConcept), null, null, null, null, null, null, null, null, false);
+		
+		lastCD4CountObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!lastCD4CountObs.isEmpty()) {
+			Obs lastcd4Obs = lastCD4CountObs.get(0);
+			return lastcd4Obs.getValueNumeric();
+		}
+		return null;
+	}
+	
+	private static String getTbStatus(Patient patient) {
+		Concept tbStatusConcept = Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID);
+		List<Obs> tbStatusObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(tbStatusConcept), null, null, null, null, null, null, null, null, false);
+		
+		tbStatusObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!tbStatusObs.isEmpty()) {
+			Obs tbStatus = tbStatusObs.get(0);
+			return tbStatus.getValueText();
+		}
+		return "";
+	}
+	
+	private static String getARVRegimenDose(Patient patient) {
+		Concept arvRegimenDoseConcepts = Context.getConceptService().getConceptByUuid(ARV_REGIMEN_DOSE_UUID);
+		
+		List<Obs> arvRegimenDoseObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(arvRegimenDoseConcepts), null, null, null, null, null, null, null, null, false);
+		
+		arvRegimenDoseObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!arvRegimenDoseObs.isEmpty()) {
+			Obs arvRegimenDose = arvRegimenDoseObs.get(0);
+			return arvRegimenDose.getValueText();
+		}
+		return "";
+	}
+	
+	private static String getWHOClinicalStage(Patient patient) {
+		Concept whoClinicalStageConcepts = Context.getConceptService().getConceptByUuid(WHO_CLINICAL_UUID);
+		Concept whoClinicalStageIntakeConcepts = Context.getConceptService()
+		        .getConceptByUuid(WHO_CLINICAL_STAGE_INTAKE_UUID);
+		
+		List<Obs> whoClinicalStageObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(whoClinicalStageConcepts), null,
+		    null, null, null, null, null, null, null, false);
+		
+		List<Obs> whoClinicalStageIntakeObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(whoClinicalStageIntakeConcepts),
+		    null, null, null, null, null, null, null, null, false);
+		
+		List<Obs> whoClinicalStage = new ArrayList<>();
+		whoClinicalStage.addAll(whoClinicalStageObs);
+		whoClinicalStage.addAll(whoClinicalStageIntakeObs);
+		
+		whoClinicalStage.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!whoClinicalStage.isEmpty()) {
+			Obs whoClinicalStageResults = whoClinicalStage.get(0);
+			return whoClinicalStageResults.getValueText();
+		}
+		return "";
+	}
+	
+	private static String getDateVLResultsReceived(Patient patient) {
+		Concept dateVLResultsReceivedConcept = Context.getConceptService().getConceptByUuid(DATE_VL_RESULTS_RECEIVED_UUID);
+		
+		List<Obs> dateVLResultsReceivedObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(dateVLResultsReceivedConcept),
+		    null, null, null, null, null, null, null, null, false);
+		
+		dateVLResultsReceivedObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!dateVLResultsReceivedObs.isEmpty()) {
+			Obs dateVLReceivedObs = dateVLResultsReceivedObs.get(0);
+			Date dateVLResultsReceived = dateVLReceivedObs.getValueDate();
+			if (dateVLResultsReceived != null) {
+				return dateTimeFormatter.format(dateVLResultsReceived);
+			}
+		}
+		return "";
+	}
+	
+	private static String getCHWName(Patient patient) {
+		Concept chwNameConcepts = Context.getConceptService().getConceptByUuid(CHW_NAME_UUID);
+		
+		List<Obs> chwNameObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(chwNameConcepts), null, null, null, null, null, null, null, null, false);
+		
+		chwNameObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!chwNameObs.isEmpty()) {
+			Obs chwName = chwNameObs.get(0);
+			return chwName.getValueText();
+		}
+		return "";
+	}
+	
+	private static String getCHWPhone(Patient patient) {
+		Concept chwPhoneConcepts = Context.getConceptService().getConceptByUuid(CHW_PHONE_UUID);
+		
+		List<Obs> chwPhoneObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(chwPhoneConcepts), null, null, null, null, null, null, null, null, false);
+		
+		chwPhoneObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!chwPhoneObs.isEmpty()) {
+			Obs chwPhone = chwPhoneObs.get(0);
+			return chwPhone.getValueText();
+		}
+		return "";
+	}
+	
+	private static String getCHWAddress(Patient patient) {
+		Concept chwAddressConcepts = Context.getConceptService().getConceptByUuid(CHW_ADDRESS_UUID);
+		
+		List<Obs> chwAddressObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(chwAddressConcepts), null, null, null, null, null, null, null, null, false);
+		
+		chwAddressObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!chwAddressObs.isEmpty()) {
+			Obs chwAddress = chwAddressObs.get(0);
+			return chwAddress.getValueText();
+		}
+		return "";
+	}
+	
+	private static String getVLResults(Patient patient) {
+		List<Obs> getVLResultObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID)),
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(BDL_CONCENT_UUID)), null, null, null, 1,
+		    null, null, null, false);
+		
+		List<Obs> getVLResultNumericObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
+		    null, null, 1, null, null, null, false);
+		
+		List<Obs> allObservations = new ArrayList<>();
+		allObservations.addAll(getVLResultObs);
+		allObservations.addAll(getVLResultNumericObs);
+		
+		allObservations.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!allObservations.isEmpty()) {
+			Obs mostRecentObs = allObservations.get(0);
+			return mostRecentObs.getValueAsString(Locale.getDefault());
+		}
+		
+		return null;
+	}
+	
+	private static Double getBMIMUAC(Patient patient) {
+		List<Obs> bmiObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_CONCEPT_UUID)), null, null, null,
+		    null, 1, null, null, null, false);
+		
+		List<Obs> muacObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(MUAC_CONCEPT_UUID)), null, null, null,
+		    null, 1, null, null, null, false);
+		
+		List<Obs> bmiMuacObservations = new ArrayList<>();
+		bmiMuacObservations.addAll(bmiObs);
+		bmiMuacObservations.addAll(muacObs);
+		
+		bmiMuacObservations.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		
+		if (!bmiMuacObservations.isEmpty()) {
+			Obs bmiMuacObs = bmiMuacObservations.get(0);
+			return bmiMuacObs.getValueNumeric();
+		}
+		return null;
 	}
 	
 }
