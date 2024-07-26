@@ -2330,29 +2330,28 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static String getWHOClinicalStage(Patient patient) {
-		Concept whoClinicalStageConcepts = Context.getConceptService().getConceptByUuid(WHO_CLINICAL_UUID);
-		Concept whoClinicalStageIntakeConcepts = Context.getConceptService()
-		        .getConceptByUuid(WHO_CLINICAL_STAGE_INTAKE_UUID);
-		
 		List<Obs> whoClinicalStageObs = Context.getObsService().getObservations(
-		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(whoClinicalStageConcepts), null,
-		    null, null, null, null, null, null, null, false);
+		    Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(WHO_CLINICAL_UUID)), null, null, null,
+		    null, 1, null, null, null, false);
 		
 		List<Obs> whoClinicalStageIntakeObs = Context.getObsService().getObservations(
-		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(whoClinicalStageIntakeConcepts),
-		    null, null, null, null, null, null, null, null, false);
+		    Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(WHO_CLINICAL_STAGE_INTAKE_UUID)), null,
+		    null, null, null, 1, null, null, null, false);
 		
-		List<Obs> whoClinicalStage = new ArrayList<>();
-		whoClinicalStage.addAll(whoClinicalStageObs);
-		whoClinicalStage.addAll(whoClinicalStageIntakeObs);
+		List<Obs> whoClinicalObservations = new ArrayList<>();
+		whoClinicalObservations.addAll(whoClinicalStageObs);
+		whoClinicalObservations.addAll(whoClinicalStageIntakeObs);
 		
-		whoClinicalStage.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		whoClinicalObservations.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
 		
-		if (!whoClinicalStage.isEmpty()) {
-			Obs whoClinicalStageResults = whoClinicalStage.get(0);
-			return whoClinicalStageResults.getValueText();
+		if (!whoClinicalObservations.isEmpty()) {
+			Obs whoClinicalObs = whoClinicalObservations.get(0);
+			return whoClinicalObs.getValueText();
 		}
-		return "";
+		
+		return null;
 	}
 	
 	private static String getDateVLResultsReceived(Patient patient) {
