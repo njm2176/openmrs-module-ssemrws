@@ -934,16 +934,6 @@ public class SSEMRWebServicesController {
 		String lastRefillDate = getLastRefillDate(patient);
 		String artRegimen = getARTRegimen(patient);
 		String artInitiationDate = getArtInitiationDate(patient);
-		Double lastCD4Count = getLastCD4Count(patient);
-		String tbStatus = getTbStatus(patient);
-		String arvRegimenDose = getARVRegimenDose(patient);
-		String whoClinicalStage = getWHOClinicalStage(patient);
-		String dateVLResultsReceived = getDateVLResultsReceived(patient);
-		String vlResult = getVLResults(patient);
-		Double bmiMuac = getBMIMUAC(patient);
-		String chwName = getCHWName(patient);
-		String chwPhone = getCHWPhone(patient);
-		String chwAddress = getCHWAddress(patient);
 		String contact = patient.getAttribute("Client Telephone Number") != null
 		        ? String.valueOf(patient.getAttribute("Client Telephone Number"))
 		        : "";
@@ -999,17 +989,6 @@ public class SSEMRWebServicesController {
 		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("ARTRegimen", artRegimen);
 		patientObj.put("initiationDate", artInitiationDate);
-		patientObj.put("lastCd4Count", lastCD4Count);
-		patientObj.put("BMI/MUAC", bmiMuac);
-		patientObj.put("tbStatus", tbStatus);
-		patientObj.put("arvRegimenDose", arvRegimenDose);
-		patientObj.put("nextVisitDate", "");
-		patientObj.put("whoHivClinicalStage", whoClinicalStage);
-		patientObj.put("dateVLResultsReceived", dateVLResultsReceived);
-		patientObj.put("vlResult", vlResult);
-		patientObj.put("chwName", chwName);
-		patientObj.put("chwPhone", chwPhone);
-		patientObj.put("chwAddress", chwAddress);
 		
 		// check filter category and filter patients based on the category
 		if (filterCategory != null) {
@@ -1075,7 +1054,8 @@ public class SSEMRWebServicesController {
 					        break;
 				        }
 			        }
-			        
+
+
 			        if (appointmentScheduledDate != null) {
 				        LocalDate today = LocalDate.now();
 				        LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
