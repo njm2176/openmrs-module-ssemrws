@@ -2148,31 +2148,18 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static HashSet<Patient> getTransferredOutPatients(Date startDate, Date endDate) {
-		EncounterType transferredOutEncounterType = Context.getEncounterService()
-		        .getEncounterTypeByUuid(END_OF_FOLLOW_UP_ENCOUTERTYPE_UUID);
-		
-		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, startDate, endDate, null,
-		        null, Collections.singletonList(transferredOutEncounterType), null, null, null, false);
-		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
-		
-		HashSet<Patient> transferredOutPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
-		    HashSet::add, HashSet::addAll);
-		// Get Patients who were transferred out
-		List<Obs> transferredOutObs = Context.getObsService().getObservations(null, encounters,
+		List<Obs> transferredOutObs = Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TRANSFERRED_OUT_CONCEPT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
 		    null, startDate, endDate, false);
-		// Extract patients from transfer out obs into a hashset to remove duplicates
-		HashSet<Person> transferOutPatients = transferredOutObs.stream().map(Obs::getPerson).collect(HashSet::new,
-		    HashSet::add, HashSet::addAll);
 		
-		transferredOutPatients.removeIf(transferOutPatients::contains);
+		HashSet<Patient> transferredOutpatients = new HashSet<>();
+		for (Obs obs : transferredOutObs) {
+			Patient patient = (Patient) obs.getPerson();
+			transferredOutpatients.add(patient);
+		}
 		
-		// Get deceased patients and remove them from the transferred out list
-		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
-		transferredOutPatients.removeAll(deceasedPatients);
-		
-		return transferredOutPatients;
+		return transferredOutpatients;
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/transferredIn")
