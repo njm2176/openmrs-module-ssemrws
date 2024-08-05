@@ -2417,11 +2417,10 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static String getTbStatus(Patient patient) {
-		List<Obs> tbStatusObs = Context.getObsService().getObservations(
-				Collections.singletonList(patient.getPerson()), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID)), null, null, null,
-				null, 1, null, null, null, false);
-
+		List<Obs> tbStatusObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID)), null, null,
+		    null, null, 1, null, null, null, false);
+		
 		if (!tbStatusObs.isEmpty()) {
 			Obs tbStatus = tbStatusObs.get(0);
 			return tbStatus.getValueText();
