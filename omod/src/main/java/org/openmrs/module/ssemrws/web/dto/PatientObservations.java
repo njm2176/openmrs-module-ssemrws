@@ -28,7 +28,9 @@ public class PatientObservations {
 	
 	private String vlResults;
 	
-	private Double bmiMuac;
+	private Double bmi;
+
+	private Double muac;
 	
 	public String getEnrollmentDate() {
 		return enrollmentDate;
@@ -134,11 +136,19 @@ public class PatientObservations {
 		this.vlResults = vlResults;
 	}
 	
-	public Double getBmiMuac() {
-		return bmiMuac;
+	public Double getBmi() {
+		return bmi;
 	}
 	
-	public void setBmiMuac(Double bmiMuac) {
-		this.bmiMuac = bmiMuac;
+	public void setBmi(Double bmiMuac) {
+		this.bmi = bmi;
+	}
+
+	public Double getMuac() {
+		return muac;
+	}
+
+	public void setMuac(Double muac) {
+		this.muac = muac;
 	}
 }

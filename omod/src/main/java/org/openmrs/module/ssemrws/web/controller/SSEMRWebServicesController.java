@@ -2542,24 +2542,30 @@ public class SSEMRWebServicesController {
 		
 		return null;
 	}
-	
-	private static Double getBMIMUAC(Patient patient) {
+
+	private static Double getBMI(Patient patient) {
 		List<Obs> bmiObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_CONCEPT_UUID)), null, null, null,
-		    null, 1, null, null, null, false);
-		
-		List<Obs> muacObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(MUAC_CONCEPT_UUID)), null, null, null,
-		    null, 1, null, null, null, false);
-		
-		List<Obs> bmiMuacObservations = new ArrayList<>();
-		bmiMuacObservations.addAll(bmiObs);
-		bmiMuacObservations.addAll(muacObs);
-		
-		if (!bmiMuacObservations.isEmpty()) {
-			Obs bmiMuacObs = bmiMuacObservations.get(0);
-			return bmiMuacObs.getValueNumeric();
+				Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_CONCEPT_UUID)), null, null, null,
+				null, 1, null, null, null, false);
+
+		if (!bmiObs.isEmpty()) {
+			Obs bmiObservation = bmiObs.get(0);
+			return bmiObservation.getValueNumeric();
 		}
+
+		return null;
+	}
+
+	private static Double getMUAC(Patient patient) {
+		List<Obs> muacObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+				Collections.singletonList(Context.getConceptService().getConceptByUuid(MUAC_CONCEPT_UUID)), null, null, null,
+				null, 1, null, null, null, false);
+
+		if (!muacObs.isEmpty()) {
+			Obs muacObservation = muacObs.get(0);
+			return muacObservation.getValueNumeric();
+		}
+
 		return null;
 	}
 	
@@ -2595,8 +2601,9 @@ public class SSEMRWebServicesController {
 		observations.setChwPhone(getCHWPhone(patient));
 		observations.setChwAddress(getCHWAddress(patient));
 		observations.setVlResults(getVLResults(patient));
-		observations.setBmiMuac(getBMIMUAC(patient));
-		
+		observations.setBmi(getBMI(patient));
+		observations.setMuac(getMUAC(patient));
+
 		List<Map<String, String>> identifiersList = new ArrayList<>();
 		for (PatientIdentifier identifier : patient.getIdentifiers()) {
 			Map<String, String> identifierObj = new HashMap<>();
