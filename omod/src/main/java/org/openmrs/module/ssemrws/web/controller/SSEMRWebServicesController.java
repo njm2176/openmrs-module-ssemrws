@@ -2409,8 +2409,6 @@ public class SSEMRWebServicesController {
 		List<Obs> lastCD4CountObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(lastCD4CountConcept), null, null, null, null, null, null, null, null, false);
 		
-		lastCD4CountObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
-		
 		if (!lastCD4CountObs.isEmpty()) {
 			Obs lastcd4Obs = lastCD4CountObs.get(0);
 			return lastcd4Obs.getValueNumeric();
@@ -2422,8 +2420,6 @@ public class SSEMRWebServicesController {
 		Concept tbStatusConcept = Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID);
 		List<Obs> tbStatusObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(tbStatusConcept), null, null, null, null, null, null, null, null, false);
-		
-		tbStatusObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
 		
 		if (!tbStatusObs.isEmpty()) {
 			Obs tbStatus = tbStatusObs.get(0);
@@ -2437,8 +2433,6 @@ public class SSEMRWebServicesController {
 		
 		List<Obs> arvRegimenDoseObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(arvRegimenDoseConcepts), null, null, null, null, null, null, null, null, false);
-		
-		arvRegimenDoseObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
 		
 		if (!arvRegimenDoseObs.isEmpty()) {
 			Obs arvRegimenDose = arvRegimenDoseObs.get(0);
@@ -2462,8 +2456,6 @@ public class SSEMRWebServicesController {
 		whoClinicalObservations.addAll(whoClinicalStageObs);
 		whoClinicalObservations.addAll(whoClinicalStageIntakeObs);
 		
-		whoClinicalObservations.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
-		
 		if (!whoClinicalObservations.isEmpty()) {
 			Obs whoClinicalObs = whoClinicalObservations.get(0);
 			return whoClinicalObs.getValueText();
@@ -2478,8 +2470,6 @@ public class SSEMRWebServicesController {
 		List<Obs> dateVLResultsReceivedObs = Context.getObsService().getObservations(
 		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(dateVLResultsReceivedConcept),
 		    null, null, null, null, null, null, null, null, false);
-		
-		dateVLResultsReceivedObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
 		
 		if (!dateVLResultsReceivedObs.isEmpty()) {
 			Obs dateVLReceivedObs = dateVLResultsReceivedObs.get(0);
@@ -2497,8 +2487,6 @@ public class SSEMRWebServicesController {
 		List<Obs> chwNameObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(chwNameConcepts), null, null, null, null, null, null, null, null, false);
 		
-		chwNameObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
-		
 		if (!chwNameObs.isEmpty()) {
 			Obs chwName = chwNameObs.get(0);
 			return chwName.getValueText();
@@ -2512,8 +2500,6 @@ public class SSEMRWebServicesController {
 		List<Obs> chwPhoneObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(chwPhoneConcepts), null, null, null, null, null, null, null, null, false);
 		
-		chwPhoneObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
-		
 		if (!chwPhoneObs.isEmpty()) {
 			Obs chwPhone = chwPhoneObs.get(0);
 			return chwPhone.getValueText();
@@ -2526,8 +2512,6 @@ public class SSEMRWebServicesController {
 		
 		List<Obs> chwAddressObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(chwAddressConcepts), null, null, null, null, null, null, null, null, false);
-		
-		chwAddressObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
 		
 		if (!chwAddressObs.isEmpty()) {
 			Obs chwAddress = chwAddressObs.get(0);
@@ -2551,8 +2535,6 @@ public class SSEMRWebServicesController {
 		allObservations.addAll(getVLResultObs);
 		allObservations.addAll(getVLResultNumericObs);
 		
-		allObservations.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
-		
 		if (!allObservations.isEmpty()) {
 			Obs mostRecentObs = allObservations.get(0);
 			return mostRecentObs.getValueAsString(Locale.getDefault());
@@ -2573,8 +2555,6 @@ public class SSEMRWebServicesController {
 		List<Obs> bmiMuacObservations = new ArrayList<>();
 		bmiMuacObservations.addAll(bmiObs);
 		bmiMuacObservations.addAll(muacObs);
-		
-		bmiMuacObservations.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
 		
 		if (!bmiMuacObservations.isEmpty()) {
 			Obs bmiMuacObs = bmiMuacObservations.get(0);
