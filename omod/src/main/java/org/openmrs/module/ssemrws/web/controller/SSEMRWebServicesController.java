@@ -2417,10 +2417,11 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static String getTbStatus(Patient patient) {
-		Concept tbStatusConcept = Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID);
-		List<Obs> tbStatusObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(tbStatusConcept), null, null, null, null, null, null, null, null, false);
-		
+		List<Obs> tbStatusObs = Context.getObsService().getObservations(
+				Collections.singletonList(patient.getPerson()), null,
+				Collections.singletonList(Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID)), null, null, null,
+				null, 1, null, null, null, false);
+
 		if (!tbStatusObs.isEmpty()) {
 			Obs tbStatus = tbStatusObs.get(0);
 			return tbStatus.getValueText();
@@ -2542,30 +2543,30 @@ public class SSEMRWebServicesController {
 		
 		return null;
 	}
-
+	
 	private static Double getBMI(Patient patient) {
 		List<Obs> bmiObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_CONCEPT_UUID)), null, null, null,
-				null, 1, null, null, null, false);
-
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(BMI_CONCEPT_UUID)), null, null, null,
+		    null, 1, null, null, null, false);
+		
 		if (!bmiObs.isEmpty()) {
 			Obs bmiObservation = bmiObs.get(0);
 			return bmiObservation.getValueNumeric();
 		}
-
+		
 		return null;
 	}
-
+	
 	private static Double getMUAC(Patient patient) {
 		List<Obs> muacObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-				Collections.singletonList(Context.getConceptService().getConceptByUuid(MUAC_CONCEPT_UUID)), null, null, null,
-				null, 1, null, null, null, false);
-
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(MUAC_CONCEPT_UUID)), null, null, null,
+		    null, 1, null, null, null, false);
+		
 		if (!muacObs.isEmpty()) {
 			Obs muacObservation = muacObs.get(0);
 			return muacObservation.getValueNumeric();
 		}
-
+		
 		return null;
 	}
 	
@@ -2603,7 +2604,7 @@ public class SSEMRWebServicesController {
 		observations.setVlResults(getVLResults(patient));
 		observations.setBmi(getBMI(patient));
 		observations.setMuac(getMUAC(patient));
-
+		
 		List<Map<String, String>> identifiersList = new ArrayList<>();
 		for (PatientIdentifier identifier : patient.getIdentifiers()) {
 			Map<String, String> identifierObj = new HashMap<>();
