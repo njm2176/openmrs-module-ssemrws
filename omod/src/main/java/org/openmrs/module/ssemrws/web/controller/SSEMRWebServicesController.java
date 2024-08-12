@@ -2148,18 +2148,28 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static HashSet<Patient> getTransferredOutPatients(Date startDate, Date endDate) {
-		List<Obs> transferredOutObs = Context.getObsService().getObservations(null, null,
+		
+		List<Obs> transferredOutPatientsObs = Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TRANSFERRED_OUT_CONCEPT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
 		    null, startDate, endDate, false);
 		
-		HashSet<Patient> transferredOutpatients = new HashSet<>();
-		for (Obs obs : transferredOutObs) {
-			Patient patient = (Patient) obs.getPerson();
-			transferredOutpatients.add(patient);
+		HashSet<Patient> transferredOutPatients = new HashSet<>();
+		
+		for (Obs obs : transferredOutPatientsObs) {
+			Person person = obs.getPerson();
+			if (person != null) {
+				Patient patient = Context.getPatientService().getPatient(person.getPersonId());
+				if (patient != null) {
+					transferredOutPatients.add(patient);
+				}
+			}
 		}
 		
-		return transferredOutpatients;
+		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		transferredOutPatients.removeAll(deceasedPatients);
+		
+		return transferredOutPatients;
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/transferredIn")
@@ -2214,21 +2224,24 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static HashSet<Patient> getDeceasedPatientsByDateRange(Date startDate, Date endDate) {
-		List<String> decesedPatientsEncounterType = Arrays.asList(END_OF_FOLLOW_UP_ENCOUTERTYPE_UUID);
-		List<Encounter> deceasedPatientsEncounters = getEncountersByDateRange(decesedPatientsEncounterType, startDate,
-		    endDate);
-		HashSet<Patient> deceasedPatients = extractPatientsFromEncounters(deceasedPatientsEncounters);
-		
-		List<Obs> deceasedPatientsObs = Context.getObsService().getObservations(null, deceasedPatientsEncounters,
+		List<Obs> deceasedPatientsObs = Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DECEASED_CONCEPT_UUID)),
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(YES_CONCEPT)), null, null, null, null,
 		    null, startDate, endDate, false);
 		
-		HashSet<Patient> deadPatients = extractPatientsFromObservations(deceasedPatientsObs);
+		HashSet<Patient> deadPatients = new HashSet<>();
 		
-		deceasedPatients.addAll(deadPatients);
+		for (Obs obs : deceasedPatientsObs) {
+			Person person = obs.getPerson();
+			if (person != null) {
+				Patient patient = Context.getPatientService().getPatient(person.getPersonId());
+				if (patient != null) {
+					deadPatients.add(patient);
+				}
+			}
+		}
 		
-		return deceasedPatients;
+		return deadPatients;
 	}
 	
 	public enum ClinicalStatus {
