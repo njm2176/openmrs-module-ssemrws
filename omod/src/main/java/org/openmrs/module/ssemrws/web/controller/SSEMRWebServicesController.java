@@ -1638,17 +1638,16 @@ public class SSEMRWebServicesController {
 	        @RequestParam(value = "page", defaultValue = "0") int page,
 	        @RequestParam(value = "size", defaultValue = "50") int size) throws ParseException {
 		
-		Date startDate = dateTimeFormatter.parse(qStartDate);
-		Date endDate = dateTimeFormatter.parse(qEndDate);
+		// Parse the end date
+		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
 		
-		if (qStartDate != null && qEndDate != null) {
-			Calendar calendar = Calendar.getInstance();
-			calendar.setTime(endDate);
-			calendar.add(Calendar.DAY_OF_MONTH, 1);
-			endDate = calendar.getTime();
-		}
+		// Adjust the start date to the beginning of the first month to consider
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.set(Calendar.DAY_OF_MONTH, 1); // Start of current month
+		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
 		
-		// Get active clients, including all patients
+		// Get active clients
 		HashSet<Patient> activeClients = getActiveClients(startDate, endDate);
 		
 		// Paginate the results
@@ -1660,13 +1659,16 @@ public class SSEMRWebServicesController {
 	
 	private HashSet<Patient> getActiveClients(Date startDate, Date endDate) throws ParseException {
 		
-		// Get all patients enrolled on ART within the specified date range
+		// Get all relevant encounter types for active clients
 		List<String> activeClientsEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
-		    FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		    FOLLOW_UP_FORM_ENCOUNTER_TYPE, ADULT_AND_ADOLESCENT_INTAKE_FORM, PEDIATRIC_INTAKE_FORM);
+		
+		// Get all relevant encounters within the specified date range
 		List<Encounter> activeRegimenEncounters = getEncountersByDateRange(activeClientsEncounterTypeUuids, startDate,
 		    endDate);
 		HashSet<Patient> activePatients = extractPatientsFromEncounters(activeRegimenEncounters);
 		
+		// Add patients with active regimens
 		List<Obs> regimenObs = getObservationsByDateRange(activeRegimenEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
 		    endDate);
@@ -1674,30 +1676,22 @@ public class SSEMRWebServicesController {
 		
 		activePatients.addAll(activeClients);
 		
+		// Add patients who returned to treatment
 		HashSet<Patient> returnToTreatment = getReturnToTreatmentPatients(startDate, endDate);
-		HashSet<Patient> transferInPatients = getTransferredInPatients(startDate, endDate);
-		
 		activePatients.addAll(returnToTreatment);
+		
+		// Add patients who transferred in
+		HashSet<Patient> transferInPatients = getTransferredInPatients(startDate, endDate);
 		activePatients.addAll(transferInPatients);
 		
+		// Remove patients who interrupted treatment, deceased, or transferred out
 		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatmentPatients(startDate, endDate);
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
 		
-		// Remove IIT, Deceased, and Transferred Out Patients from active clients
 		activePatients.removeAll(interruptedInTreatmentPatients);
 		activePatients.removeAll(deceasedPatients);
 		activePatients.removeAll(transferredOutPatients);
-		
-		// Get all patients
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		
-		allPatients.removeAll(interruptedInTreatmentPatients);
-		allPatients.removeAll(deceasedPatients);
-		allPatients.removeAll(transferredOutPatients);
-		
-		// Combine with all patients and remove duplicates
-		activePatients.addAll(new HashSet<>(allPatients));
 		
 		return activePatients;
 	}
@@ -1747,19 +1741,24 @@ public class SSEMRWebServicesController {
 	        @RequestParam(required = false, value = "endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		
-		Date endDate;
-		Date startDate;
+		Calendar calendar = Calendar.getInstance();
 		
-		if (qEndDate == null) {
-			endDate = new Date();
-		} else {
-			endDate = dateTimeFormatter.parse(qEndDate);
-		}
+		// Set startDate to the first day of the current month
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		Date startDate = calendar.getTime();
 		
-		if (qStartDate == null) {
-			startDate = new Date(endDate.getTime() - 30L * 24 * 60 * 60 * 1000);
-		} else {
+		// Set endDate to the last day of the current month
+		calendar.add(Calendar.MONTH, 1);
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		calendar.add(Calendar.DAY_OF_MONTH, -1);
+		Date endDate = calendar.getTime();
+		
+		// If specific dates are provided, override the default logic
+		if (qStartDate != null) {
 			startDate = dateTimeFormatter.parse(qStartDate);
+		}
+		if (qEndDate != null) {
+			endDate = dateTimeFormatter.parse(qEndDate);
 		}
 		
 		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
@@ -1769,16 +1768,17 @@ public class SSEMRWebServicesController {
 	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
 		List<String> enrolledClientsEncounterTypeUuids = Arrays.asList(ADULT_AND_ADOLESCENT_INTAKE_FORM,
 		    PEDIATRIC_INTAKE_FORM, FOLLOW_UP_FORM_ENCOUNTER_TYPE, PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID);
+		
+		// Filter encounters within the current month
 		List<Encounter> enrolledEncounters = getEncountersByDateRange(enrolledClientsEncounterTypeUuids, startDate, endDate);
 		HashSet<Patient> enrolledPatients = extractPatientsFromEncounters(enrolledEncounters);
 		
-		// Add patients with recorded enrollment data in the past 30 days
+		// Get observations within the current month
 		List<Obs> enrollmentObs = getObservationsByDateRange(enrolledEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
 		    endDate);
 		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
 		
-		// Add patients enrolled in a regimen in the past 30 days
 		List<Obs> regimenObs = getObservationsByDateRange(enrolledEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
 		    endDate);
@@ -1787,13 +1787,11 @@ public class SSEMRWebServicesController {
 		enrolledPatients.addAll(enrolledClients);
 		enrolledPatients.addAll(regimenPatients);
 		
-		// Get Transferred In patients and remove them from the Newly Enrolled patients
-		// list
+		// Filter out patients who are transferred in, deceased, or transferred out
 		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
 		
-		// Remove Deceased and Transferred Out Patients from active clients
 		enrolledPatients.removeAll(transferredInPatients);
 		enrolledPatients.removeAll(transferredOutPatients);
 		enrolledPatients.removeAll(deceasedPatients);
