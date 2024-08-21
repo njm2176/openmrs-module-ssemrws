@@ -28,6 +28,8 @@ public class PatientObservations {
 	
 	private String vlResults;
 	
+	private String vlStatus;
+	
 	private Double bmi;
 	
 	private Double muac;
@@ -136,11 +138,19 @@ public class PatientObservations {
 		this.vlResults = vlResults;
 	}
 	
+	public String getVlStatus() {
+		return vlStatus;
+	}
+	
+	public void setVlStatus(String vlStatus) {
+		this.vlStatus = vlStatus;
+	}
+	
 	public Double getBmi() {
 		return bmi;
 	}
 	
-	public void setBmi(Double bmiMuac) {
+	public void setBmi(Double bmi) {
 		this.bmi = bmi;
 	}
 	

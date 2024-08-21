@@ -60,7 +60,7 @@ public class SSEMRWebServicesController {
 	
 	public static final String YES_CONCEPT = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
-	public static final String LAST_REFILL_DATE_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
+	public static final String LAST_REFILL_DATE_UUID = "494915d8-4cf3-4c24-9efa-371710992cb3";
 	
 	public static final String VIRAL_LOAD_CONCEPT_UUID = "01c3ce55-b7eb-45f5-93d5-bace353e3cfd";
 	
@@ -196,7 +196,7 @@ public class SSEMRWebServicesController {
 	
 	public static final String TRANSFERRED_OUT_CONCEPT_UUID = "68f68ae1-272c-44e4-85af-009e46e60015";
 	
-	public static final String DATE_OF_ART_INITIATION_CONCEPT_UUID = "30f1f347-d72c-4920-9962-6d55d138e8e5";
+	public static final String DATE_OF_ART_INITIATION_CONCEPT_UUID = "e27f8561-e242-4744-9193-b84d752dd86d";
 	
 	public static final String DECEASED_CONCEPT_UUID = "417b7273-8d62-4720-9fb6-075e9d1530ec";
 	
@@ -216,7 +216,7 @@ public class SSEMRWebServicesController {
 	
 	public static final String CHW_ADDRESS_UUID = "77a35b01-7713-437a-a82b-7f74c75ea41d";
 	
-	public static final String BDL_CONCENT_UUID = "62df0577-a1f7-493e-80d2-e458998f1a2f";
+	public static final String BDL_CONCEPT_UUID = "62df0577-a1f7-493e-80d2-e458998f1a2f";
 	
 	public static final String BMI_CONCEPT_UUID = "1342AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
@@ -2428,51 +2428,75 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static String getTbStatus(Patient patient) {
+		Concept tbStatusConcepts = Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID);
+		
 		List<Obs> tbStatusObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID)), null, null,
-		    null, null, 1, null, null, null, false);
+		    Collections.singletonList(tbStatusConcepts), null, null, null, null, null, null, null, null, false);
 		
 		if (!tbStatusObs.isEmpty()) {
 			Obs tbStatus = tbStatusObs.get(0);
-			return tbStatus.getValueText();
+			return tbStatus.getValueCoded().getName().getName();
 		}
 		return "";
 	}
 	
 	private static String getARVRegimenDose(Patient patient) {
-		Concept arvRegimenDoseConcepts = Context.getConceptService().getConceptByUuid(ARV_REGIMEN_DOSE_UUID);
+		Concept arvRegimenDoseConcept = Context.getConceptService().getConceptByUuid(ARV_REGIMEN_DOSE_UUID);
+		
+		if (arvRegimenDoseConcept == null) {
+			System.err.println("Error: Concept could not be retrieved. Check UUID.");
+			return "";
+		}
 		
 		List<Obs> arvRegimenDoseObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, Collections.singletonList(arvRegimenDoseConcepts), null, null, null, null, null, null, null, null, false);
+		    null, Collections.singletonList(arvRegimenDoseConcept), null, null, null, null, null, null, null, null, false);
 		
-		if (!arvRegimenDoseObs.isEmpty()) {
-			Obs arvRegimenDose = arvRegimenDoseObs.get(0);
-			return arvRegimenDose.getValueText();
+		if (arvRegimenDoseObs.isEmpty()) {
+			System.err.println("No observations found for the concept " + arvRegimenDoseConcept.getName().getName() + ".");
+			return "";
 		}
-		return "";
+		
+		Obs arvRegimenDose = arvRegimenDoseObs.get(0);
+		
+		if (arvRegimenDose.getValueText() != null) {
+			return arvRegimenDose.getValueText();
+		} else if (arvRegimenDose.getValueCoded() != null) {
+			return arvRegimenDose.getValueCoded().getName().getName();
+		} else {
+			System.err.println("Observation value is null or not recognized.");
+			return "";
+		}
 	}
 	
 	private static String getWHOClinicalStage(Patient patient) {
-		List<Obs> whoClinicalStageObs = Context.getObsService().getObservations(
-		    Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(WHO_CLINICAL_UUID)), null, null, null,
-		    null, 1, null, null, null, false);
+		Concept whoClinicalConcept = Context.getConceptService().getConceptByUuid(WHO_CLINICAL_UUID);
+		Concept whoClinicalStageIntakeConcept = Context.getConceptService().getConceptByUuid(WHO_CLINICAL_STAGE_INTAKE_UUID);
 		
-		List<Obs> whoClinicalStageIntakeObs = Context.getObsService().getObservations(
-		    Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(WHO_CLINICAL_STAGE_INTAKE_UUID)), null,
-		    null, null, null, 1, null, null, null, false);
-		
-		List<Obs> whoClinicalObservations = new ArrayList<>();
-		whoClinicalObservations.addAll(whoClinicalStageObs);
-		whoClinicalObservations.addAll(whoClinicalStageIntakeObs);
-		
-		if (!whoClinicalObservations.isEmpty()) {
-			Obs whoClinicalObs = whoClinicalObservations.get(0);
-			return whoClinicalObs.getValueText();
+		if (whoClinicalConcept == null || whoClinicalStageIntakeConcept == null) {
+			System.err.println("Error: Concepts could not be retrieved. Check UUIDs.");
+			return "";
 		}
 		
-		return null;
+		List<Concept> whoConcepts = Arrays.asList(whoClinicalConcept, whoClinicalStageIntakeConcept);
+		
+		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null, whoConcepts,
+		    null, null, null, null, null, null, null, null, false);
+		
+		if (obsList.isEmpty()) {
+			System.err.println("No observations found for the specified concepts.");
+			return "";
+		}
+		
+		Obs whoClinicalStageObs = obsList.get(0);
+		
+		if (whoClinicalStageObs.getValueText() != null) {
+			return whoClinicalStageObs.getValueText();
+		} else if (whoClinicalStageObs.getValueCoded() != null) {
+			return whoClinicalStageObs.getValueCoded().getName().getName();
+		} else {
+			System.err.println("Observation value is null or not recognized.");
+			return "";
+		}
 	}
 	
 	private static String getDateVLResultsReceived(Patient patient) {
@@ -2532,26 +2556,82 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static String getVLResults(Patient patient) {
-		List<Obs> getVLResultObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID)),
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(BDL_CONCENT_UUID)), null, null, null, 1,
-		    null, null, null, false);
+		// Define the concept UUIDs
+		Concept viralLoadResultsConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
+		Concept bdlConcept = Context.getConceptService().getConceptByUuid(BDL_CONCEPT_UUID); // Correct variable name
+		Concept viralLoadConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID);
 		
-		List<Obs> getVLResultNumericObs = Context.getObsService().getObservations(
-		    Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
-		    null, null, 1, null, null, null, false);
-		
-		List<Obs> allObservations = new ArrayList<>();
-		allObservations.addAll(getVLResultObs);
-		allObservations.addAll(getVLResultNumericObs);
-		
-		if (!allObservations.isEmpty()) {
-			Obs mostRecentObs = allObservations.get(0);
-			return mostRecentObs.getValueAsString(Locale.getDefault());
+		// Check if concepts are successfully retrieved
+		if (viralLoadResultsConcept == null || viralLoadConcept == null || bdlConcept == null) {
+			System.out.println("Error: One or more concepts could not be retrieved. Check UUIDs.");
+			return null;
 		}
 		
+		// Retrieve observations for the numeric viral load values
+		List<Obs> getVLResultNumericObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(viralLoadConcept), null, null,
+		    null, null, 1, null, null, null, false);
+		
+		// Retrieve observations for the viral load results (coded as BDL)
+		List<Obs> getVLResultObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(viralLoadResultsConcept), null, null, null, null, 1, null, null, null, false);
+		
+		// Combine both lists
+		List<Obs> allObservations = new ArrayList<>();
+		allObservations.addAll(getVLResultNumericObs);
+		allObservations.addAll(getVLResultObs);
+		
+		// Sort observations by date in descending order
+		allObservations.sort((o1, o2) -> o2.getObsDatetime().compareTo(o1.getObsDatetime()));
+		
+		// Retrieve the most recent observation
+		if (!allObservations.isEmpty()) {
+			Obs mostRecentObs = allObservations.get(0);
+			
+			// Handle different value types and return the value as a string
+			if (mostRecentObs.getValueNumeric() != null) {
+				return mostRecentObs.getValueNumeric().toString();
+			} else if (mostRecentObs.getValueText() != null) {
+				return mostRecentObs.getValueText();
+			} else if (mostRecentObs.getValueCoded() != null) {
+				// Check if the observation value is coded as "Below Detectable"
+				if (mostRecentObs.getValueCoded().equals(bdlConcept)) {
+					return "Below Detectable (BDL)";
+				} else {
+					return mostRecentObs.getValueCoded().getName().getName();
+				}
+			} else {
+				System.err.println("Observation value is neither numeric, text, nor coded.");
+			}
+		}
 		return null;
+	}
+	
+	private static String getVLStatus(Patient patient) {
+		String vlResult = getVLResults(patient);
+		
+		if (vlResult == null) {
+			System.err.println("VL result is null for patient: " + patient);
+			return "Unknown";
+		}
+		
+		try {
+			double vlValue = Double.parseDouble(vlResult);
+			
+			if (vlValue >= 1000) {
+				return "Unsuppressed";
+			} else {
+				return "Suppressed";
+			}
+		}
+		catch (NumberFormatException e) {
+			if ("Below Detectable (BDL)".equalsIgnoreCase(vlResult)) {
+				return "Suppressed";
+			} else {
+				System.err.println("Error parsing VL result or unrecognized value: " + vlResult);
+				return "Unknown";
+			}
+		}
 	}
 	
 	private static Double getBMI(Patient patient) {
@@ -2612,6 +2692,7 @@ public class SSEMRWebServicesController {
 		observations.setChwPhone(getCHWPhone(patient));
 		observations.setChwAddress(getCHWAddress(patient));
 		observations.setVlResults(getVLResults(patient));
+		observations.setVlStatus(getVLStatus(patient));
 		observations.setBmi(getBMI(patient));
 		observations.setMuac(getMUAC(patient));
 		
