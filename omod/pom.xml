@@ -61,12 +61,7 @@
 			<type>jar</type>
 			<scope>provided</scope>
 		</dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <version>5.3.30</version>
-        </dependency>
-    </dependencies>
+	</dependencies>
 	<build>
 		<finalName>${project.parent.artifactId}-${project.parent.version}</finalName>
 
