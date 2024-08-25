@@ -2443,11 +2443,6 @@ public class SSEMRWebServicesController {
 	private static String getARVRegimenDose(Patient patient) {
 		Concept arvRegimenDoseConcept = Context.getConceptService().getConceptByUuid(ARV_REGIMEN_DOSE_UUID);
 		
-		if (arvRegimenDoseConcept == null) {
-			System.err.println("Error: Concept could not be retrieved. Check UUID.");
-			return "";
-		}
-		
 		List<Obs> arvRegimenDoseObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(arvRegimenDoseConcept), null, null, null, null, null, null, null, null, false);
 		
@@ -2463,7 +2458,6 @@ public class SSEMRWebServicesController {
 		} else if (arvRegimenDose.getValueCoded() != null) {
 			return arvRegimenDose.getValueCoded().getName().getName();
 		} else {
-			System.err.println("Observation value is null or not recognized.");
 			return "";
 		}
 	}
@@ -2472,20 +2466,10 @@ public class SSEMRWebServicesController {
 		Concept whoClinicalConcept = Context.getConceptService().getConceptByUuid(WHO_CLINICAL_UUID);
 		Concept whoClinicalStageIntakeConcept = Context.getConceptService().getConceptByUuid(WHO_CLINICAL_STAGE_INTAKE_UUID);
 		
-		if (whoClinicalConcept == null || whoClinicalStageIntakeConcept == null) {
-			System.err.println("Error: Concepts could not be retrieved. Check UUIDs.");
-			return "";
-		}
-		
 		List<Concept> whoConcepts = Arrays.asList(whoClinicalConcept, whoClinicalStageIntakeConcept);
 		
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null, whoConcepts,
 		    null, null, null, null, null, null, null, null, false);
-		
-		if (obsList.isEmpty()) {
-			System.err.println("No observations found for the specified concepts.");
-			return "";
-		}
 		
 		Obs whoClinicalStageObs = obsList.get(0);
 		
@@ -2494,7 +2478,6 @@ public class SSEMRWebServicesController {
 		} else if (whoClinicalStageObs.getValueCoded() != null) {
 			return whoClinicalStageObs.getValueCoded().getName().getName();
 		} else {
-			System.err.println("Observation value is null or not recognized.");
 			return "";
 		}
 	}
@@ -2556,45 +2539,31 @@ public class SSEMRWebServicesController {
 	}
 	
 	private static String getVLResults(Patient patient) {
-		// Define the concept UUIDs
 		Concept viralLoadResultsConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
 		Concept bdlConcept = Context.getConceptService().getConceptByUuid(BDL_CONCEPT_UUID); // Correct variable name
 		Concept viralLoadConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID);
-		
-		// Check if concepts are successfully retrieved
-		if (viralLoadResultsConcept == null || viralLoadConcept == null || bdlConcept == null) {
-			System.out.println("Error: One or more concepts could not be retrieved. Check UUIDs.");
-			return null;
-		}
-		
-		// Retrieve observations for the numeric viral load values
+
 		List<Obs> getVLResultNumericObs = Context.getObsService().getObservations(
 		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(viralLoadConcept), null, null,
 		    null, null, 1, null, null, null, false);
-		
-		// Retrieve observations for the viral load results (coded as BDL)
+
 		List<Obs> getVLResultObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(viralLoadResultsConcept), null, null, null, null, 1, null, null, null, false);
-		
-		// Combine both lists
+
 		List<Obs> allObservations = new ArrayList<>();
 		allObservations.addAll(getVLResultNumericObs);
 		allObservations.addAll(getVLResultObs);
-		
-		// Sort observations by date in descending order
+
 		allObservations.sort((o1, o2) -> o2.getObsDatetime().compareTo(o1.getObsDatetime()));
-		
-		// Retrieve the most recent observation
+
 		if (!allObservations.isEmpty()) {
 			Obs mostRecentObs = allObservations.get(0);
-			
-			// Handle different value types and return the value as a string
+
 			if (mostRecentObs.getValueNumeric() != null) {
 				return mostRecentObs.getValueNumeric().toString();
 			} else if (mostRecentObs.getValueText() != null) {
 				return mostRecentObs.getValueText();
 			} else if (mostRecentObs.getValueCoded() != null) {
-				// Check if the observation value is coded as "Below Detectable"
 				if (mostRecentObs.getValueCoded().equals(bdlConcept)) {
 					return "Below Detectable (BDL)";
 				} else {
