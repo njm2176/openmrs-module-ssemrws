@@ -2556,14 +2556,24 @@ public class SSEMRWebServicesController {
 		        + "join openmrs.person p on p.person_id = pn.person_id " + "where fp.status = 'Scheduled' "
 		        + "and fp.start_date_time between :startDate and :endDate";
 		
-		List<Integer> resultIds = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
+		List<?> result = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
 		        .setParameter("endDate", endDate).getResultList();
 		
 		HashSet<Patient> PatientsOnAppointment = new HashSet<>();
-		for (Integer id : resultIds) {
-			Patient patient = Context.getPatientService().getPatient(id);
-			if (patient != null) {
-				PatientsOnAppointment.add(patient);
+		for (Object obj : result) {
+			if (obj instanceof Integer) {
+				Integer id = (Integer) obj;
+				Patient patient = Context.getPatientService().getPatient(id);
+				if (patient != null) {
+					PatientsOnAppointment.add(patient);
+				}
+			} else if (obj instanceof Object[]) {
+				Object[] row = (Object[]) obj;
+				Integer id = (Integer) row[0];
+				Patient patient = Context.getPatientService().getPatient(id);
+				if (patient != null) {
+					PatientsOnAppointment.add(patient);
+				}
 			}
 		}
 		
@@ -2624,6 +2634,13 @@ public class SSEMRWebServicesController {
 		
 		List<Integer> resultIds = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
 		        .setParameter("endDate", endDate).getResultList();
+		
+		List<?> result = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
+		        .setParameter("endDate", endDate).getResultList();
+		
+		for (Object obj : result) {
+			System.out.println(obj.getClass());
+		}
 		
 		HashSet<Patient> PatientsWithMissedAppointment = new HashSet<>();
 		for (Integer id : resultIds) {
