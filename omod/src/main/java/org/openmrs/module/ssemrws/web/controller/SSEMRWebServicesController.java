@@ -2531,6 +2531,7 @@ public class SSEMRWebServicesController {
 	}
 	
 	private HashSet<Patient> getPatientsonAppointment(Date startDate, Date endDate) {
+		// Handle null startDate and endDate by setting default values
 		if (startDate == null || endDate == null) {
 			Calendar calendar = Calendar.getInstance();
 			calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -2546,38 +2547,32 @@ public class SSEMRWebServicesController {
 			endDate = calendar.getTime();
 		}
 		
+		// Extend endDate by 1 day
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTime(endDate);
 		calendar.add(Calendar.DAY_OF_MONTH, 1);
 		endDate = calendar.getTime();
 		
+		// Use a typed query to return a list of Integer patient IDs
 		String query = "select fp.patient_id " + "from openmrs.patient_appointment fp "
 		        + "join openmrs.person_name pn on fp.patient_id = pn.person_id "
 		        + "join openmrs.person p on p.person_id = pn.person_id " + "where fp.status = 'Scheduled' "
 		        + "and fp.start_date_time between :startDate and :endDate";
 		
-		List<?> result = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
+		// Safely cast the results to a list of Integer values
+		List<Integer> result = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
 		        .setParameter("endDate", endDate).getResultList();
 		
-		HashSet<Patient> PatientsOnAppointment = new HashSet<>();
-		for (Object obj : result) {
-			if (obj instanceof Integer) {
-				Integer id = (Integer) obj;
-				Patient patient = Context.getPatientService().getPatient(id);
-				if (patient != null) {
-					PatientsOnAppointment.add(patient);
-				}
-			} else if (obj instanceof Object[]) {
-				Object[] row = (Object[]) obj;
-				Integer id = (Integer) row[0];
-				Patient patient = Context.getPatientService().getPatient(id);
-				if (patient != null) {
-					PatientsOnAppointment.add(patient);
-				}
+		// Use a HashSet to store unique Patient objects
+		HashSet<Patient> patientsOnAppointment = new HashSet<>();
+		for (Integer id : result) {
+			Patient patient = Context.getPatientService().getPatient(id);
+			if (patient != null) {
+				patientsOnAppointment.add(patient);
 			}
 		}
 		
-		return PatientsOnAppointment;
+		return patientsOnAppointment;
 		
 	}
 	
@@ -2635,13 +2630,6 @@ public class SSEMRWebServicesController {
 		List<Integer> resultIds = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
 		        .setParameter("endDate", endDate).getResultList();
 		
-		List<?> result = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
-		        .setParameter("endDate", endDate).getResultList();
-		
-		for (Object obj : result) {
-			System.out.println(obj.getClass());
-		}
-		
 		HashSet<Patient> PatientsWithMissedAppointment = new HashSet<>();
 		for (Integer id : resultIds) {
 			Patient patient = Context.getPatientService().getPatient(id);
@@ -2692,8 +2680,8 @@ public class SSEMRWebServicesController {
 	}
 	
 	private HashSet<Patient> getInterruptedInTreatmentPatients(Date startDate, Date endDate) {
-		String query = "select distinct pn.given_name, pn.family_name " + "from openmrs.patient_appointment fp "
-		        + "join openmrs.person_name pn on fp.patient_id = pn.person_id " + "where fp.status = 'Missed' "
+		String query = "select fp.patient_id  " + "from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where fp.status = 'Missed' "
 		        + "and fp.start_date_time <= :cutoffDate " + "and fp.start_date_time between :startDate and :endDate";
 		
 		// Calculate the cutoff date (28 days ago from today)
