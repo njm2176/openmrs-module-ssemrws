@@ -31,10 +31,12 @@ import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.PatientService;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ssemrws.service.FacilityDashboardService;
 import org.openmrs.module.ssemrws.web.dto.AppointmentDTO;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -413,20 +415,23 @@ public class SSEMRWebServicesController {
 		    ACTIVE_REGIMEN_CONCEPT_UUID);
 	}
 	
+	@Autowired
+	FacilityDashboardService facilityDashboardService;
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/childRegimenTreatment")
 	@ResponseBody
 	public Object getPatientsOnChildRegimenTreatment(HttpServletRequest request,
 	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		
-		return getPatientsOnRegimenTreatment(qStartDate, qEndDate,
+		return facilityDashboardService.getPatientsOnChildRegimenTreatment(qStartDate, qEndDate,
 		    Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
 		    ACTIVE_REGIMEN_CONCEPT_UUID);
 	}
 	
-	private Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
+	public static Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
 	        String activeRegimenConceptUuid) throws ParseException {
 		
 		Date startDate = dateTimeFormatter.parse(qStartDate);
@@ -1199,13 +1204,12 @@ public class SSEMRWebServicesController {
 		// Adjust the start date to the beginning of the first month to consider
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTime(endDate);
-		calendar.set(Calendar.DAY_OF_MONTH, 1); // Start of current month
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
 		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
 		
 		// Get active clients
 		HashSet<Patient> activeClients = getActiveClients(startDate, endDate);
 		
-		// Paginate the results
 		List<Patient> paginatedPatients = new ArrayList<>(activeClients).subList(page * size,
 		    Math.min((page + 1) * size, activeClients.size()));
 		
