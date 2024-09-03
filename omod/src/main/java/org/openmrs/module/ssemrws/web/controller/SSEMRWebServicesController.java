@@ -9,6 +9,8 @@
  */
 package org.openmrs.module.ssemrws.web.controller;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -22,7 +24,6 @@ import org.apache.commons.lang.time.DateUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.logging.log4j.util.PropertySource;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
@@ -30,9 +31,12 @@ import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.PatientService;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ssemrws.service.FacilityDashboardService;
+import org.openmrs.module.ssemrws.web.dto.AppointmentDTO;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +46,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
+import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
+
 /**
  * This class configured as controller using annotation and mapped with the URL of
  * 'module/${rootArtifactid}/${rootArtifactid}Link.form'.
@@ -49,180 +56,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ssemr")
 public class SSEMRWebServicesController {
-	
-	public static final String VL_LAB_REQUEST_ENCOUNTER_TYPE = "82024e00-3f10-11e4-adec-0800271c1b75";
-	
-	public static final String FOLLOW_UP_FORM_ENCOUNTER_TYPE = "e8481555-9dd1-4bb5-ba8c-cb721dafb166";
-	
-	public static final String PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID = "0e9f540d-92cb-43c9-a95c-9407f5bf3f2a";
-	
-	public static final String SAMPLE_COLLECTION_DATE_UUID = "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d";
-	
-	public static final String YES_CONCEPT = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-	
-	public static final String LAST_REFILL_DATE_UUID = "494915d8-4cf3-4c24-9efa-371710992cb3";
-	
-	public static final String VIRAL_LOAD_CONCEPT_UUID = "01c3ce55-b7eb-45f5-93d5-bace353e3cfd";
-	
-	public static final String RETURNING_TO_TREATMENT_UUID = "4913c7f0-3362-4407-8d48-4b115f2f59dd";
-	
-	public static final String DATE_INTERRUPTION_IN_TREATMENT_CONCEPT_UUID = "84c23dc4-40f4-4d9a-a2f5-ebeb4b4f3250";
-	
-	public static final String DATE_OF_LAST_VISIT_CONCEPT_UUID = "773cd838-7b21-4f34-9b33-0a071140f817";
-	
-	public static final String ART_TREATMENT_INTURRUPTION_ENCOUNTER_TYPE_UUID = "81852aee-3f10-11e4-adec-0800271c1b75";
-	
-	public static final String ACTIVE_REGIMEN_CONCEPT_UUID = "23322fd6-3dbb-410e-8bee-6210dfcd5f71";
-	
-	public static final String COMMUNITY_LINKAGE_ENCOUNTER_UUID = "3c2df02e-6856-11ee-8c99-0242ac120002";
-	
-	public static final String DATE_OF_ENROLLMENT_UUID = "e27f8561-e242-4744-9193-b84d752dd86d";
-	
-	public static final String DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID = "e605731b-2e81-41a9-8446-2ed442c339e2";
-	
-	public static final String PEDIATRIC_INTAKE_FORM = "356def6a-fa66-4a78-97d5-b43154064875";
-	
-	public static final String ADULT_AND_ADOLESCENT_INTAKE_FORM = "b645dbdd-7d58-41d4-9b11-eeff023b8ee5";
-	
-	public static final String regimen_1A = "9062c6d9-a650-44d2-8929-da84f617c427";
-	
-	public static final String regimen_1B = "c22e6700-a937-4909-b4ad-e82ff51325ac";
-	
-	public static final String regimen_1C = "a00d9620-e88b-4c2f-9293-b1ac9e5943f2";
-	
-	public static final String regimen_1D = "5d500ca2-350a-49ee-a3d4-f340db32ff31";
-	
-	public static final String regimen_1E = "3fd242a8-7ade-463c-8919-d82573ea8526";
-	
-	public static final String regimen_1F = "91f5d0d6-eb81-484f-9376-4bfb926a5a81";
-	
-	public static final String regimen_1G = "0dd3e78f-e1fc-47de-95bc-1f489d0dfcc5";
-	
-	public static final String regimen_1H = "4a86fbee-07a9-422a-bf69-16256c0c2b8b";
-	
-	public static final String regimen_1J = "03224cae-f115-4814-bd53-c99c72288446";
-	
-	public static final String regimen_2A = "bd97cacd-4a91-4901-8803-3a4a2e5f1ca8";
-	
-	public static final String regimen_2B = "ad6ff4ef-769e-4aec-b8bb-7f033fe6aaaa";
-	
-	public static final String regimen_2C = "47167ec1-4957-4d0a-a58c-3894bdeb93ff";
-	
-	public static final String regimen_2D = "e649a0ec-e193-4af0-bb49-02687107a893";
-	
-	public static final String regimen_2E = "accca537-b8ee-41ec-b902-7de814d099b2";
-	
-	public static final String regimen_2F = "77f201fc-aefc-4068-baa7-cb3284782a38";
-	
-	public static final String regimen_2G = "cb0f9fcd-fb52-493f-95aa-d0197387fbdb";
-	
-	public static final String regimen_2H = "28790bde-81db-4490-806b-ac10c17b41dc";
-	
-	public static final String regimen_2I = "aae69cae-2806-4e8b-a916-f22ed733a19b";
-	
-	public static final String regimen_2J = "64336206-c9bc-4d37-accf-c7abac7a37f6";
-	
-	public static final String regimen_2K = "25f0cca5-902d-4e36-9e4f-5ce5da744a75";
-	
-	public static final String regimen_4A = "c224b116-27ec-4156-93ba-d4838a3ac1c0";
-	
-	public static final String regimen_4B = "5efe8d99-c65e-4136-8820-5f3646437ff7";
-	
-	public static final String regimen_4C = "f8f64be8-ccb4-404d-b99e-3c4975155da5";
-	
-	public static final String regimen_4D = "28c5d192-ba71-4ef5-8604-ecf6bd177126";
-	
-	public static final String regimen_4E = "3eaf04dc-e284-42f7-860e-02cda37cf230";
-	
-	public static final String regimen_4F = "0372f3fb-5e8a-474f-8250-01af7a485778";
-	
-	public static final String regimen_4G = "ce2412c4-a041-4328-bfaa-35e041ca4802";
-	
-	public static final String regimen_4H = "6ed47806-8809-4c5a-a1b6-fe2ec0158563";
-	
-	public static final String regimen_4I = "f6b1c6ea-b0a2-46a0-b7e0-3038d268356c";
-	
-	public static final String regimen_4J = "2e1ab9d3-7fe1-48ba-a12c-fd8d26bc161d";
-	
-	public static final String regimen_4K = "99f54f96-e761-4d86-bb1b-0abc2a24fa16";
-	
-	public static final String regimen_4L = "5287f2a4-23e5-4314-b60c-0a4b91753ec6";
-	
-	public static final String regimen_5A = "b23cf614-dfec-48c9-a12f-ba577e28347d";
-	
-	public static final String regimen_5B = "dabc93c3-8c3d-41e1-b3e3-d7e14c4765b6";
-	
-	public static final String regimen_5C = "da3c6710-c431-4582-a444-a466d54693ec";
-	
-	public static final String regimen_5D = "6c383d11-2b29-4cc2-bfa4-811ff7a988f1";
-	
-	public static final String regimen_5E = "82725d14-00c6-4864-bf8b-ad5db0b3c3fa";
-	
-	public static final String regimen_5F = "140ede93-5691-463b-9d17-2dc8834621f8";
-	
-	public static final String regimen_5G = "06017ac1-2ce8-4689-a3bf-4e9f3d54978f";
-	
-	public static final String regimen_5H = "2c0a5b91-7b2a-4f8e-86fd-a8007841fca8";
-	
-	public static final String regimen_5I = "50b60d77-186d-4a0d-8784-659ee2d60ec9";
-	
-	public static final String regimen_5J = "78e49624-0e33-4374-93b7-60b132b26dae";
-	
-	public static final String HIGH_VL_ENCOUNTERTYPE_UUID = "f7f1c854-69e5-11ee-8c99-0242ac120002";
-	
-	public static final String BREASTFEEDING_CONCEPT_UUID = "cf5c7deb-f67c-4406-82ea-d619e502f47c";
-	
-	public static final String PREGNANT_CONCEPT_UUID = "5dcb1bc9-ee89-4b57-9493-a1f245c5ee8b";
-	
-	public static final String PMTCT_CONCEPT_UUID = "da20f4fc-94b4-421c-896c-cf16a834227a";
-	
-	public static final String EAC_SESSION_CONCEPT_UUID = "65536958-fc01-4002-8839-af4b6ab0489b";
-	
-	public static final String EXTENDED_EAC_CONCEPT_UUID = "99c7c0f1-3c7c-4e26-bf4b-60a74734bc7c";
-	
-	public static final String VIRAL_LOAD_RESULTS_UUID = "8b5ef5c4-3c88-49b8-87e5-cb8d30caa77d";
-	
-	public static final String FIRST_EAC_SESSION = "37f1e487-24f7-48f3-a347-391e877152e4";
-	
-	public static final String SECOND_EAC_SESSION = "348c5147-4e54-420a-a035-b322e1ba0b6e";
-	
-	public static final String THIRD_EAC_SESSION = "60966dae-3999-42b9-aec1-6161cebb22c1";
-	
-	public static final String REAPEAT_VL_COLLECTION = "06cee3e6-daaa-48cf-aa53-296254ee61a3";
-	
-	public static final String REPEAT_VL_RESULTS = "68c60487-62b5-45af-9773-0bc163b9e076";
-	
-	public static final String END_OF_FOLLOW_UP_ENCOUTERTYPE_UUID = "3bf40d2b-c8a2-4a7d-9da2-adb33860e0f8";
-	
-	public static final String TRANSFERRED_OUT_CONCEPT_UUID = "68f68ae1-272c-44e4-85af-009e46e60015";
-	
-	public static final String DATE_OF_ART_INITIATION_CONCEPT_UUID = "e27f8561-e242-4744-9193-b84d752dd86d";
-	
-	public static final String DECEASED_CONCEPT_UUID = "417b7273-8d62-4720-9fb6-075e9d1530ec";
-	
-	public static final String LAST_CD4_COUNT_UUID = "809dd0f5-ce54-441c-b835-a2a8b06a6140";
-	
-	public static final String TB_STATUS_CONCEPT_UUID = "9a1a731e-937b-46fe-aca2-acf83a326b71";
-	
-	public static final String ARV_REGIMEN_DOSE_UUID = "3fa33347-9871-497b-81f3-7a791b9f4bae";
-	
-	public static final String WHO_CLINICAL_UUID = "e38e6ce2-92d9-4382-927b-5555ff9fa850";
-	
-	public static final String DATE_VL_RESULTS_RECEIVED_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
-	
-	public static final String CHW_NAME_UUID = "5b258179-1872-4339-8b29-5ecf618bd4d3";
-	
-	public static final String CHW_PHONE_UUID = "cb3385ee-18c3-4856-a410-c7b4d105a779";
-	
-	public static final String CHW_ADDRESS_UUID = "77a35b01-7713-437a-a82b-7f74c75ea41d";
-	
-	public static final String BDL_CONCEPT_UUID = "62df0577-a1f7-493e-80d2-e458998f1a2f";
-	
-	public static final String BMI_CONCEPT_UUID = "1342AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-	
-	public static final String MUAC_CONCEPT_UUID = "1343AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-	
-	public static final String WHO_CLINICAL_STAGE_INTAKE_UUID = "a90652b2-f2c7-471f-a287-64495d2a6791";
 	
 	// Create Enum of the following filter categories: CHILDREN_ADOLESCENTS,
 	// PREGNANT_BREASTFEEDING, RETURN_FROM_IIT, RETURN_TO_TREATMENT
@@ -233,39 +66,9 @@ public class SSEMRWebServicesController {
 		RETURN_TO_TREATMENT
 	};
 	
-	public static final String CURRENTLY_BREASTFEEDING_CONCEPT_UUID = "e288fc7d-bbc5-479a-b94d-857e3819f926";
-	
-	private static final String CURRENTLY_PREGNANT_CONCEPT_UUID = "235a6246-6179-4309-ba84-6f0ec337eb48";
-	
-	public static final String CONCEPT_BY_UUID = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-	
 	private static final double THRESHOLD = 1000.0;
 	
 	private static final int SIX_MONTHS_IN_DAYS = 183;
-	
-	public static final Set<String> FIRST_LINE_REGIMENS = new HashSet<>(
-	        Arrays.asList("9062c6d9-a650-44d2-8929-da84f617c427", "c22e6700-a937-4909-b4ad-e82ff51325ac",
-	            "91f5d0d6-eb81-484f-9376-4bfb926a5a81", "0dd3e78f-e1fc-47de-95bc-1f489d0dfcc5",
-	            "4a86fbee-07a9-422a-bf69-16256c0c2b8b", "03224cae-f115-4814-bd53-c99c72288446",
-	            "c224b116-27ec-4156-93ba-d4838a3ac1c0", "5efe8d99-c65e-4136-8820-5f3646437ff7",
-	            "f8f64be8-ccb4-404d-b99e-3c4975155da5", "28c5d192-ba71-4ef5-8604-ecf6bd177126",
-	            "3eaf04dc-e284-42f7-860e-02cda37cf230", "0372f3fb-5e8a-474f-8250-01af7a485778",
-	            "ce2412c4-a041-4328-bfaa-35e041ca4802", "6ed47806-8809-4c5a-a1b6-fe2ec0158563",
-	            "f6b1c6ea-b0a2-46a0-b7e0-3038d268356c", "2e1ab9d3-7fe1-48ba-a12c-fd8d26bc161d",
-	            "99f54f96-e761-4d86-bb1b-0abc2a24fa16", "5287f2a4-23e5-4314-b60c-0a4b91753ec6"));
-	
-	public static final Set<String> SECOND_LINE_REGIMENS = new HashSet<>(
-	        Arrays.asList("bd97cacd-4a91-4901-8803-3a4a2e5f1ca8", "ad6ff4ef-769e-4aec-b8bb-7f033fe6aaaa",
-	            "47167ec1-4957-4d0a-a58c-3894bdeb93ff", "e649a0ec-e193-4af0-bb49-02687107a893",
-	            "accca537-b8ee-41ec-b902-7de814d099b2", "77f201fc-aefc-4068-baa7-cb3284782a38",
-	            "cb0f9fcd-fb52-493f-95aa-d0197387fbdb", "28790bde-81db-4490-806b-ac10c17b41dc",
-	            "aae69cae-2806-4e8b-a916-f22ed733a19b", "64336206-c9bc-4d37-accf-c7abac7a37f6",
-	            "25f0cca5-902d-4e36-9e4f-5ce5da744a75", "b23cf614-dfec-48c9-a12f-ba577e28347d",
-	            "dabc93c3-8c3d-41e1-b3e3-d7e14c4765b6", "da3c6710-c431-4582-a444-a466d54693ec",
-	            "6c383d11-2b29-4cc2-bfa4-811ff7a988f1", "82725d14-00c6-4864-bf8b-ad5db0b3c3fa",
-	            "140ede93-5691-463b-9d17-2dc8834621f8", "06017ac1-2ce8-4689-a3bf-4e9f3d54978f",
-	            "2c0a5b91-7b2a-4f8e-86fd-a8007841fca8", "50b60d77-186d-4a0d-8784-659ee2d60ec9",
-	            "78e49624-0e33-4374-93b7-60b132b26dae"));
 	
 	/** Logger for this class and subclasses */
 	protected final Log log = LogFactory.getLog(getClass());
@@ -612,20 +415,23 @@ public class SSEMRWebServicesController {
 		    ACTIVE_REGIMEN_CONCEPT_UUID);
 	}
 	
+	@Autowired
+	FacilityDashboardService facilityDashboardService;
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/childRegimenTreatment")
 	@ResponseBody
 	public Object getPatientsOnChildRegimenTreatment(HttpServletRequest request,
 	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		
-		return getPatientsOnRegimenTreatment(qStartDate, qEndDate,
+		return facilityDashboardService.getPatientsOnChildRegimenTreatment(qStartDate, qEndDate,
 		    Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
 		    ACTIVE_REGIMEN_CONCEPT_UUID);
 	}
 	
-	private Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
+	public static Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
 	        String activeRegimenConceptUuid) throws ParseException {
 		
 		Date startDate = dateTimeFormatter.parse(qStartDate);
@@ -962,8 +768,7 @@ public class SSEMRWebServicesController {
 		return summary;
 	}
 	
-	private static ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory,
-	        Patient patient) {
+	private ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory, Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		String dateEnrolled = getEnrolmentDate(patient);
 		String lastRefillDate = getLastRefillDate(patient);
@@ -1047,175 +852,6 @@ public class SSEMRWebServicesController {
 			return patientObj;
 		}
 		return null;
-	}
-	
-	// public List<AppointmentsService> getAllAppointments(@RequestParam(value =
-	// "forDate", required = false) String forDate) throws ParseException {
-	// List<Appointment> appointments =
-	// appointmentsService.getAllAppointments(DateUtil.convertToLocalDateFromUTC(forDate));
-	// return appointmentMapper.constructResponse(appointments);
-	// }
-	
-	/**
-	 * Returns a list of patients on appointment.
-	 * 
-	 * @return A JSON representation of the list of patients on appointment, including summary
-	 *         information about each patient.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/onAppointment")
-	@ResponseBody
-	public Object getPatientsOnAppointment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		Date startDate = dateTimeFormatter.parse(qStartDate);
-		Date endDate = dateTimeFormatter.parse(qEndDate);
-		
-		if (qStartDate != null && qEndDate != null) {
-			Calendar calendar = Calendar.getInstance();
-			calendar.setTime(endDate);
-			calendar.add(Calendar.DAY_OF_MONTH, 1);
-			endDate = calendar.getTime();
-		}
-		
-		List<String> onAppointmentencounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-		
-		List<Encounter> onAppointmentEncounters = getEncountersByEncounterTypes(onAppointmentencounterTypeUuids, startDate,
-		    endDate);
-		
-		List<Obs> onAppointmentObs = Context.getObsService().getObservations(null, onAppointmentEncounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, null, endDate, false);
-		
-		HashSet<Patient> onAppointmentPatientsFiltered = onAppointmentObs.stream()
-		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
-			        Date appointmentScheduledDate = null;
-			        for (Obs obs : onAppointmentObs) {
-				        if (obs.getPerson().equals(patient)
-				                && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
-					        appointmentScheduledDate = obs.getValueDatetime();
-					        break;
-				        }
-			        }
-			        
-			        if (appointmentScheduledDate != null) {
-				        LocalDate today = LocalDate.now();
-				        LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
-				                .toLocalDate();
-				        long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-				        
-				        return diffInDays == 0;
-			        }
-			        return false;
-		        }).collect(Collectors.toCollection(HashSet::new));
-		
-		return generatePatientListObj(onAppointmentPatientsFiltered, endDate);
-	}
-	
-	private static boolean determineIfPatientIsOnAppointment(Patient patient) {
-		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, null, null, false);
-		
-		if (!obsList.isEmpty()) {
-			Date appointmentScheduledDate = null;
-			for (Obs obs : obsList) {
-				if (obs.getPerson().equals(patient)
-				        && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
-					appointmentScheduledDate = obs.getValueDatetime();
-					break;
-				}
-			}
-			
-			if (appointmentScheduledDate != null) {
-				LocalDate today = LocalDate.now();
-				LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-				long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-				
-				return diffInDays == 0;
-			}
-		}
-		return false;
-	}
-	
-	/**
-	 * Returns a list of patients who missed an appointment.
-	 * 
-	 * @return A JSON representation of the list of patients who missed an appointment, including
-	 *         summary information about each patient.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/missedAppointment")
-	@ResponseBody
-	public Object getPatientsMissedAppointment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		Date startDate = dateTimeFormatter.parse(qStartDate);
-		Date endDate = dateTimeFormatter.parse(qEndDate);
-		
-		if (qStartDate != null && qEndDate != null) {
-			Calendar calendar = Calendar.getInstance();
-			calendar.setTime(endDate);
-			calendar.add(Calendar.DAY_OF_MONTH, 1);
-			endDate = calendar.getTime();
-		}
-		
-		List<String> misseAppointmentencounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-		
-		List<Encounter> missedAppointmentEncounters = getEncountersByEncounterTypes(misseAppointmentencounterTypeUuids,
-		    startDate, endDate);
-		
-		List<Obs> missedAppointmentObs = Context.getObsService().getObservations(null, missedAppointmentEncounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, startDate, endDate, false);
-		
-		HashSet<Patient> missedAppointmentPatientsFiltered = missedAppointmentObs.stream()
-		        .filter(obs -> obs.getPerson() instanceof Patient).map(obs -> (Patient) obs.getPerson()).filter(patient -> {
-			        Date appointmentScheduledDate = null;
-			        for (Obs obs : missedAppointmentObs) {
-				        if (obs.getPerson().equals(patient)
-				                && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
-					        appointmentScheduledDate = obs.getValueDatetime();
-					        break;
-				        }
-			        }
-			        
-			        if (appointmentScheduledDate != null) {
-				        LocalDate today = LocalDate.now();
-				        LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
-				                .toLocalDate();
-				        long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-				        
-				        return diffInDays >= 1 && diffInDays < 28;
-			        }
-			        return false;
-		        }).collect(Collectors.toCollection(HashSet::new));
-		
-		return generatePatientListObj(missedAppointmentPatientsFiltered, startDate, endDate);
-	}
-	
-	private static boolean determineIfPatientMissedAppointment(Patient patient) {
-		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, null, null, false);
-		
-		if (!obsList.isEmpty()) {
-			Date appointmentScheduledDate = null;
-			for (Obs obs : obsList) {
-				if (obs.getPerson().equals(patient)
-				        && obs.getConcept().getUuid().equals(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)) {
-					appointmentScheduledDate = obs.getValueDatetime();
-					break;
-				}
-			}
-			
-			if (appointmentScheduledDate != null) {
-				LocalDate today = LocalDate.now();
-				LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-				long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-				
-				return diffInDays >= 1 && diffInDays < 28;
-			}
-		}
-		return false;
 	}
 	
 	/**
@@ -1551,82 +1187,6 @@ public class SSEMRWebServicesController {
 	}
 	
 	/**
-	 * Handles the HTTP GET request to retrieve patients who have experienced an interruption in their
-	 * treatment. This method filters encounters based on ART treatment interruption encounter types and
-	 * aggregates patients who have had such encounters within the specified date range. It aims to
-	 * identify patients who might need follow-up or intervention due to treatment interruption.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/interruptedInTreatment")
-	@ResponseBody
-	public Object getPatientsInterruptedInTreatment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		
-		Date startDate = dateTimeFormatter.parse(qStartDate);
-		Date endDate = dateTimeFormatter.parse(qEndDate);
-		
-		if (qStartDate != null && qEndDate != null) {
-			Calendar calendar = Calendar.getInstance();
-			calendar.setTime(endDate);
-			calendar.add(Calendar.DAY_OF_MONTH, 1);
-			endDate = calendar.getTime();
-		}
-		
-		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatmentPatients(startDate, endDate);
-		
-		return generatePatientListObj(new HashSet<>(interruptedInTreatmentPatients), startDate, endDate);
-	}
-	
-	// Determine if patient is Interrupted In Treatment
-	private static boolean determineIfPatientIsIIT(Patient patient, Date startDate, Date endDate) {
-		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID)),
-		    null, null, null, null, null, null, null, null, false);
-		
-		return !getInterruptedInTreatmentPatients(startDate, endDate).isEmpty();
-	}
-	
-	private static HashSet<Patient> getInterruptedInTreatmentPatients(Date startDate, Date endDate) {
-		List<String> interruptedInTreatmentEncounterTypeUuids = Collections.singletonList(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-		
-		// Get encounters for the specified date range and encounter types
-		List<Encounter> interruptedInTreatmentEncounters = getEncountersByEncounterTypes(
-		    interruptedInTreatmentEncounterTypeUuids, startDate, endDate);
-		
-		// Get observations related to interrupted in-treatment concept within the date
-		// range
-		Concept dateAppointmentScheduledConcept = Context.getConceptService()
-		        .getConceptByUuid(DATE_APPOINTMENT_SCHEDULED_CONCEPT_UUID);
-		List<Obs> interruptedInTreatmentObs = Context.getObsService().getObservations(null, interruptedInTreatmentEncounters,
-		    Collections.singletonList(dateAppointmentScheduledConcept), null, null, null, null, null, null, startDate,
-		    endDate, false);
-		
-		// Filter patients who are interrupted in treatment based on appointment
-		// scheduled date
-		HashSet<Patient> interruptedPatients = new HashSet<>();
-		
-		for (Obs obs : interruptedInTreatmentObs) {
-			if (obs.getPerson() instanceof Patient) {
-				Patient patient = (Patient) obs.getPerson();
-				Date appointmentScheduledDate = obs.getValueDatetime();
-				
-				if (appointmentScheduledDate != null) {
-					LocalDate today = LocalDate.now();
-					LocalDate scheduledDate = appointmentScheduledDate.toInstant().atZone(ZoneId.systemDefault())
-					        .toLocalDate();
-					long diffInDays = ChronoUnit.DAYS.between(scheduledDate, today);
-					
-					if (diffInDays >= 28) {
-						interruptedPatients.add(patient);
-					}
-				}
-			}
-		}
-		
-		return interruptedPatients;
-	}
-	
-	/**
 	 * Handles the request to get a list of active patients within a specified date range. Active
 	 * patients are determined based on an active Regimen.
 	 */
@@ -1644,13 +1204,12 @@ public class SSEMRWebServicesController {
 		// Adjust the start date to the beginning of the first month to consider
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTime(endDate);
-		calendar.set(Calendar.DAY_OF_MONTH, 1); // Start of current month
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
 		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
 		
 		// Get active clients
 		HashSet<Patient> activeClients = getActiveClients(startDate, endDate);
 		
-		// Paginate the results
 		List<Patient> paginatedPatients = new ArrayList<>(activeClients).subList(page * size,
 		    Math.min((page + 1) * size, activeClients.size()));
 		
@@ -2250,7 +1809,7 @@ public class SSEMRWebServicesController {
 		INACTIVE
 	}
 	
-	public static ClinicalStatus determineClinicalStatus(Patient patient, Date startDate, Date endDate) {
+	public ClinicalStatus determineClinicalStatus(Patient patient, Date startDate, Date endDate) {
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		if (deceasedPatients.contains(patient)) {
 			return ClinicalStatus.DIED;
@@ -2471,6 +2030,10 @@ public class SSEMRWebServicesController {
 		List<Obs> obsList = Context.getObsService().getObservations(Collections.singletonList(patient), null, whoConcepts,
 		    null, null, null, null, null, null, null, null, false);
 		
+		if (obsList.isEmpty()) {
+			return "";
+		}
+		
 		Obs whoClinicalStageObs = obsList.get(0);
 		
 		if (whoClinicalStageObs.getValueText() != null) {
@@ -2542,23 +2105,23 @@ public class SSEMRWebServicesController {
 		Concept viralLoadResultsConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
 		Concept bdlConcept = Context.getConceptService().getConceptByUuid(BDL_CONCEPT_UUID); // Correct variable name
 		Concept viralLoadConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID);
-
+		
 		List<Obs> getVLResultNumericObs = Context.getObsService().getObservations(
 		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(viralLoadConcept), null, null,
 		    null, null, 1, null, null, null, false);
-
+		
 		List<Obs> getVLResultObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(viralLoadResultsConcept), null, null, null, null, 1, null, null, null, false);
-
+		
 		List<Obs> allObservations = new ArrayList<>();
 		allObservations.addAll(getVLResultNumericObs);
 		allObservations.addAll(getVLResultObs);
-
+		
 		allObservations.sort((o1, o2) -> o2.getObsDatetime().compareTo(o1.getObsDatetime()));
-
+		
 		if (!allObservations.isEmpty()) {
 			Obs mostRecentObs = allObservations.get(0);
-
+			
 			if (mostRecentObs.getValueNumeric() != null) {
 				return mostRecentObs.getValueNumeric().toString();
 			} else if (mostRecentObs.getValueText() != null) {
@@ -2629,6 +2192,23 @@ public class SSEMRWebServicesController {
 		return null;
 	}
 	
+	public String getNextAppointmentDate(String patientUuid) {
+		Date now = new Date();
+		
+		String query = "select fp.start_date_time " + "from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid = :patientUuid "
+		        + "and fp.start_date_time >= :now " + "order by fp.start_date_time asc";
+		
+		List<Date> results = entityManager.createNativeQuery(query).setParameter("patientUuid", patientUuid)
+		        .setParameter("now", now).getResultList();
+		
+		if (!results.isEmpty()) {
+			return dateTimeFormatter.format(results.get(0));
+		} else {
+			return "No Upcoming Appointments";
+		}
+	}
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/obs")
 	@ResponseBody
 	public ResponseEntity<Object> getPatientObs(HttpServletRequest request, @RequestParam("patientUuid") String patientUuid,
@@ -2664,6 +2244,7 @@ public class SSEMRWebServicesController {
 		observations.setVlStatus(getVLStatus(patient));
 		observations.setBmi(getBMI(patient));
 		observations.setMuac(getMUAC(patient));
+		observations.setAppointmentDate(getNextAppointmentDate(patientUuid));
 		
 		List<Map<String, String>> identifiersList = new ArrayList<>();
 		for (PatientIdentifier identifier : patient.getIdentifiers()) {
@@ -2689,4 +2270,241 @@ public class SSEMRWebServicesController {
 		return new ResponseEntity<>(responseMap, new HttpHeaders(), HttpStatus.OK);
 	}
 	
+	@PersistenceContext
+	private EntityManager entityManager;
+	
+	public List<AppointmentDTO> getPatientsWithAppointments(Date startDate, Date endDate) {
+		String query = "select pn.given_name, pn.family_name, fp.start_date_time, p.uuid, fp.status "
+		        + "from openmrs.patient_appointment fp " + "join openmrs.person_name pn on fp.patient_id = pn.person_id "
+		        + "join openmrs.person p on p.person_id = pn.person_id "
+		        + "where (fp.status = 'Scheduled' or fp.status = 'Missed') "
+		        + "and fp.start_date_time BETWEEN :startDate AND :endDate";
+		
+		List<Object[]> results = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
+		        .setParameter("endDate", endDate).getResultList();
+		
+		List<AppointmentDTO> appointmentDTOs = new ArrayList<>();
+		for (Object[] result : results) {
+			AppointmentDTO dto = new AppointmentDTO();
+			dto.setName(result[0] + " " + result[1]);
+			dto.setUuid(result[3].toString());
+			dto.setAppointmentDate(result[2].toString());
+			dto.setAppointmentStatus((String) result[4]);
+			appointmentDTOs.add(dto);
+		}
+		
+		return appointmentDTOs;
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/appointments")
+	@ResponseBody
+	public Object getAppointments(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		List<AppointmentDTO> appointments = getPatientsWithAppointments(startDate, endDate);
+		
+		Map<String, Object> response = new HashMap<>();
+		response.put("results", appointments);
+		
+		return response;
+	}
+	
+	/**
+	 * Returns a list of patients on appointment.
+	 * 
+	 * @return A JSON representation of the list of patients on appointment, including summary
+	 *         information about each patient.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/onAppointment")
+	@ResponseBody
+	public Object getPatientsOnAppointment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		HashSet<Patient> patientsOnAppointment = getPatientsonAppointment(startDate, endDate);
+		
+		return generatePatientListObj(new HashSet<>(patientsOnAppointment), startDate, endDate);
+	}
+	
+	private HashSet<Patient> getPatientsonAppointment(Date startDate, Date endDate) {
+		// Handle null startDate and endDate by setting default values
+		if (startDate == null || endDate == null) {
+			Calendar calendar = Calendar.getInstance();
+			calendar.set(Calendar.HOUR_OF_DAY, 0);
+			calendar.set(Calendar.MINUTE, 0);
+			calendar.set(Calendar.SECOND, 0);
+			calendar.set(Calendar.MILLISECOND, 0);
+			startDate = calendar.getTime();
+			
+			calendar.set(Calendar.HOUR_OF_DAY, 23);
+			calendar.set(Calendar.MINUTE, 59);
+			calendar.set(Calendar.SECOND, 59);
+			calendar.set(Calendar.MILLISECOND, 999);
+			endDate = calendar.getTime();
+		}
+		
+		// Extend endDate by 1 day
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.add(Calendar.DAY_OF_MONTH, 1);
+		endDate = calendar.getTime();
+		
+		// Use a typed query to return a list of Integer patient IDs
+		String query = "select fp.patient_id " + "from openmrs.patient_appointment fp "
+		        + "join openmrs.person_name pn on fp.patient_id = pn.person_id "
+		        + "join openmrs.person p on p.person_id = pn.person_id " + "where fp.status = 'Scheduled' "
+		        + "and fp.start_date_time between :startDate and :endDate";
+		
+		// Safely cast the results to a list of Integer values
+		List<Integer> result = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
+		        .setParameter("endDate", endDate).getResultList();
+		
+		// Use a HashSet to store unique Patient objects
+		HashSet<Patient> patientsOnAppointment = new HashSet<>();
+		for (Integer id : result) {
+			Patient patient = Context.getPatientService().getPatient(id);
+			if (patient != null) {
+				patientsOnAppointment.add(patient);
+			}
+		}
+		
+		return patientsOnAppointment;
+		
+	}
+	
+	private static boolean determineIfPatientIsOnAppointment(Patient patient) {
+		
+		return false;
+	}
+	
+	/**
+	 * Returns a list of patients who missed an appointment.
+	 * 
+	 * @return A JSON representation of the list of patients who missed an appointment, including
+	 *         summary information about each patient.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/missedAppointment")
+	@ResponseBody
+	public Object getPatientsMissedAppointment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		HashSet<Patient> patientsWithMissedAppointment = getPatientsWithMissedAppointment(startDate, endDate);
+		
+		return generatePatientListObj(new HashSet<>(patientsWithMissedAppointment), startDate, endDate);
+	}
+	
+	private HashSet<Patient> getPatientsWithMissedAppointment(Date startDate, Date endDate) {
+		if (startDate == null || endDate == null) {
+			Calendar calendar = Calendar.getInstance();
+			calendar.set(Calendar.HOUR_OF_DAY, 0);
+			calendar.set(Calendar.MINUTE, 0);
+			calendar.set(Calendar.SECOND, 0);
+			calendar.set(Calendar.MILLISECOND, 0);
+			startDate = calendar.getTime();
+			
+			calendar.set(Calendar.HOUR_OF_DAY, 23);
+			calendar.set(Calendar.MINUTE, 59);
+			calendar.set(Calendar.SECOND, 59);
+			calendar.set(Calendar.MILLISECOND, 999);
+			endDate = calendar.getTime();
+		}
+		
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.add(Calendar.DAY_OF_MONTH, 1);
+		endDate = calendar.getTime();
+		
+		String query = "select fp.patient_id " + "from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where fp.status = 'Missed' "
+		        + "and fp.start_date_time between :startDate and :endDate "
+		        + "and date(fp.start_date_time) >= current_date() - interval 28 day";
+		
+		List<Integer> resultIds = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
+		        .setParameter("endDate", endDate).getResultList();
+		
+		HashSet<Patient> PatientsWithMissedAppointment = new HashSet<>();
+		for (Integer id : resultIds) {
+			Patient patient = Context.getPatientService().getPatient(id);
+			if (patient != null) {
+				PatientsWithMissedAppointment.add(patient);
+			}
+		}
+		
+		return PatientsWithMissedAppointment;
+		
+	}
+	
+	private static boolean determineIfPatientMissedAppointment(Patient patient) {
+		return false;
+	}
+	
+	/**
+	 * Handles the HTTP GET request to retrieve patients who have experienced an interruption in their
+	 * treatment. This method filters encounters based on ART treatment interruption encounter types and
+	 * aggregates patients who have had such encounters within the specified date range. It aims to
+	 * identify patients who might need follow-up or intervention due to treatment interruption.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/interruptedInTreatment")
+	@ResponseBody
+	public Object getPatientsInterruptedInTreatment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		if (qStartDate != null && qEndDate != null) {
+			Calendar calendar = Calendar.getInstance();
+			calendar.setTime(endDate);
+			calendar.add(Calendar.DAY_OF_MONTH, 1);
+			endDate = calendar.getTime();
+		}
+		
+		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatmentPatients(startDate, endDate);
+		
+		return generatePatientListObj(new HashSet<>(interruptedInTreatmentPatients), startDate, endDate);
+	}
+	
+	// Determine if patient is Interrupted In Treatment
+	private boolean determineIfPatientIsIIT(Patient patient, Date startDate, Date endDate) {
+		
+		return !getInterruptedInTreatmentPatients(startDate, endDate).isEmpty();
+	}
+	
+	private HashSet<Patient> getInterruptedInTreatmentPatients(Date startDate, Date endDate) {
+		String query = "select fp.patient_id  " + "from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where fp.status = 'Missed' "
+		        + "and fp.start_date_time <= :cutoffDate " + "and fp.start_date_time between :startDate and :endDate";
+		
+		// Calculate the cutoff date (28 days ago from today)
+		Calendar calendar = Calendar.getInstance();
+		calendar.add(Calendar.DAY_OF_YEAR, -28);
+		Date cutoffDate = calendar.getTime();
+		
+		// Execute the query
+		List<Integer> resultIds = entityManager.createNativeQuery(query).setParameter("cutoffDate", cutoffDate)
+		        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList();
+		
+		HashSet<Patient> interruptedPatients = new HashSet<>();
+		for (Integer id : resultIds) {
+			Patient patient = Context.getPatientService().getPatient(id);
+			if (patient != null) {
+				interruptedPatients.add(patient);
+			}
+		}
+		
+		return interruptedPatients;
+		
+	}
 }

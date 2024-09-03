@@ -34,6 +34,8 @@ public class PatientObservations {
 	
 	private Double muac;
 	
+	private String appointmentDate;
+	
 	public String getEnrollmentDate() {
 		return enrollmentDate;
 	}
@@ -160,5 +162,13 @@ public class PatientObservations {
 	
 	public void setMuac(Double muac) {
 		this.muac = muac;
+	}
+	
+	public String getAppointmentDate() {
+		return appointmentDate;
+	}
+	
+	public void setAppointmentDate(String appointmentDate) {
+		this.appointmentDate = appointmentDate;
 	}
 }
