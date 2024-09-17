@@ -64,7 +64,7 @@ public class AllConcepts {
 	
 	public static final String TRANSFERRED_OUT_CONCEPT_UUID = "68f68ae1-272c-44e4-85af-009e46e60015";
 	
-	public static final String DATE_OF_ART_INITIATION_CONCEPT_UUID = "e27f8561-e242-4744-9193-b84d752dd86d";
+	public static final String DATE_OF_ART_INITIATION_CONCEPT_UUID = "73779d67-7e8f-46fe-b723-8879838da5f8";
 	
 	public static final String DECEASED_CONCEPT_UUID = "417b7273-8d62-4720-9fb6-075e9d1530ec";
 	

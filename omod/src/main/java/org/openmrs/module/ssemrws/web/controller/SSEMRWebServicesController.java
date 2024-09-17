@@ -638,7 +638,7 @@ public class SSEMRWebServicesController {
 			throw new RuntimeException("Error occurred while processing viral load results", e);
 		}
 	}
-	
+
 	private Object generatePatientListObj(HashSet<Patient> allPatients) {
 		return generatePatientListObj(allPatients, new Date());
 	}
@@ -663,6 +663,11 @@ public class SSEMRWebServicesController {
 	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
 	        filterCategory filterCategory) {
+		// Convert HashSet to List for sorting
+		List<Patient> sortedPatients = new ArrayList<>(allPatients);
+		
+		// Sort patients by DateCreated in descending order (latest first)
+		sortedPatients.sort(Comparator.comparing(Patient::getDateCreated).reversed());
 		
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
@@ -673,7 +678,7 @@ public class SSEMRWebServicesController {
 		Calendar endCal = Calendar.getInstance();
 		endCal.setTime(endDate);
 		
-		for (Patient patient : allPatients) {
+		for (Patient patient : sortedPatients) {
 			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient);
 			if (patientObj != null) {
 				patientList.add(patientObj);
@@ -733,7 +738,6 @@ public class SSEMRWebServicesController {
 			dailySummary.put(dayInWeek, dailySummary.getOrDefault(dayInWeek, 0) + 1);
 		}
 		
-		// Sorting the summaries
 		Map<String, Integer> sortedMonthlySummary = monthlySummary.entrySet().stream()
 		        .sorted(Comparator.comparingInt(e -> Arrays.asList(months).indexOf(e.getKey())))
 		        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
@@ -1195,25 +1199,29 @@ public class SSEMRWebServicesController {
 	public Object getActiveClientsEndpoint(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
 	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(value = "page", defaultValue = "0") int page,
-	        @RequestParam(value = "size", defaultValue = "50") int size) throws ParseException {
+	        @RequestParam(value = "page", required = false) Integer page,
+	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
 		
-		// Parse the end date
 		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
 		
-		// Adjust the start date to the beginning of the first month to consider
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTime(endDate);
 		calendar.set(Calendar.DAY_OF_MONTH, 1);
 		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
 		
-		// Get active clients
 		HashSet<Patient> activeClients = getActiveClients(startDate, endDate);
 		
-		List<Patient> paginatedPatients = new ArrayList<>(activeClients).subList(page * size,
-		    Math.min((page + 1) * size, activeClients.size()));
+		List<Patient> resultPatients = new ArrayList<>(activeClients);
+		if (size != null && size > 0 && page != null && page >= 0) {
+			int fromIndex = page * size;
+			int toIndex = Math.min((page + 1) * size, activeClients.size());
+			if (fromIndex >= activeClients.size()) {
+				return "Page out of bounds. Please check the page number and size.";
+			}
+			resultPatients = resultPatients.subList(fromIndex, toIndex);
+		}
 		
-		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory);
+		return generatePatientListObj(new HashSet<>(resultPatients), startDate, endDate, filterCategory);
 	}
 	
 	private HashSet<Patient> getActiveClients(Date startDate, Date endDate) throws ParseException {
@@ -1222,24 +1230,26 @@ public class SSEMRWebServicesController {
 		List<String> activeClientsEncounterTypeUuids = Arrays.asList(PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID,
 		    FOLLOW_UP_FORM_ENCOUNTER_TYPE, ADULT_AND_ADOLESCENT_INTAKE_FORM, PEDIATRIC_INTAKE_FORM);
 		
-		// Get all relevant encounters within the specified date range
 		List<Encounter> activeRegimenEncounters = getEncountersByDateRange(activeClientsEncounterTypeUuids, startDate,
 		    endDate);
 		HashSet<Patient> activePatients = extractPatientsFromEncounters(activeRegimenEncounters);
 		
-		// Add patients with active regimens
+		List<Obs> enrollmentObs = getObservationsByDateRange(activeRegimenEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
+		    endDate);
+		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
+		
 		List<Obs> regimenObs = getObservationsByDateRange(activeRegimenEncounters,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), startDate,
 		    endDate);
 		HashSet<Patient> activeClients = extractPatientsFromObservations(regimenObs);
 		
+		activePatients.addAll(enrolledClients);
 		activePatients.addAll(activeClients);
 		
-		// Add patients who returned to treatment
 		HashSet<Patient> returnToTreatment = getReturnToTreatmentPatients(startDate, endDate);
 		activePatients.addAll(returnToTreatment);
 		
-		// Add patients who transferred in
 		HashSet<Patient> transferInPatients = getTransferredInPatients(startDate, endDate);
 		activePatients.addAll(transferInPatients);
 		
