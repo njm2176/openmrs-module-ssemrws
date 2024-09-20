@@ -86,7 +86,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> patients = allPatients.subList(startIndex, endIndex);
 		
-		return generatePatientListObj(new HashSet<>(patients), startDate, endDate, filterCategory);
+		return generatePatientListObj(new HashSet<>(patients), startDate, endDate, filterCategory, true);
 	}
 	
 	/**
@@ -100,7 +100,7 @@ public class SSEMRWebServicesController {
 	 * @return A JSON string representing the summary of patient data.
 	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
-	        filterCategory filterCategory) {
+	        filterCategory filterCategory, Boolean includeClinicalStatus) {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
@@ -112,7 +112,8 @@ public class SSEMRWebServicesController {
 		
 		// Loop through all patients and collect those within the date range
 		for (Patient patient : allPatients) {
-			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient);
+			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient,
+			    includeClinicalStatus);
 			if (patientObj != null) {
 				patientList.add(patientObj);
 				
@@ -213,7 +214,8 @@ public class SSEMRWebServicesController {
 		return summary;
 	}
 	
-	private ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory, Patient patient) {
+	private ObjectNode generatePatientObject(Date startDate, Date endDate, filterCategory filterCategory, Patient patient,
+	        boolean includeClinicalStatus) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
 		String artRegimen = getARTRegimen(patient);
 		String dateEnrolled = getEnrolmentDate(patient);
@@ -226,33 +228,17 @@ public class SSEMRWebServicesController {
 		String alternateContact = patient.getAttribute("AltTelephoneNo") != null
 		        ? String.valueOf(patient.getAttribute("AltTelephoneNo"))
 		        : "";
+		
 		// Calculate age in years based on patient's birthdate and current date
 		Date birthdate = patient.getBirthdate();
 		Date currentDate = new Date();
 		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
 		
-		ArrayNode identifiersArray = JsonNodeFactory.instance.arrayNode();
-		for (PatientIdentifier identifier : patient.getIdentifiers()) {
-			ObjectNode identifierObj = JsonNodeFactory.instance.objectNode();
-			identifierObj.put("identifier", identifier.getIdentifier());
-			identifierObj.put("identifierType", identifier.getIdentifierType().getName());
-			identifiersArray.add(identifierObj);
-		}
+		ArrayNode identifiersArray = getPatientIdentifiersArray(patient);
 		
-		String village = "";
-		String landmark = "";
-		for (PersonAddress address : patient.getAddresses()) {
-			if (address.getAddress5() != null) {
-				village = address.getAddress5();
-			}
-			if (address.getAddress6() != null) {
-				landmark = address.getAddress6();
-			}
-		}
-		String fullAddress = "Village: " + village + ", Landmark: " + landmark;
+		String fullAddress = getPatientFullAddress(patient);
 		
-		ClinicalStatus clinicalStatus = determineClinicalStatus(patient, startDate, endDate);
-		
+		// Populate common fields
 		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
 		patientObj.put("uuid", patient.getUuid());
 		patientObj.put("sex", patient.getGender());
@@ -261,15 +247,20 @@ public class SSEMRWebServicesController {
 		patientObj.put("address", fullAddress);
 		patientObj.put("contact", contact);
 		patientObj.put("alternateContact", alternateContact);
-		patientObj.put("childOrAdolescent", age <= 19 ? true : false);
+		patientObj.put("childOrAdolescent", age <= 19);
 		patientObj.put("ARTRegimen", artRegimen);
 		patientObj.put("initiationDate", artInitiationDate);
 		patientObj.put("dateEnrolled", dateEnrolled);
 		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("appointmentDate", artAppointmentDate);
-		patientObj.put("clinicalStatus", clinicalStatus.toString());
 		
-		// check filter category and filter patients based on the category
+		// Add clinical status if needed
+		if (includeClinicalStatus) {
+			ClinicalStatus clinicalStatus = determineClinicalStatus(patient, startDate, endDate);
+			patientObj.put("clinicalStatus", clinicalStatus.toString());
+		}
+		
+		// Check filter category and return only the matching patients
 		if (filterCategory != null) {
 			switch (filterCategory) {
 				case CHILDREN_ADOLESCENTS:
@@ -286,6 +277,9 @@ public class SSEMRWebServicesController {
 					if (determineIfPatientIsIIT(startDate, endDate)) {
 						return patientObj;
 					}
+					break;
+				default:
+					return null;
 			}
 		} else {
 			return patientObj;
@@ -509,6 +503,6 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> resultPatients = patientList.subList(fromIndex, toIndex);
 		
-		return generatePatientListObj(new HashSet<>(resultPatients), startDate, endDate, filterCategory);
+		return generatePatientListObj(new HashSet<>(resultPatients), startDate, endDate, filterCategory, false);
 	}
 }

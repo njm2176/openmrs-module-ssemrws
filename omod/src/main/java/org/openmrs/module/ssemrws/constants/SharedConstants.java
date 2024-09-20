@@ -1,5 +1,8 @@
 package org.openmrs.module.ssemrws.constants;
 
+import org.codehaus.jackson.node.ArrayNode;
+import org.codehaus.jackson.node.JsonNodeFactory;
+import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
@@ -175,6 +178,31 @@ public class SharedConstants {
 			identifiersList.add(identifierObj);
 		}
 		return identifiersList;
+	}
+	
+	public static ArrayNode getPatientIdentifiersArray(Patient patient) {
+		ArrayNode identifiersArray = JsonNodeFactory.instance.arrayNode();
+		for (PatientIdentifier identifier : patient.getIdentifiers()) {
+			ObjectNode identifierObj = JsonNodeFactory.instance.objectNode();
+			identifierObj.put("identifier", identifier.getIdentifier());
+			identifierObj.put("identifierType", identifier.getIdentifierType().getName());
+			identifiersArray.add(identifierObj);
+		}
+		return identifiersArray;
+	}
+	
+	public static String getPatientFullAddress(Patient patient) {
+		String village = "";
+		String landmark = "";
+		for (PersonAddress address : patient.getAddresses()) {
+			if (address.getAddress5() != null) {
+				village = address.getAddress5();
+			}
+			if (address.getAddress6() != null) {
+				landmark = address.getAddress6();
+			}
+		}
+		return "Village: " + village + ", Landmark: " + landmark;
 	}
 	
 	// Method to extract the numeric part of the identifier
