@@ -12,7 +12,7 @@ import java.text.ParseException;
 import java.util.List;
 
 import static org.openmrs.module.ssemrws.constants.PrivilegeConstants.VIEW_CHILD_REGIMEN_TREATMENT;
-import static org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController.getPatientsOnRegimenTreatment;
+import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
 @Service
 public class FacilityDashboardServiceImpl implements FacilityDashboardService {
