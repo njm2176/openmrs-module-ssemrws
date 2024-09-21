@@ -28,24 +28,15 @@ public class SharedConstants {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
-	public class DateRange {
+	public static Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
+	        throws ParseException {
+		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
 		
-		private final Date startDate;
-		
-		private final Date endDate;
-		
-		public DateRange(Date startDate, Date endDate) {
-			this.startDate = startDate;
-			this.endDate = endDate;
-		}
-		
-		public Date getStartDate() {
-			return startDate;
-		}
-		
-		public Date getEndDate() {
-			return endDate;
-		}
+		return new Date[] { startDate, endDate };
 	}
 	
 	public static Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
@@ -548,8 +539,8 @@ public class SharedConstants {
 	
 	public static List<Obs> getObservationsByDateRange(List<Encounter> encounters, List<Concept> concepts, Date startDate,
 	        Date endDate) {
-		return Context.getObsService().getObservations(null, encounters, concepts, null, null, null, null, null, null,
-		    startDate, endDate, false);
+		return Context.getObsService().getObservations(null, null, concepts, null, null, null, null, null, null, startDate,
+		    endDate, false);
 	}
 	
 	public static HashSet<Patient> extractPatientsFromEncounters(List<Encounter> encounters) {
@@ -582,44 +573,5 @@ public class SharedConstants {
 		        .filter(patient -> patient.getIdentifiers().stream()
 		                .anyMatch(identifier -> identifier.getIdentifier().startsWith("TI-")))
 		        .collect(Collectors.toCollection(HashSet::new));
-	}
-	
-	public static HashSet<Patient> getFilteredEnrolledPatients(Date startDate, Date endDate) {
-		List<String> enrolledClientsEncounterTypeUuids = Arrays.asList(ADULT_AND_ADOLESCENT_INTAKE_FORM,
-		    PEDIATRIC_INTAKE_FORM, PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID);
-		
-		// Filter encounters within the current date range
-		List<Encounter> enrolledEncounters = getEncountersByDateRange(enrolledClientsEncounterTypeUuids, startDate, endDate);
-		HashSet<Patient> enrolledPatients = extractPatientsFromEncounters(enrolledEncounters);
-		
-		// Get observations for date of enrollment
-		List<Obs> enrollmentObs = getObservationsByDateRange(enrolledEncounters,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
-		    endDate);
-		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
-		
-		// Combine all the patients
-		enrolledPatients.addAll(enrolledClients);
-		
-		// Filter out transferred-in, deceased, and transferred-out patients
-		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
-		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
-		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
-		
-		enrolledPatients.removeAll(transferredInPatients);
-		enrolledPatients.removeAll(transferredOutPatients);
-		enrolledPatients.removeAll(deceasedPatients);
-		
-		return enrolledPatients;
-	}
-	
-	// Method to get newly enrolled patients
-	public static HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
-		return getFilteredEnrolledPatients(startDate, endDate);
-	}
-	
-	// Method to calculate total TxNew patients
-	public static int countTxNew(Date startDate, Date endDate) {
-		return getFilteredEnrolledPatients(startDate, endDate).size();
 	}
 }

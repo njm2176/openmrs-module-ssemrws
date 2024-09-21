@@ -11,6 +11,7 @@ package org.openmrs.module.ssemrws.web.controller;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
 import javax.servlet.http.HttpServletRequest;
 import java.math.BigInteger;
 import java.text.DateFormat;
@@ -50,6 +51,8 @@ import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 public class SSEMRWebServicesController {
 	
 	protected final Log log = LogFactory.getLog(getClass());
+	
+	public static SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("dd-MM-yyyy");
 	
 	public enum filterCategory {
 		CHILDREN_ADOLESCENTS,
@@ -126,31 +129,24 @@ public class SSEMRWebServicesController {
 	        @RequestParam(required = false, value = "page") Integer page,
 	        @RequestParam(required = false, value = "size") Integer size) throws ParseException {
 		
-		DateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		
-		// Handle null values for startDate and endDate
-		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
-		Calendar calendar = Calendar.getInstance();
-		calendar.setTime(endDate);
-		calendar.set(Calendar.DAY_OF_MONTH, 1);
-		
-		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
 		if (page == null)
 			page = 0;
 		if (size == null)
 			size = 15;
 		
-		int totalTxCurr = countTxCurr(startDate, endDate);
+		int totalTxCurr = countTxCurr(dates[0], dates[1]);
 		
-		HashSet<Patient> activeClients = getTxCurr(startDate, endDate);
+		HashSet<Patient> activeClients = getTxCurr(dates[0], dates[1]);
 		if (activeClients.isEmpty()) {
-			return "No active clients found for the given date range.";
+			return "No Active Clients found for the given date range.";
 		}
 		
 		List<Patient> patientList = new ArrayList<>(activeClients);
 		
-		return fetchAndPaginatePatients(patientList, page, size, "totalTxCurr", totalTxCurr, startDate, endDate,
+		return fetchAndPaginatePatients(patientList, page, size, "totalTxCurr", totalTxCurr, dates[0], dates[1],
 		    filterCategory, false);
 	}
 	
@@ -164,31 +160,98 @@ public class SSEMRWebServicesController {
 	        @RequestParam(value = "page", required = false) Integer page,
 	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
 		
-		DateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		
-		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
-		Calendar calendar = Calendar.getInstance();
-		calendar.setTime(endDate);
-		calendar.set(Calendar.DAY_OF_MONTH, 1);
-		
-		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
 		if (page == null)
 			page = 0;
 		if (size == null)
 			size = 15;
 		
-		int totalTxNew = countTxNew(startDate, endDate);
+		int totalTxNew = countTxNew(dates[0], dates[1]);
 		
-		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
+		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(dates[0], dates[1]);
 		if (enrolledPatients.isEmpty()) {
 			return "No Newly Enrolled clients found for the given date range.";
 		}
 		
 		List<Patient> txNewList = new ArrayList<>(enrolledPatients);
 		
-		return fetchAndPaginatePatients(txNewList, page, size, "totalTxNew", totalTxNew, startDate, endDate, filterCategory,
+		return fetchAndPaginatePatients(txNewList, page, size, "totalTxNew", totalTxNew, dates[0], dates[1], filterCategory,
 		    false);
+	}
+	
+	/**
+	 * Handles the HTTP GET request to retrieve patients who have experienced an interruption in their
+	 * treatment. This method filters encounters based on ART treatment interruption encounter types and
+	 * aggregates patients who have had such encounters within the specified date range. It aims to
+	 * identify patients who might need follow-up or intervention due to treatment interruption.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/interruptedInTreatment")
+	@ResponseBody
+	public Object getPatientsInterruptedInTreatment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
+	        @RequestParam(value = "page", required = false) Integer page,
+	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
+		
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
+		
+		if (page == null)
+			page = 0;
+		if (size == null)
+			size = 15;
+		
+		int totalIit = countIit(dates[0], dates[1]);
+		
+		HashSet<Patient> interruptedInTreatmentPatients = getIit(dates[0], dates[1]);
+		
+		if (interruptedInTreatmentPatients.isEmpty()) {
+			return "No IIT Clients found for the given date range.";
+		}
+		
+		List<Patient> iitList = new ArrayList<>(interruptedInTreatmentPatients);
+		
+		return fetchAndPaginatePatients(iitList, page, size, "totalIit", totalIit, dates[0], dates[1], filterCategory,
+		    false);
+	}
+	
+	/**
+	 * Returns a list of patients on appointment.
+	 * 
+	 * @return A JSON representation of the list of patients on appointment, including summary
+	 *         information about each patient.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/onAppointment")
+	@ResponseBody
+	public Object getPatientsOnAppointment(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
+	        @RequestParam(value = "page", required = false) Integer page,
+	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
+		
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		if (page == null)
+			page = 0;
+		if (size == null)
+			size = 15;
+		
+		int totalOnAppointment = countOnAppoinment(startDate, endDate);
+		
+		HashSet<Patient> onAppointment = getOnAppoinment(startDate, endDate);
+		
+		if (onAppointment.isEmpty()) {
+			return "No Clients on Appointment found for the given date range.";
+		}
+		
+		List<Patient> onAppoinmentList = new ArrayList<>(onAppointment);
+		
+		return fetchAndPaginatePatients(onAppoinmentList, page, size, "totalOnAppointment", totalOnAppointment, startDate,
+		    endDate, filterCategory, false);
 	}
 	
 	/**
@@ -403,7 +466,7 @@ public class SSEMRWebServicesController {
 			return ClinicalStatus.TRANSFERRED_OUT;
 		}
 		
-		HashSet<Patient> interruptedInTreatment = getInterruptedInTreatmentPatients(startDate, endDate);
+		HashSet<Patient> interruptedInTreatment = getIit(startDate, endDate);
 		if (interruptedInTreatment.contains(patient)) {
 			return ClinicalStatus.INTERRUPTED_IN_TREATMENT;
 		}
@@ -496,36 +559,32 @@ public class SSEMRWebServicesController {
 		}
 	}
 	
-	private HashSet<Patient> getInterruptedInTreatmentPatients(Date startDate, Date endDate) {
-		String query = "select fp.patient_id  " + "from openmrs.patient_appointment fp "
-		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where fp.status = 'Missed' "
-		        + "and fp.start_date_time <= :cutoffDate " + "and fp.start_date_time between :startDate and :endDate";
-		
-		// Calculate the cutoff date (28 days ago from today)
-		Calendar calendar = Calendar.getInstance();
-		calendar.add(Calendar.DAY_OF_YEAR, -28);
-		Date cutoffDate = calendar.getTime();
-		
-		// Execute the query
-		List<Integer> resultIds = entityManager.createNativeQuery(query).setParameter("cutoffDate", cutoffDate)
-		        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList();
-		
-		HashSet<Patient> interruptedPatients = new HashSet<>();
-		for (Integer id : resultIds) {
-			Patient patient = Context.getPatientService().getPatient(id);
-			if (patient != null) {
-				interruptedPatients.add(patient);
-			}
-		}
-		
-		return interruptedPatients;
-		
+	// Method to fetch the list of IIT patients
+	private HashSet<Patient> getIit(Date startDate, Date endDate) {
+		List<Integer> iitIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Missed", true);
+		return fetchPatientsByIds(iitIds);
+	}
+	
+	// Method to count IIT patients
+	private int countIit(Date startDate, Date endDate) {
+		return (int) executePatientQuery(startDate, endDate, true, "Missed", true);
+	}
+	
+	// Method to fetch the list of IIT patients
+	private HashSet<Patient> getOnAppoinment(Date startDate, Date endDate) {
+		List<Integer> iitIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Scheduled", false);
+		return fetchPatientsByIds(iitIds);
+	}
+	
+	// Method to count On Appoinment patients
+	private int countOnAppoinment(Date startDate, Date endDate) {
+		return (int) executePatientQuery(startDate, endDate, true, "Scheduled", false);
 	}
 	
 	// Determine if patient is Interrupted In Treatment
 	private boolean determineIfPatientIsIIT(Date startDate, Date endDate) {
 		
-		return !getInterruptedInTreatmentPatients(startDate, endDate).isEmpty();
+		return !getIit(startDate, endDate).isEmpty();
 	}
 	
 	private HashSet<Patient> getPatientsWithMissedAppointment(Date startDate, Date endDate) {
@@ -552,52 +611,133 @@ public class SSEMRWebServicesController {
 		return PatientsWithMissedAppointment;
 	}
 	
-	// Helper method to execute the common query logic
-	private Object executeTxCurrQuery(Date startDate, Date endDate, boolean isCountQuery) {
-		String baseQuery;
-		
-		if (isCountQuery) {
-			baseQuery = "select count(distinct fp.patient_id) from openmrs.patient_appointment fp "
-			        + "join openmrs.person p on fp.patient_id = p.person_id " + "where (fp.start_date_time >= :now "
-			        + "or (fp.start_date_time between :startDate and :endDate "
-			        + "and date(fp.start_date_time) >= current_date() - interval 28 day))";
-		} else {
-			baseQuery = "select distinct fp.patient_id from openmrs.patient_appointment fp "
-			        + "join openmrs.person p on fp.patient_id = p.person_id " + "where (fp.start_date_time >= :now "
-			        + "or (fp.start_date_time between :startDate and :endDate "
-			        + "and date(fp.start_date_time) >= current_date() - interval 28 day))";
-		}
-		
-		// Execute the query
-		if (isCountQuery) {
-			BigInteger totalTxCurr = (BigInteger) entityManager.createNativeQuery(baseQuery).setParameter("now", new Date())
-			        .setParameter("startDate", startDate).setParameter("endDate", endDate).getSingleResult();
-			return totalTxCurr.intValue();
-		} else {
-			List<Integer> appointmentResultIds = entityManager.createNativeQuery(baseQuery).setParameter("now", new Date())
-			        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList();
-			return appointmentResultIds;
-		}
-	}
-	
-	// Method to fetch the list of Tx Curr patients
+	// Method to fetch the list of TxCurr patients
 	private HashSet<Patient> getTxCurr(Date startDate, Date endDate) {
-		HashSet<Patient> patientsWithAppointments = new HashSet<>();
-		List<Integer> appointmentResultIds = (List<Integer>) executeTxCurrQuery(startDate, endDate, false);
-		
-		// Fetch patients using getPatient(id)
-		for (Integer patientId : appointmentResultIds) {
-			Patient patient = Context.getPatientService().getPatient(patientId);
-			if (patient != null) {
-				patientsWithAppointments.add(patient);
-			}
-		}
-		
-		return patientsWithAppointments;
+		List<Integer> patientIds = (List<Integer>) executeTxCurrQuery(startDate, endDate, false);
+		return fetchPatientsByIds(patientIds);
 	}
 	
-	// Method to count Tx Curr patients
+	// Method to count TxCurr patients
 	private int countTxCurr(Date startDate, Date endDate) {
 		return (int) executeTxCurrQuery(startDate, endDate, true);
+	}
+	
+	private HashSet<Patient> getFilteredEnrolledPatients(Date startDate, Date endDate) {
+		// Get observations for date of enrollment
+		List<Obs> enrollmentObs = getObservationsByDateRange(null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
+		    endDate);
+		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
+		
+		// Combine all the patients
+		HashSet<Patient> enrolledPatients = new HashSet<>(enrolledClients);
+		
+		// Filter out transferred-in, deceased, and transferred-out patients
+		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
+		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
+		HashSet<Patient> iitPatients = getIit(startDate, endDate);
+		
+		enrolledPatients.removeAll(transferredInPatients);
+		enrolledPatients.removeAll(transferredOutPatients);
+		enrolledPatients.removeAll(deceasedPatients);
+		enrolledPatients.removeAll(iitPatients);
+		
+		return enrolledPatients;
+	}
+	
+	// Method to get newly enrolled patients
+	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
+		return getFilteredEnrolledPatients(startDate, endDate);
+	}
+	
+	// Method to calculate total TxNew patients
+	private int countTxNew(Date startDate, Date endDate) {
+		return getFilteredEnrolledPatients(startDate, endDate).size();
+	}
+	
+	private Object executeTxCurrQuery(Date startDate, Date endDate, boolean isCountQuery) {
+		String selectClause = isCountQuery ? "count(distinct fp.patient_id)" : "distinct fp.patient_id";
+		String baseQuery = "select " + selectClause + " from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where (fp.start_date_time >= :now "
+		        + "or (fp.start_date_time between :startDate and :endDate "
+		        + "and date(fp.start_date_time) >= current_date() - interval 28 day))";
+		
+		try {
+			Query query = entityManager.createNativeQuery(baseQuery).setParameter("now", new Date())
+			        .setParameter("startDate", startDate).setParameter("endDate", endDate);
+			
+			if (isCountQuery) {
+				BigInteger totalTxCurr = (BigInteger) query.getSingleResult();
+				return totalTxCurr.intValue();
+			} else {
+				return query.getResultList();
+			}
+		}
+		catch (Exception e) {
+			System.err.println("Error executing TxCurr query: " + e.getMessage());
+			throw new RuntimeException("Failed to execute TxCurr query", e);
+		}
+	}
+	
+	private Object executePatientQuery(Date startDate, Date endDate, boolean isCountQuery, String status,
+	        boolean useCutoffDate) {
+		String baseQuery = getQueryString(isCountQuery, status, useCutoffDate);
+		
+		try {
+			// Create and configure the query
+			Query query = entityManager.createNativeQuery(baseQuery).setParameter("startDate", startDate)
+			        .setParameter("endDate", endDate);
+			
+			// Set the status parameter if required
+			if (status != null) {
+				query.setParameter("status", status);
+			}
+			
+			// Set the cutoff date if required
+			if (useCutoffDate) {
+				// Calculate the cutoff date (28 days ago from today)
+				Calendar calendar = Calendar.getInstance();
+				calendar.add(Calendar.DAY_OF_YEAR, -28);
+				Date cutoffDate = calendar.getTime();
+				query.setParameter("cutoffDate", cutoffDate);
+			}
+			
+			// Execute the query based on `isCountQuery`
+			if (isCountQuery) {
+				BigInteger totalCount = (BigInteger) query.getSingleResult();
+				return totalCount.intValue();
+			} else {
+				return query.getResultList();
+			}
+		}
+		catch (Exception e) {
+			// Log the error and rethrow a runtime exception
+			System.err.println("Error executing patient query: " + e.getMessage());
+			throw new RuntimeException("Failed to execute patient query", e);
+		}
+	}
+	
+	private static String getQueryString(boolean isCountQuery, String status, boolean useCutoffDate) {
+		String selectClause = isCountQuery ? "count(distinct fp.patient_id)" : "distinct fp.patient_id";
+		
+		// Start constructing the query
+		String baseQuery = "select " + selectClause + " from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id "
+		        + (status != null ? "where fp.status = :status " : "where 1=1 ")
+		        + (useCutoffDate ? "and fp.start_date_time <= :cutoffDate " : "")
+		        + "and fp.start_date_time between :startDate and :endDate";
+		return baseQuery;
+	}
+	
+	private HashSet<Patient> fetchPatientsByIds(List<Integer> patientIds) {
+		HashSet<Patient> patients = new HashSet<>();
+		for (Integer patientId : patientIds) {
+			Patient patient = Context.getPatientService().getPatient(patientId);
+			if (patient != null) {
+				patients.add(patient);
+			}
+		}
+		return patients;
 	}
 }
