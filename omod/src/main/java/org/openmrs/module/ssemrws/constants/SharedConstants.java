@@ -27,6 +27,26 @@ public class SharedConstants {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
+	public class DateRange {
+		
+		private final Date startDate;
+		
+		private final Date endDate;
+		
+		public DateRange(Date startDate, Date endDate) {
+			this.startDate = startDate;
+			this.endDate = endDate;
+		}
+		
+		public Date getStartDate() {
+			return startDate;
+		}
+		
+		public Date getEndDate() {
+			return endDate;
+		}
+	}
+	
 	public static Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
 	        String activeRegimenConceptUuid) throws ParseException {
 		

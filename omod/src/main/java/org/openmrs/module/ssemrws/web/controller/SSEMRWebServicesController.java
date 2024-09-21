@@ -12,6 +12,7 @@ package org.openmrs.module.ssemrws.web.controller;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.servlet.http.HttpServletRequest;
+import java.math.BigInteger;
 import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -86,7 +87,9 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> patients = allPatients.subList(startIndex, endIndex);
 		
-		return generatePatientListObj(new HashSet<>(patients), startDate, endDate, filterCategory, true);
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return generatePatientListObj(new HashSet<>(patients), startDate, endDate, filterCategory, true, allPatientsObj);
 	}
 	
 	/**
@@ -97,12 +100,13 @@ public class SSEMRWebServicesController {
 	 * @param startDate The start date of the range for which to generate the summary.
 	 * @param endDate The end date of the range for which to generate the summary.
 	 * @param filterCategory The category to filter patients.
+	 * @param includeClinicalStatus A flag to include clinical status.
+	 * @param allPatientsObj The object to store all patient details.
 	 * @return A JSON string representing the summary of patient data.
 	 */
 	public Object generatePatientListObj(HashSet<Patient> allPatients, Date startDate, Date endDate,
-	        filterCategory filterCategory, Boolean includeClinicalStatus) {
+	        filterCategory filterCategory, Boolean includeClinicalStatus, ObjectNode allPatientsObj) {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
-		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
 		List<Date> patientDates = new ArrayList<>();
 		Calendar startCal = Calendar.getInstance();
@@ -110,29 +114,21 @@ public class SSEMRWebServicesController {
 		Calendar endCal = Calendar.getInstance();
 		endCal.setTime(endDate);
 		
-		// Loop through all patients and collect those within the date range
 		for (Patient patient : allPatients) {
 			ObjectNode patientObj = generatePatientObject(startDate, endDate, filterCategory, patient,
 			    includeClinicalStatus);
 			if (patientObj != null) {
 				patientList.add(patientObj);
 				
-				if (patient.getDateCreated() != null) {
-					Calendar patientCal = Calendar.getInstance();
-					patientCal.setTime(patient.getDateCreated());
-					
-					// Check that patient date is within the startDate and endDate range
-					if (!patientCal.before(startCal) && !patientCal.after(endCal)) {
-						patientDates.add(patient.getDateCreated());
-					}
+				Calendar patientCal = Calendar.getInstance();
+				patientCal.setTime(patient.getDateCreated());
+				
+				if (!patientCal.before(startCal) && !patientCal.after(endCal)) {
+					patientDates.add(patient.getDateCreated());
 				}
 			}
 		}
 		
-		// Debug the patientDates list
-		System.out.println("Total valid patient dates: " + patientDates.size());
-		
-		// Generate the summary for the valid patient creation dates
 		Map<String, Map<String, Integer>> summary = generateSummary(patientDates);
 		
 		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
@@ -148,6 +144,7 @@ public class SSEMRWebServicesController {
 		groupingObj.put("groupMonth", groupMonth);
 		groupingObj.put("groupWeek", groupWeek);
 		
+		allPatientsObj.put("totalPatients", allPatients.size());
 		allPatientsObj.put("results", patientList);
 		allPatientsObj.put("summary", groupingObj);
 		
@@ -452,19 +449,40 @@ public class SSEMRWebServicesController {
 		return PatientsWithMissedAppointment;
 	}
 	
+	// Helper method to execute the common query logic
+	private Object executeTxCurrQuery(Date startDate, Date endDate, boolean isCountQuery) {
+		String baseQuery;
+		
+		if (isCountQuery) {
+			baseQuery = "select count(distinct fp.patient_id) from openmrs.patient_appointment fp "
+			        + "join openmrs.person p on fp.patient_id = p.person_id " + "where (fp.start_date_time >= :now "
+			        + "or (fp.start_date_time between :startDate and :endDate "
+			        + "and date(fp.start_date_time) >= current_date() - interval 28 day))";
+		} else {
+			baseQuery = "select distinct fp.patient_id from openmrs.patient_appointment fp "
+			        + "join openmrs.person p on fp.patient_id = p.person_id " + "where (fp.start_date_time >= :now "
+			        + "or (fp.start_date_time between :startDate and :endDate "
+			        + "and date(fp.start_date_time) >= current_date() - interval 28 day))";
+		}
+		
+		// Execute the query
+		if (isCountQuery) {
+			BigInteger totalTxCurr = (BigInteger) entityManager.createNativeQuery(baseQuery).setParameter("now", new Date())
+			        .setParameter("startDate", startDate).setParameter("endDate", endDate).getSingleResult();
+			return totalTxCurr.intValue();
+		} else {
+			List<Integer> appointmentResultIds = entityManager.createNativeQuery(baseQuery).setParameter("now", new Date())
+			        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList();
+			return appointmentResultIds;
+		}
+	}
+	
+	// Method to fetch the list of Tx Curr patients
 	private HashSet<Patient> getTxCurr(Date startDate, Date endDate) {
 		HashSet<Patient> patientsWithAppointments = new HashSet<>();
+		List<Integer> appointmentResultIds = (List<Integer>) executeTxCurrQuery(startDate, endDate, false);
 		
-		// Combined query to get both upcoming and recent appointments in one go
-		String combinedQuery = "select fp.patient_id from openmrs.patient_appointment fp "
-		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where (fp.start_date_time >= :now "
-		        + "or (fp.start_date_time between :startDate and :endDate "
-		        + "and date(fp.start_date_time) >= current_date() - interval 28 day))";
-		
-		List<Integer> appointmentResultIds = entityManager.createNativeQuery(combinedQuery).setParameter("now", new Date())
-		        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList();
-		
-		// Fetch patients using getPatient(id) in batches or a loop
+		// Fetch patients using getPatient(id)
 		for (Integer patientId : appointmentResultIds) {
 			Patient patient = Context.getPatientService().getPatient(patientId);
 			if (patient != null) {
@@ -473,6 +491,11 @@ public class SSEMRWebServicesController {
 		}
 		
 		return patientsWithAppointments;
+	}
+	
+	// Method to count Tx Curr patients
+	private int countTxCurr(Date startDate, Date endDate) {
+		return (int) executeTxCurrQuery(startDate, endDate, true);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/activeClients")
@@ -490,6 +513,11 @@ public class SSEMRWebServicesController {
 		calendar.set(Calendar.DAY_OF_MONTH, 1);
 		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
 		
+		System.out.println("Start Date: " + startDate);
+		System.out.println("End Date: " + endDate);
+		
+		int totalTxCurr = countTxCurr(startDate, endDate);
+		
 		HashSet<Patient> activeClients = getTxCurr(startDate, endDate);
 		
 		List<Patient> patientList = new ArrayList<>(activeClients);
@@ -503,6 +531,10 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> resultPatients = patientList.subList(fromIndex, toIndex);
 		
-		return generatePatientListObj(new HashSet<>(resultPatients), startDate, endDate, filterCategory, false);
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		allPatientsObj.put("totalTxCurr", totalTxCurr);
+		
+		return generatePatientListObj(new HashSet<>(resultPatients), startDate, endDate, filterCategory, false,
+		    allPatientsObj);
 	}
 }
