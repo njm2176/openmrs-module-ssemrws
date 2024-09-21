@@ -13,7 +13,9 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.servlet.http.HttpServletRequest;
 import java.math.BigInteger;
+import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -58,13 +60,38 @@ public class SSEMRWebServicesController {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
+	private Object fetchAndPaginatePatients(List<Patient> patientList, int page, int size, String totalKey, int totalCount,
+	        Date startDate, Date endDate, SSEMRWebServicesController.filterCategory filterCategory,
+	        boolean includeClinicalStatus) {
+		
+		if (page < 0 || size <= 0) {
+			return "Invalid page or size value. Page must be >= 0 and size must be > 0.";
+		}
+		
+		int fromIndex = page * size;
+		if (fromIndex >= patientList.size()) {
+			return "Page out of bounds. Please check the page number and size.";
+		}
+		int toIndex = Math.min((page + 1) * size, patientList.size());
+		
+		List<Patient> paginatedPatients = patientList.subList(fromIndex, toIndex);
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		allPatientsObj.put(totalKey, totalCount);
+		
+		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory,
+		    includeClinicalStatus, allPatientsObj);
+	}
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/allClients")
 	@ResponseBody
 	public Object getAllPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
 	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(value = "page", defaultValue = "0") int page,
-	        @RequestParam(value = "size", defaultValue = "50") int size) throws ParseException {
+	        @RequestParam(required = false, value = "page") Integer page,
+	        @RequestParam(required = false, value = "size") Integer size) throws ParseException {
+		
+		DateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
@@ -76,20 +103,92 @@ public class SSEMRWebServicesController {
 			endDate = calendar.getTime();
 		}
 		
+		if (page == null)
+			page = 0;
+		if (size == null)
+			size = 15;
+		
 		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		
-		int startIndex = page * size;
-		int endIndex = Math.min(startIndex + size, allPatients.size());
-		
-		if (startIndex >= allPatients.size()) {
-			return "Page out of bounds. Please check the page number and size.";
+		if (allPatients == null || allPatients.isEmpty()) {
+			return "No Clients found for the given date range.";
 		}
 		
-		List<Patient> patients = allPatients.subList(startIndex, endIndex);
+		return fetchAndPaginatePatients(allPatients, page, size, "totalPatients", allPatients.size(), startDate, endDate,
+		    filterCategory, true);
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/activeClients")
+	@ResponseBody
+	public Object getActiveClientsEndpoint(HttpServletRequest request,
+	        @RequestParam(required = false, value = "startDate") String qStartDate,
+	        @RequestParam(required = false, value = "endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
+	        @RequestParam(required = false, value = "page") Integer page,
+	        @RequestParam(required = false, value = "size") Integer size) throws ParseException {
 		
-		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		DateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		
-		return generatePatientListObj(new HashSet<>(patients), startDate, endDate, filterCategory, true, allPatientsObj);
+		// Handle null values for startDate and endDate
+		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		
+		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
+		
+		if (page == null)
+			page = 0;
+		if (size == null)
+			size = 15;
+		
+		int totalTxCurr = countTxCurr(startDate, endDate);
+		
+		HashSet<Patient> activeClients = getTxCurr(startDate, endDate);
+		if (activeClients.isEmpty()) {
+			return "No active clients found for the given date range.";
+		}
+		
+		List<Patient> patientList = new ArrayList<>(activeClients);
+		
+		return fetchAndPaginatePatients(patientList, page, size, "totalTxCurr", totalTxCurr, startDate, endDate,
+		    filterCategory, false);
+	}
+	
+	// Refactored method for newly enrolled patients
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
+	@ResponseBody
+	public Object getNewPatients(HttpServletRequest request,
+	        @RequestParam(required = false, value = "startDate") String qStartDate,
+	        @RequestParam(required = false, value = "endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
+	        @RequestParam(value = "page", required = false) Integer page,
+	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
+		
+		DateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		
+		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		
+		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
+		
+		if (page == null)
+			page = 0;
+		if (size == null)
+			size = 15;
+		
+		int totalTxNew = countTxNew(startDate, endDate);
+		
+		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(startDate, endDate);
+		if (enrolledPatients.isEmpty()) {
+			return "No Newly Enrolled clients found for the given date range.";
+		}
+		
+		List<Patient> txNewList = new ArrayList<>(enrolledPatients);
+		
+		return fetchAndPaginatePatients(txNewList, page, size, "totalTxNew", totalTxNew, startDate, endDate, filterCategory,
+		    false);
 	}
 	
 	/**
@@ -124,7 +223,11 @@ public class SSEMRWebServicesController {
 				patientCal.setTime(patient.getDateCreated());
 				
 				if (!patientCal.before(startCal) && !patientCal.after(endCal)) {
-					patientDates.add(patient.getDateCreated());
+					if (patient.getDateCreated() != null && !patientCal.before(startCal) && !patientCal.after(endCal)) {
+						patientDates.add(patient.getDateCreated());
+					}
+				} else {
+					System.out.println("Patient date out of range");
 				}
 			}
 		}
@@ -496,45 +599,5 @@ public class SSEMRWebServicesController {
 	// Method to count Tx Curr patients
 	private int countTxCurr(Date startDate, Date endDate) {
 		return (int) executeTxCurrQuery(startDate, endDate, true);
-	}
-	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/activeClients")
-	@ResponseBody
-	public Object getActiveClientsEndpoint(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(value = "page", required = false) Integer page,
-	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
-		
-		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
-		
-		Calendar calendar = Calendar.getInstance();
-		calendar.setTime(endDate);
-		calendar.set(Calendar.DAY_OF_MONTH, 1);
-		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
-		
-		System.out.println("Start Date: " + startDate);
-		System.out.println("End Date: " + endDate);
-		
-		int totalTxCurr = countTxCurr(startDate, endDate);
-		
-		HashSet<Patient> activeClients = getTxCurr(startDate, endDate);
-		
-		List<Patient> patientList = new ArrayList<>(activeClients);
-		
-		int fromIndex = page * size;
-		int toIndex = Math.min((page + 1) * size, patientList.size());
-		
-		if (fromIndex >= patientList.size()) {
-			return "Page out of bounds. Please check the page number and size.";
-		}
-		
-		List<Patient> resultPatients = patientList.subList(fromIndex, toIndex);
-		
-		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
-		allPatientsObj.put("totalTxCurr", totalTxCurr);
-		
-		return generatePatientListObj(new HashSet<>(resultPatients), startDate, endDate, filterCategory, false,
-		    allPatientsObj);
 	}
 }

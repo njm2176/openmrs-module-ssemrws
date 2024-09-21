@@ -4,6 +4,7 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
+import org.openmrs.api.PatientService;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.parameter.EncounterSearchCriteria;
@@ -539,5 +540,86 @@ public class SharedConstants {
 		}
 		
 		return deadPatients;
+	}
+	
+	public static List<Encounter> getEncountersByDateRange(List<String> encounterTypeUuids, Date startDate, Date endDate) {
+		return getEncountersByEncounterTypes(encounterTypeUuids, startDate, endDate);
+	}
+	
+	public static List<Obs> getObservationsByDateRange(List<Encounter> encounters, List<Concept> concepts, Date startDate,
+	        Date endDate) {
+		return Context.getObsService().getObservations(null, encounters, concepts, null, null, null, null, null, null,
+		    startDate, endDate, false);
+	}
+	
+	public static HashSet<Patient> extractPatientsFromEncounters(List<Encounter> encounters) {
+		HashSet<Patient> patients = new HashSet<>();
+		for (Encounter encounter : encounters) {
+			patients.add(encounter.getPatient());
+		}
+		return patients;
+	}
+	
+	public static HashSet<Patient> extractPatientsFromObservations(List<Obs> observations) {
+		HashSet<Patient> patients = new HashSet<>();
+		for (Obs obs : observations) {
+			Person person = obs.getPerson();
+			if (person != null) {
+				Patient patient = Context.getPatientService().getPatient(person.getPersonId());
+				if (patient != null) {
+					patients.add(patient);
+				}
+			}
+		}
+		return patients;
+	}
+	
+	public static HashSet<Patient> getTransferredInPatients(Date startDate, Date endDate) {
+		PatientService patientService = Context.getPatientService();
+		List<Patient> allPatients = patientService.getAllPatients();
+		
+		return allPatients.stream()
+		        .filter(patient -> patient.getIdentifiers().stream()
+		                .anyMatch(identifier -> identifier.getIdentifier().startsWith("TI-")))
+		        .collect(Collectors.toCollection(HashSet::new));
+	}
+	
+	public static HashSet<Patient> getFilteredEnrolledPatients(Date startDate, Date endDate) {
+		List<String> enrolledClientsEncounterTypeUuids = Arrays.asList(ADULT_AND_ADOLESCENT_INTAKE_FORM,
+		    PEDIATRIC_INTAKE_FORM, PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID);
+		
+		// Filter encounters within the current date range
+		List<Encounter> enrolledEncounters = getEncountersByDateRange(enrolledClientsEncounterTypeUuids, startDate, endDate);
+		HashSet<Patient> enrolledPatients = extractPatientsFromEncounters(enrolledEncounters);
+		
+		// Get observations for date of enrollment
+		List<Obs> enrollmentObs = getObservationsByDateRange(enrolledEncounters,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
+		    endDate);
+		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
+		
+		// Combine all the patients
+		enrolledPatients.addAll(enrolledClients);
+		
+		// Filter out transferred-in, deceased, and transferred-out patients
+		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
+		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		HashSet<Patient> transferredOutPatients = getTransferredOutPatients(startDate, endDate);
+		
+		enrolledPatients.removeAll(transferredInPatients);
+		enrolledPatients.removeAll(transferredOutPatients);
+		enrolledPatients.removeAll(deceasedPatients);
+		
+		return enrolledPatients;
+	}
+	
+	// Method to get newly enrolled patients
+	public static HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
+		return getFilteredEnrolledPatients(startDate, endDate);
+	}
+	
+	// Method to calculate total TxNew patients
+	public static int countTxNew(Date startDate, Date endDate) {
+		return getFilteredEnrolledPatients(startDate, endDate).size();
 	}
 }
