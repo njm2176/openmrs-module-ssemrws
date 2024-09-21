@@ -1,7 +1,5 @@
 package org.openmrs.module.ssemrws.web.dto;
 
-import java.util.List;
-
 public class AppointmentDTO {
 	
 	private String name;

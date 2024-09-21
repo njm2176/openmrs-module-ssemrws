@@ -36,6 +36,8 @@ public class PatientObservations {
 	
 	private String appointmentDate;
 	
+	private String clinicianName;
+	
 	public String getEnrollmentDate() {
 		return enrollmentDate;
 	}
@@ -170,5 +172,13 @@ public class PatientObservations {
 	
 	public void setAppointmentDate(String appointmentDate) {
 		this.appointmentDate = appointmentDate;
+	}
+	
+	public String getClinicianName() {
+		return clinicianName;
+	}
+	
+	public void setClinicianName(String clinicianName) {
+		this.clinicianName = clinicianName;
 	}
 }
