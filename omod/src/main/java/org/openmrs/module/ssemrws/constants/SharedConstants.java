@@ -108,9 +108,7 @@ public class SharedConstants {
 	public static String getARTRegimen(Patient patient) {
 		List<Obs> artRegimenObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(ACTIVE_REGIMEN_CONCEPT_UUID)), null,
-		    null, null, null, null, null, null, null, false);
-		
-		artRegimenObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		    null, null, null, 0, null, null, null, false);
 		
 		for (Obs obs : artRegimenObs) {
 			if (obs.getValueCoded() != null) {
@@ -125,9 +123,7 @@ public class SharedConstants {
 	public static String getEnrolmentDate(Patient patient) {
 		List<Obs> enrollmentDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), null,
-		    null, null, null, null, null, null, null, false);
-		
-		enrollmentDateObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		    null, null, null, 0, null, null, null, false);
 		
 		if (!enrollmentDateObs.isEmpty()) {
 			Obs dateObs = enrollmentDateObs.get(0);
@@ -144,9 +140,7 @@ public class SharedConstants {
 	public static String getLastRefillDate(Patient patient) {
 		List<Obs> lastRefillDateObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
 		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(LAST_REFILL_DATE_UUID)), null, null,
-		    null, null, null, null, null, null, false);
-		
-		lastRefillDateObs.sort(Comparator.comparing(Obs::getObsDatetime).reversed());
+		    null, null, 0, null, null, null, false);
 		
 		if (!lastRefillDateObs.isEmpty()) {
 			Obs lastObs = lastRefillDateObs.get(0);
@@ -484,6 +478,15 @@ public class SharedConstants {
 		DIED,
 		ACTIVE,
 		TRANSFERRED_OUT
+	}
+	
+	public enum Flags {
+		MISSED_APPOINTMENT,
+		IIT,
+		DIED,
+		TRANSFERRED_OUT,
+		DUE_FOR_VL,
+		ACTIVE
 	}
 	
 	public static HashSet<Patient> getTransferredOutClients(Date startDate, Date endDate) {

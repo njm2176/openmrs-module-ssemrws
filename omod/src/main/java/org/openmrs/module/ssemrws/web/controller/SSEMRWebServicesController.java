@@ -100,36 +100,93 @@ public class SSEMRWebServicesController {
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/allClients")
 	@ResponseBody
-	public Object getAllPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
+	public Object getAllPatients(HttpServletRequest request,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
 	        @RequestParam(required = false, value = "page") Integer page,
-	        @RequestParam(required = false, value = "size") Integer size) throws ParseException {
-		
-		DateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		
-		Date startDate = dateTimeFormatter.parse(qStartDate);
-		Date endDate = dateTimeFormatter.parse(qEndDate);
-		
-		if (qStartDate != null && qEndDate != null) {
-			Calendar calendar = Calendar.getInstance();
-			calendar.setTime(endDate);
-			calendar.add(Calendar.DAY_OF_MONTH, 1);
-			endDate = calendar.getTime();
-		}
+	        @RequestParam(required = false, value = "size") Integer size) {
 		
 		if (page == null)
 			page = 0;
 		if (size == null)
-			size = 50;
+			size = 15;
 		
-		List<Patient> allPatients = Context.getPatientService().getAllPatients(false);
-		if (allPatients == null || allPatients.isEmpty()) {
-			return "No Clients found for the given date range.";
+		HashSet<Patient> allClients = getAllPatients(page, size);
+		
+		if (allClients.isEmpty()) {
+			return "No Patients found.";
 		}
 		
-		return fetchAndPaginatePatients(allPatients, page, size, "totalPatients", allPatients.size(), startDate, endDate,
-		    filterCategory, false);
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return allPatientsListObj(allClients, allPatientsObj);
+	}
+	
+	private HashSet<Patient> getAllPatients(int page, int size) {
+		List<Integer> patientIds = executeAllPatientsQuery(page, size);
+		
+		return fetchPatientsByIds(patientIds);
+	}
+	
+	private List<Integer> executeAllPatientsQuery(int page, int size) {
+		String baseQuery = "select distinct p.patient_id from openmrs.patient p where p.voided = 0 order by p.patient_id desc limit :limit offset :offset";
+		try {
+			Query query = entityManager.createNativeQuery(baseQuery).setParameter("limit", size).setParameter("offset",
+			    page * size);
+			
+			return query.getResultList();
+		}
+		catch (Exception e) {
+			System.err.println("Error executing all patients query: " + e.getMessage());
+			throw new RuntimeException("Failed to execute all patients query", e);
+		}
+	}
+	
+	public Object allPatientsListObj(HashSet<Patient> allPatients, ObjectNode allPatientsObj) {
+		
+		// Initialize patient list array
+		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
+		
+		// Loop through all patients and generate the required patient objects
+		for (Patient patient : allPatients) {
+			ObjectNode patientObj = generateAllPatientObject(patient);
+			patientList.add(patientObj);
+		}
+		
+		// Populate the ObjectNode with the patient list
+		allPatientsObj.put("results", patientList);
+		
+		// Return the object as a JSON string
+		return allPatientsObj.toString();
+	}
+	
+	private ObjectNode generateAllPatientObject(Patient patient) {
+		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
+		String artRegimen = getARTRegimen(patient);
+		String dateEnrolled = getEnrolmentDate(patient);
+		String artInitiationDate = getEnrolmentDate(patient);
+		String lastRefillDate = getLastRefillDate(patient);
+		String artAppointmentDate = getNextArtAppointmentDate(patient);
+		
+		// Calculate age in years based on patient's birthdate and current date
+		Date birthdate = patient.getBirthdate();
+		Date currentDate = new Date();
+		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+		
+		ArrayNode identifiersArray = getPatientIdentifiersArray(patient);
+		
+		// Populate common fields
+		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
+		patientObj.put("uuid", patient.getUuid());
+		patientObj.put("sex", patient.getGender());
+		patientObj.put("age", age);
+		patientObj.put("identifiers", identifiersArray);
+		patientObj.put("ARTRegimen", artRegimen);
+		patientObj.put("initiationDate", artInitiationDate);
+		patientObj.put("dateEnrolled", dateEnrolled);
+		patientObj.put("lastRefillDate", lastRefillDate);
+		patientObj.put("appointmentDate", artAppointmentDate);
+		
+		return patientObj;
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/activeClients")
@@ -173,7 +230,25 @@ public class SSEMRWebServicesController {
 	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
 		
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		
+		// Get current month start and end dates
+		Calendar calendar = Calendar.getInstance();
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		Date startOfMonth = calendar.getTime();
+		
+		calendar.add(Calendar.MONTH, 1);
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		calendar.add(Calendar.DAY_OF_MONTH, -1);
+		Date endOfMonth = calendar.getTime();
+		
+		// Override the provided date range with current month if a date range is given
+		// for the whole year
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
+		
+		if (dates[0].before(startOfMonth) || dates[1].after(endOfMonth)) {
+			dates[0] = startOfMonth;
+			dates[1] = endOfMonth;
+		}
 		
 		if (page == null)
 			page = 0;
@@ -821,6 +896,73 @@ public class SSEMRWebServicesController {
 		return new ResponseEntity<>(responseMap, new HttpHeaders(), HttpStatus.OK);
 	}
 	
+	private List<Flags> determinePatientFlags(Patient patient, Date startDate, Date endDate) {
+		List<Flags> flags = new ArrayList<>();
+		
+		HashSet<Patient> activeClients = getTxCurr(startDate, endDate);
+		if (activeClients.contains(patient)) {
+			flags.add(Flags.ACTIVE);
+		}
+		
+		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		if (deceasedPatients.contains(patient)) {
+			flags.add(Flags.DIED);
+		}
+		
+		HashSet<Patient> transferredOutPatients = getTransferredOutClients(startDate, endDate);
+		if (transferredOutPatients.contains(patient)) {
+			flags.add(Flags.TRANSFERRED_OUT);
+		}
+		
+		HashSet<Patient> interruptedInTreatment = getIit(startDate, endDate);
+		if (interruptedInTreatment.contains(patient)) {
+			flags.add(Flags.IIT);
+		}
+		
+		HashSet<Patient> missedAppointment = getMissedAppoinment(startDate, endDate);
+		if (missedAppointment.contains(patient)) {
+			flags.add(Flags.MISSED_APPOINTMENT);
+		}
+		
+		HashSet<Patient> dueForVlClients = getDueForVl(startDate, endDate);
+		if (dueForVlClients.contains(patient)) {
+			flags.add(Flags.DUE_FOR_VL);
+		}
+		
+		// No default flag added, so the list remains empty if no conditions are met
+		return flags;
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/flags")
+	@ResponseBody
+	public ResponseEntity<Object> getPatientFlags(HttpServletRequest request,
+	        @RequestParam("patientUuid") String patientUuid,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
+		// Define the dynamic date range
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date startDate = new SimpleDateFormat("yyyy-MM-dd").parse("1970-01-01");
+		Date endDate = new Date();
+		
+		if (StringUtils.isBlank(patientUuid)) {
+			return buildErrorResponse("You must specify patientUuid in the request!", HttpStatus.BAD_REQUEST);
+		}
+		
+		Patient patient = Context.getPatientService().getPatientByUuid(patientUuid);
+		
+		if (patient == null) {
+			return buildErrorResponse("The provided patient was not found in the system!", HttpStatus.NOT_FOUND);
+		}
+		
+		List<Flags> flags = determinePatientFlags(patient, startDate, endDate);
+		
+		// Build the response map with dynamic flags
+		Map<String, Object> responseMap = new HashMap<>();
+		responseMap.put("results", flags.stream().map(Enum::name).collect(Collectors.toList()));
+		
+		return new ResponseEntity<>(responseMap, new HttpHeaders(), HttpStatus.OK);
+	}
+	
 	/**
 	 * Generates a summary of patient data within a specified date range, grouped by year, month, and
 	 * week.
@@ -1153,6 +1295,7 @@ public class SSEMRWebServicesController {
 	
 	private ClinicalStatus determineClinicalStatus(Patient patient, Date startDate, Date endDate) {
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
+		
 		if (deceasedPatients.contains(patient)) {
 			return ClinicalStatus.DIED;
 		}

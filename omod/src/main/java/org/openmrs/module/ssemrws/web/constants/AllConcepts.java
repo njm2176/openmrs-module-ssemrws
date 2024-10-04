@@ -2,6 +2,8 @@ package org.openmrs.module.ssemrws.web.constants;
 
 public class AllConcepts {
 	
+	public static final String UNIQUE_ART_NUMBER_TYPE_UUID = "e6baf185-38ed-4815-9476-f98d2cc2b331";
+	
 	public static final String VL_LAB_REQUEST_ENCOUNTER_TYPE = "82024e00-3f10-11e4-adec-0800271c1b75";
 	
 	public static final String FOLLOW_UP_FORM_ENCOUNTER_TYPE = "e8481555-9dd1-4bb5-ba8c-cb721dafb166";
