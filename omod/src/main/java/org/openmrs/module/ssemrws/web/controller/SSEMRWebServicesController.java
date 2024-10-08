@@ -1416,14 +1416,51 @@ public class SSEMRWebServicesController {
 	}
 	
 	private String getNextArtAppointmentDate(Patient patient) {
-		return getNextAppointmentDateByUuid(patient.getUuid());
+		return getNextOrLastAppointmentDateByUuid(patient.getUuid());
 	}
 	
 	private String getNextAppointmentDate(String patientUuid) {
-		return getNextAppointmentDateByUuid(patientUuid);
+		return getNextOrLastAppointmentDateByUuid(patientUuid);
 	}
 	
-	// Private method to reduce repetition
+	private String getNextOrLastAppointmentDateByUuid(String patientUuid) {
+		if (patientUuid == null || patientUuid.trim().isEmpty()) {
+			return "Invalid patient UUID";
+		}
+		
+		if (entityManager == null) {
+			throw new IllegalStateException("EntityManager is not initialized!");
+		}
+		
+		Date now = new Date();
+		
+		// Query for the next upcoming appointment
+		String futureQuery = "select fp.start_date_time " + "from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid = :patientUuid "
+		        + "and fp.start_date_time >= :now " + "order by fp.start_date_time asc";
+		
+		List<Date> futureResults = entityManager.createNativeQuery(futureQuery).setParameter("patientUuid", patientUuid)
+		        .setParameter("now", now).getResultList();
+		
+		if (futureResults != null && !futureResults.isEmpty()) {
+			return dateTimeFormatter.format(futureResults.get(0));
+		}
+		
+		// If no upcoming appointments, query for the most recent past appointment
+		String pastAppoinmentQuery = "select fp.start_date_time " + "from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid = :patientUuid "
+		        + "and fp.start_date_time < :now " + "order by fp.start_date_time desc";
+		
+		List<Date> pastResults = entityManager.createNativeQuery(pastAppoinmentQuery)
+		        .setParameter("patientUuid", patientUuid).setParameter("now", now).getResultList();
+		
+		if (pastResults != null && !pastResults.isEmpty()) {
+			return dateTimeFormatter.format(pastResults.get(0));
+		} else {
+			return "No Appointments Found";
+		}
+	}
+	
 	private String getNextAppointmentDateByUuid(String patientUuid) {
 		if (patientUuid == null || patientUuid.trim().isEmpty()) {
 			return "Invalid patient UUID";
