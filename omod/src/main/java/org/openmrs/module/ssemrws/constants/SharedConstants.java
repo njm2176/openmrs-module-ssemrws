@@ -31,8 +31,6 @@ public class SharedConstants {
 	
 	public static final double THRESHOLD = 1000.0;
 	
-	public static final int SIX_MONTHS_IN_DAYS = 183;
-	
 	@PersistenceContext
 	private EntityManager entityManager;
 	
