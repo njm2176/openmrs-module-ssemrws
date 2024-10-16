@@ -75,7 +75,7 @@ public class SSEMRWebServicesController {
 	private EntityManager entityManager;
 	
 	private Object fetchAndPaginatePatients(List<Patient> patientList, int page, int size, String totalKey, int totalCount,
-	        Date startDate, Date endDate, SSEMRWebServicesController.filterCategory filterCategory,
+	        Date startDate, Date endDate, filterCategory filterCategory,
 	        boolean includeClinicalStatus) {
 		
 		if (page < 0 || size <= 0) {
@@ -229,25 +229,7 @@ public class SSEMRWebServicesController {
 	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
 		
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		
-		// Get current month start and end dates
-		Calendar calendar = Calendar.getInstance();
-		calendar.set(Calendar.DAY_OF_MONTH, 1);
-		Date startOfMonth = calendar.getTime();
-		
-		calendar.add(Calendar.MONTH, 1);
-		calendar.set(Calendar.DAY_OF_MONTH, 1);
-		calendar.add(Calendar.DAY_OF_MONTH, -1);
-		Date endOfMonth = calendar.getTime();
-		
-		// Override the provided date range with current month if a date range is given
-		// for the whole year
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-		
-		if (dates[0].before(startOfMonth) || dates[1].after(endOfMonth)) {
-			dates[0] = startOfMonth;
-			dates[1] = endOfMonth;
-		}
 		
 		if (page == null)
 			page = 0;
@@ -1258,6 +1240,8 @@ public class SSEMRWebServicesController {
 		patientObj.put("dateEnrolled", dateEnrolled);
 		patientObj.put("lastRefillDate", lastRefillDate);
 		patientObj.put("appointmentDate", artAppointmentDate);
+		patientObj.put("childOrAdolescent", age <= 19 ? true : false);
+		patientObj.put("pregnantAndBreastfeeding", determineIfPatientIsPregnantOrBreastfeeding(patient, endDate));
 		
 		// Add clinical status if needed
 		if (includeClinicalStatus) {
@@ -1380,27 +1364,42 @@ public class SSEMRWebServicesController {
 		        + "or (hvl.eac_session = 'Third EAC Session' and TIMESTAMPDIFF(MONTH, hvl.adherence_date, NOW()) >= 1) "
 		        + ")";
 				
+		String dueDateQuery = "select t.client_id, DATE_FORMAT(MAX(t.due_date), '%Y-%m-%d') AS max_due_date from (SELECT fp.client_id, mp.age, "
+		        + "fp.vl_results, fp.date_vl_sample_collected, fp.edd, fh.art_start_date, "
+		        + "vlr.patient_pregnant, fp.encounter_datetime, vlr.value, "
+		        + " CASE WHEN mp.age <= 19 THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 6 MONTH) "
+		        + " WHEN fp.edd IS NOT NULL AND fp.edd > CURDATE() AND MAX(DATE(fh.were_arvs_received)) = CURDATE() THEN fp.encounter_datetime "
+		        + " WHEN fp.edd IS NOT NULL AND fp.edd > CURDATE() AND MAX(DATE(fh.were_arvs_received)) > CURDATE() THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 3 MONTH) "
+		        + "  WHEN mp.age > 19 AND fp.vl_results >= 200 THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 3 MONTH) "
+		        + " WHEN mp.age > 19 AND fp.vl_results < 200 THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 12 MONTH) "
+		        + "  ELSE NULL END as due_date FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up fp "
+		        + " LEFT JOIN ssemr_etl.ssemr_flat_encounter_hiv_care_enrolment en ON en.client_id = fp.client_id "
+		        + " LEFT JOIN ssemr_etl.ssemr_flat_encounter_vl_laboratory_request vlr ON vlr.client_id = fp.client_id "
+		        + " LEFT JOIN ssemr_etl.mamba_dim_person mp ON mp.person_id = fp.client_id "
+		        + " LEFT JOIN ssemr_etl.ssemr_flat_encounter_personal_family_tx_history fh on fh.client_id = fp.client_id "
+		        + "  WHERE DATE(fp.encounter_datetime) <= CURDATE() GROUP BY fp.client_id,mp.age,fp.vl_results,fp.edd,fh.art_start_date, "
+		        + "  vlr.patient_pregnant,vlr.value,fp.encounter_datetime,fp.date_vl_sample_collected) t WHERE t.client_id = :patientUuid group by client_id";
+		
 		try {
 			Query query = entityManager.createNativeQuery(baseQuery).setParameter("patientUuid", patientUuid);
+			Query dueDateQueryObj = entityManager.createNativeQuery(dueDateQuery).setParameter("patientUuid", patientUuid);
 			
 			// Fetch the result and date
 			Object[] result = (Object[]) query.getSingleResult();
 			BigInteger resultCount = (BigInteger) result[0];
 			Date lastVlSampleDate = (Date) result[1];
 			
+			// Fetch the due date result
+			Object[] dueDateResult = (Object[]) dueDateQueryObj.getSingleResult();
+			String maxDueDateStr = (String) dueDateResult[1];
+			Date vlDueDate = null;
+			if (maxDueDateStr != null) {
+				SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+				vlDueDate = formatter.parse(maxDueDateStr);
+			}
+			
 			// Check if patient is eligible
 			boolean isEligible = resultCount.intValue() > 0;
-			
-			// Dynamically calculate the next VL due date if eligible
-			Date vlDueDate = null;
-			if (isEligible && lastVlSampleDate != null) {
-				Calendar calendar = Calendar.getInstance();
-				calendar.setTime(lastVlSampleDate);
-				
-				// Add 6 months for adults or based on other criteria
-				calendar.add(Calendar.MONTH, 6);
-				vlDueDate = calendar.getTime();
-			}
 			
 			return new VlEligibilityResult(isEligible, vlDueDate);
 		}
