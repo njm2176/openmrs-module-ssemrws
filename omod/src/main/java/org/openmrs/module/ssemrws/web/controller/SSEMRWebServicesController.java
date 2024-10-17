@@ -96,6 +96,29 @@ public class SSEMRWebServicesController {
 		    includeClinicalStatus, allPatientsObj);
 	}
 	
+	private Object fetchAndPaginatePatientsForNewlyEnrolledPatients(List<Patient> patientList, int page, int size,
+	        String totalKey, int totalCount, Date startDate, Date endDate, filterCategory filterCategory,
+	        boolean includeClinicalStatus) {
+		
+		if (page < 0 || size <= 0) {
+			return "Invalid page or size value. Page must be >= 0 and size must be > 0.";
+		}
+		
+		int fromIndex = page * size;
+		if (fromIndex >= patientList.size()) {
+			return "Page out of bounds. Please check the page number and size.";
+		}
+		int toIndex = Math.min((page + 1) * size, patientList.size());
+		
+		List<Patient> paginatedPatients = patientList.subList(fromIndex, toIndex);
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		allPatientsObj.put(totalKey, totalCount);
+		
+		return generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate, filterCategory,
+		    includeClinicalStatus, allPatientsObj);
+	}
+	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/allClients")
 	@ResponseBody
 	public Object getAllPatients(HttpServletRequest request,
@@ -237,16 +260,16 @@ public class SSEMRWebServicesController {
 		
 		int totalPatients = countTxNew(dates[0], dates[1]);
 		
-		HashSet<Patient> enrolledPatients = getNewlyEnrolledPatients(dates[0], dates[1]);
+		List<PatientEnrollmentData> enrolledPatients = getNewlyEnrolledPatients(dates[0], dates[1]);
 		if (enrolledPatients.isEmpty()) {
 			return "No Newly Enrolled clients found for the given date range.";
 		}
 		
-		List<Patient> txNewList = new ArrayList<>(enrolledPatients);
+		ArrayList<PatientEnrollmentData> txNewList = new ArrayList<>(enrolledPatients);
 		
 		// Use the reusable method
-		return paginateAndGenerateSummary(txNewList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory, false);
+		return paginateAndGenerateSummaryForNewlyEnrolledClients(txNewList, page, size, "totalPatients", totalPatients,
+		    dates[0], dates[1], filterCategory, false);
 	}
 	
 	/**
@@ -1074,6 +1097,52 @@ public class SSEMRWebServicesController {
 		return responseObj.toString();
 	}
 	
+	private Object generateSummaryResponseForNewlyEnrolledClients(List<PatientEnrollmentData> patientDataList, int page,
+	        int size, String totalKey, int totalCount, Date startDate, Date endDate, filterCategory filterCategory,
+	        boolean includeClinicalStatus, Function<List<Date>, Map<String, Map<String, Integer>>> summaryGenerator) {
+		// Step 1: Calculate the summary based on the full patient list using enrollment
+		// dates
+		List<Date> enrollmentDates = patientDataList.stream().map(PatientEnrollmentData::getEnrollmentDate)
+		        .collect(Collectors.toList());
+		
+		Map<String, Map<String, Integer>> summary = summaryGenerator.apply(enrollmentDates);
+		
+		// Step 2: Extract the patient list for pagination
+		List<Patient> patientList = patientDataList.stream().map(PatientEnrollmentData::getPatient)
+		        .collect(Collectors.toList());
+		
+		// Step 3: Paginate the patient list
+		Object paginatedResponse = fetchAndPaginatePatientsForNewlyEnrolledPatients(patientList, page, size, totalKey,
+		    totalCount, startDate, endDate, filterCategory, includeClinicalStatus);
+		
+		// Convert to ObjectNode if it's a String (which could be a JSON string)
+		ObjectNode responseObj;
+		if (paginatedResponse instanceof String) {
+			ObjectMapper objectMapper = new ObjectMapper();
+			try {
+				responseObj = (ObjectNode) objectMapper.readTree((String) paginatedResponse);
+			}
+			catch (Exception e) {
+				throw new RuntimeException("Failed to parse paginated response as JSON", e);
+			}
+		} else {
+			responseObj = (ObjectNode) paginatedResponse;
+		}
+		
+		// Step 4: Add the summary to the paginated response
+		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
+		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
+		
+		// Populate the summary into the response
+		summary.get("groupYear").forEach(groupYear::put);
+		
+		groupingObj.put("groupYear", groupYear);
+		
+		responseObj.put("summary", groupingObj);
+		
+		return responseObj.toString();
+	}
+	
 	private Object txCurrSummary(List<Patient> patientList, int page, int size, String totalKey, int totalCount,
 	        Date startDate, Date endDate, filterCategory filterCategory, boolean includeClinicalStatus) {
 		return generateSummaryResponse(patientList, page, size, totalKey, totalCount, startDate, endDate, filterCategory,
@@ -1084,6 +1153,13 @@ public class SSEMRWebServicesController {
 	        Date startDate, Date endDate, filterCategory filterCategory, boolean includeClinicalStatus) {
 		return generateSummaryResponse(patientList, page, size, totalKey, totalCount, startDate, endDate, filterCategory,
 		    includeClinicalStatus, this::generateSummary);
+	}
+	
+	private Object paginateAndGenerateSummaryForNewlyEnrolledClients(ArrayList<PatientEnrollmentData> patientList, int page,
+	        int size, String totalKey, int totalCount, Date startDate, Date endDate, filterCategory filterCategory,
+	        boolean includeClinicalStatus) {
+		return generateSummaryResponseForNewlyEnrolledClients(patientList, page, size, totalKey, totalCount, startDate,
+		    endDate, filterCategory, includeClinicalStatus, this::generateSummary);
 	}
 	
 	private Map<String, Map<String, Integer>> generateSummary(List<Date> dates) {
@@ -1477,37 +1553,76 @@ public class SSEMRWebServicesController {
 		return (int) executeDueForVlQuery(startDate, endDate, true);
 	}
 	
-	private HashSet<Patient> getFilteredEnrolledPatients(Date startDate, Date endDate) {
-		List<Obs> enrollmentObs = getObservationsByDateRange(null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID)), startDate,
-		    endDate);
-		HashSet<Patient> enrolledClients = extractPatientsFromObservations(enrollmentObs);
+	private List<PatientEnrollmentData> getFilteredEnrolledPatients(Date startDate, Date endDate) {
+		Concept enrollmentConcept = Context.getConceptService().getConceptByUuid(DATE_OF_ENROLLMENT_UUID);
+		List<Obs> enrollmentObs = Context.getObsService().getObservations(null, null,
+		    Collections.singletonList(enrollmentConcept), null, null, null, null, null, null, null, null, false);
 		
-		// Combine all the patients
-		HashSet<Patient> enrolledPatients = new HashSet<>(enrolledClients);
+		List<PatientEnrollmentData> enrolledClients = new ArrayList<>();
 		
-		// Filter out transferred-in, deceased, and transferred-out patients
+		for (Obs obs : enrollmentObs) {
+			Date enrollmentDate = obs.getValueDate();
+			
+			// Check if the enrollment date falls within the start and end dates
+			if (enrollmentDate != null && !enrollmentDate.before(startDate) && !enrollmentDate.after(endDate)) {
+				Person person = obs.getPerson();
+				if (person.isPatient()) {
+					Patient patient = Context.getPatientService().getPatient(person.getId());
+					
+					// Store the patient along with their enrollment date
+					enrolledClients.add(new PatientEnrollmentData(patient, enrollmentDate));
+				}
+			}
+		}
+		
+		// Sort patients by enrollment date in chronological order
+		enrolledClients.sort(Comparator.comparing(PatientEnrollmentData::getEnrollmentDate));
+		
+		// Filter out transferred-in, deceased, transferred-out, and IIT patients
 		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		HashSet<Patient> transferredOutPatients = getTransferredOutClients(startDate, endDate);
 		HashSet<Patient> iitPatients = getIit(startDate, endDate);
 		
-		enrolledPatients.removeAll(transferredInPatients);
-		enrolledPatients.removeAll(transferredOutPatients);
-		enrolledPatients.removeAll(deceasedPatients);
-		enrolledPatients.removeAll(iitPatients);
+		// Filter the enrolled clients list to remove patients from the excluded sets
+		List<PatientEnrollmentData> filteredClients = enrolledClients.stream()
+		        .filter(data -> !transferredInPatients.contains(data.getPatient())
+		                && !deceasedPatients.contains(data.getPatient())
+		                && !transferredOutPatients.contains(data.getPatient()) && !iitPatients.contains(data.getPatient()))
+		        .collect(Collectors.toList());
 		
-		return enrolledPatients;
+		return filteredClients;
 	}
 	
-	// Method to get newly enrolled patients
-	private HashSet<Patient> getNewlyEnrolledPatients(Date startDate, Date endDate) {
-		return getFilteredEnrolledPatients(startDate, endDate);
+	// Helper class to hold patient and enrollment date information
+	private static class PatientEnrollmentData {
+		
+		private final Patient patient;
+		
+		private final Date enrollmentDate;
+		
+		public PatientEnrollmentData(Patient patient, Date enrollmentDate) {
+			this.patient = patient;
+			this.enrollmentDate = enrollmentDate;
+		}
+		
+		public Patient getPatient() {
+			return patient;
+		}
+		
+		public Date getEnrollmentDate() {
+			return enrollmentDate;
+		}
 	}
 	
 	// Method to calculate total TxNew patients
 	private int countTxNew(Date startDate, Date endDate) {
 		return getFilteredEnrolledPatients(startDate, endDate).size();
+	}
+	
+	// Method to get newly enrolled patients
+	private List<PatientEnrollmentData> getNewlyEnrolledPatients(Date startDate, Date endDate) {
+		return getFilteredEnrolledPatients(startDate, endDate);
 	}
 	
 	private Object executeTxCurrQuery(Date startDate, Date endDate, boolean isCountQuery) {
