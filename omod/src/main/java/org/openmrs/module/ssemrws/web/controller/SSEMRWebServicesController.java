@@ -230,9 +230,6 @@ public class SSEMRWebServicesController {
 		int totalPatients = countTxCurr(dates[0], dates[1]);
 		
 		HashSet<Patient> activeClients = getTxCurr(dates[0], dates[1]);
-		if (activeClients.isEmpty()) {
-			return "No Active Clients found for the given date range.";
-		}
 		
 		List<Patient> patientList = new ArrayList<>(activeClients);
 		
@@ -261,9 +258,6 @@ public class SSEMRWebServicesController {
 		int totalPatients = countTxNew(dates[0], dates[1]);
 		
 		List<PatientEnrollmentData> enrolledPatients = getNewlyEnrolledPatients(dates[0], dates[1]);
-		if (enrolledPatients.isEmpty()) {
-			return "No Newly Enrolled clients found for the given date range.";
-		}
 		
 		ArrayList<PatientEnrollmentData> txNewList = new ArrayList<>(enrolledPatients);
 		
@@ -298,10 +292,6 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> interruptedInTreatmentPatients = getIit(dates[0], dates[1]);
 		
-		if (interruptedInTreatmentPatients.isEmpty()) {
-			return "No IIT Clients found for the given date range.";
-		}
-		
 		List<Patient> iitList = new ArrayList<>(interruptedInTreatmentPatients);
 		
 		return fetchAndPaginatePatients(iitList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
@@ -335,10 +325,6 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> onAppointment = getOnAppoinment(startDate, endDate);
 		
-		if (onAppointment.isEmpty()) {
-			return "No Clients on Appointment found for the given date range.";
-		}
-		
 		List<Patient> onAppoinmentList = new ArrayList<>(onAppointment);
 		
 		return fetchAndPaginatePatients(onAppoinmentList, page, size, "totalPatients", totalPatients, startDate, endDate,
@@ -371,10 +357,6 @@ public class SSEMRWebServicesController {
 		HashSet<Patient> missedAppointment = getMissedAppoinment(startDate, endDate);
 		
 		int totalPatients = missedAppointment.size();
-		
-		if (missedAppointment.isEmpty()) {
-			return "No Missed Appointments found for the given date range.";
-		}
 		
 		List<Patient> missedAppoinmentList = new ArrayList<>(missedAppointment);
 		
@@ -411,10 +393,6 @@ public class SSEMRWebServicesController {
 		
 		int totalPatients = rttPatients.size();
 		
-		if (rttPatients.isEmpty()) {
-			return "No Returning to Treatment Clients found for the given date range.";
-		}
-		
 		List<Patient> rttList = new ArrayList<>(rttPatients);
 		
 		return fetchAndPaginatePatients(rttList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
@@ -441,9 +419,6 @@ public class SSEMRWebServicesController {
 		int totalPatients = countDueForVl(dates[0], dates[1]);
 		
 		HashSet<Patient> dueForVlClients = getDueForVl(dates[0], dates[1]);
-		if (dueForVlClients.isEmpty()) {
-			return "No Due For VL Clients found for the given date range.";
-		}
 		
 		List<Patient> dueForVlList = new ArrayList<>(dueForVlClients);
 		
@@ -487,10 +462,6 @@ public class SSEMRWebServicesController {
 		
 		int totalPatients = transferredOutPatients.size();
 		
-		if (transferredOutPatients.isEmpty()) {
-			return "No Transferred Out Clients found for the given date range.";
-		}
-		
 		List<Patient> transferOutList = new ArrayList<>(transferredOutPatients);
 		
 		return fetchAndPaginatePatients(transferOutList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
@@ -522,10 +493,6 @@ public class SSEMRWebServicesController {
 		});
 		
 		int totalPatients = deceasedPatients.size();
-		
-		if (deceasedPatients.isEmpty()) {
-			return "No Died Clients found for the given date range.";
-		}
 		
 		List<Patient> deceasedList = new ArrayList<>(deceasedPatients);
 		
@@ -561,10 +528,6 @@ public class SSEMRWebServicesController {
 		HashSet<Patient> highVLPatients = getPatientsWithHighVL(dates[0], dates[1]);
 		
 		int totalPatients = highVLPatients.size();
-		
-		if (highVLPatients.isEmpty()) {
-			return "No Clients with High VL found for the given date range.";
-		}
 		
 		List<Patient> highVlList = new ArrayList<>(highVLPatients);
 		
@@ -633,10 +596,6 @@ public class SSEMRWebServicesController {
 		    HashSet::add, HashSet::addAll);
 		
 		int totalPatients = underCareOfCommunityPatients.size();
-		
-		if (underCareOfCommunityPatients.isEmpty()) {
-			return "No Clients Under Care of Community found for the given date range.";
-		}
 		
 		List<Patient> underCareList = new ArrayList<>(underCareOfCommunityPatients);
 		
@@ -762,10 +721,6 @@ public class SSEMRWebServicesController {
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
 		    null, null, null, null, dates[0], dates[1], false);
 		
-		if (viralLoadObs.isEmpty()) {
-			return "No Clients with VL Coverage found for the given date range.";
-		}
-		
 		for (Obs obs : viralLoadObs) {
 			Patient patient = Context.getPatientService().getPatient(obs.getPersonId());
 			if (patient != null) {
@@ -815,10 +770,6 @@ public class SSEMRWebServicesController {
 		List<Obs> viralLoadSuppressedPatientsObs = Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
 		    null, null, null, null, dates[0], dates[1], false);
-		
-		if (viralLoadSuppressedPatientsObs.isEmpty()) {
-			return "No Clients with Suppressed VL found for the given date range.";
-		}
 		
 		for (Obs obs : viralLoadSuppressedPatientsObs) {
 			if (obs.getValueNumeric() != null && obs.getValueNumeric() < THRESHOLD) {
