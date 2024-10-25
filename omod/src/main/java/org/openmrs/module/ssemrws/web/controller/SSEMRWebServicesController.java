@@ -288,9 +288,9 @@ public class SSEMRWebServicesController {
 		if (size == null)
 			size = 15;
 		
-		int totalPatients = countIit(dates[0], dates[1]);
-		
 		HashSet<Patient> interruptedInTreatmentPatients = getIit(dates[0], dates[1]);
+		
+		int totalPatients = interruptedInTreatmentPatients.size();
 		
 		List<Patient> iitList = new ArrayList<>(interruptedInTreatmentPatients);
 		
@@ -354,7 +354,7 @@ public class SSEMRWebServicesController {
 		if (size == null)
 			size = 15;
 		
-		HashSet<Patient> missedAppointment = getMissedAppoinment(startDate, endDate);
+		HashSet<Patient> missedAppointment = getMissedAppointment(startDate, endDate);
 		
 		int totalPatients = missedAppointment.size();
 		
@@ -873,7 +873,7 @@ public class SSEMRWebServicesController {
 			flags.add(Flags.IIT);
 		}
 		
-		HashSet<Patient> missedAppointment = getMissedAppoinment(startDate, endDate);
+		HashSet<Patient> missedAppointment = getMissedAppointment(startDate, endDate);
 		if (missedAppointment.contains(patient)) {
 			flags.add(Flags.MISSED_APPOINTMENT);
 		}
@@ -1423,7 +1423,18 @@ public class SSEMRWebServicesController {
 	
 	// Method to fetch the list of IIT patients
 	private HashSet<Patient> getIit(Date startDate, Date endDate) {
-		List<Integer> iitIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Missed", true);
+		// Execute the query to fetch the list of IIT patient IDs (Missed appointments
+		// more than 28 days ago)
+		String query = "select distinct fp.patient_id from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid is not null "
+		        + "and fp.status = 'Missed' " + "and DATEDIFF(CURDATE(), fp.start_date_time) > 28 "
+		        + "and fp.start_date_time between :startDate and :endDate";
+		
+		// Execute the query
+		List<Integer> iitIds = entityManager.createNativeQuery(query).setParameter("startDate", startDate)
+		        .setParameter("endDate", endDate).getResultList();
+		
+		// Fetch patients by their IDs
 		HashSet<Patient> patients = fetchPatientsByIds(iitIds);
 		
 		// Filter out patients with upcoming appointments
@@ -1435,38 +1446,36 @@ public class SSEMRWebServicesController {
 		return patients;
 	}
 	
-	// Method to count IIT patients
-	private int countIit(Date startDate, Date endDate) {
-		List<Integer> iitIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Missed", true);
-		HashSet<Patient> patients = fetchPatientsByIds(iitIds);
-		
-		// Filter out patients with upcoming appointments
-		patients.removeIf(patient -> {
-			String nextAppointmentDate = getNextAppointmentDateByUuid(patient.getUuid());
-			return !nextAppointmentDate.equals("No Upcoming Appointments");
-		});
-		
-		return patients.size();
-	}
-	
 	// Method to fetch the list of IIT patients
 	private HashSet<Patient> getOnAppoinment(Date startDate, Date endDate) {
-		List<Integer> iitIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Scheduled", false);
+		List<Integer> iitIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Scheduled", false, false);
 		return fetchPatientsByIds(iitIds);
 	}
 	
 	// Method to count On Appoinment patients
 	private int countOnAppoinment(Date startDate, Date endDate) {
-		return (int) executePatientQuery(startDate, endDate, true, "Scheduled", false);
+		return (int) executePatientQuery(startDate, endDate, true, "Scheduled", false, false);
 	}
 	
 	// Method to fetch the list of IIT patients
-	private HashSet<Patient> getMissedAppoinment(Date startDate, Date endDate) {
-		// Execute the query to fetch the list of missed appointment patient IDs
-		List<Integer> missedAppoinmentIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Missed", false);
+	private HashSet<Patient> getMissedAppointment(Date startDate, Date endDate) {
+		// Calculate the cutoff date for 28 days ago from today
+		Calendar calendar = Calendar.getInstance();
+		calendar.add(Calendar.DAY_OF_YEAR, -28);
+		Date cutoffDate = calendar.getTime();
+		
+		// Execute the query to fetch the list of missed appointment patient IDs within
+		// the last 28 days
+		String query = "select distinct fp.patient_id from openmrs.patient_appointment fp "
+		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid is not null "
+		        + "and fp.status = 'Missed' " + "and fp.start_date_time >= :cutoffDate "
+		        + "and fp.start_date_time between :startDate and :endDate";
+		
+		List<Integer> missedAppointmentIds = entityManager.createNativeQuery(query).setParameter("cutoffDate", cutoffDate)
+		        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList();
 		
 		// Fetch patients by their IDs
-		HashSet<Patient> patients = fetchPatientsByIds(missedAppoinmentIds);
+		HashSet<Patient> patients = fetchPatientsByIds(missedAppointmentIds);
 		
 		// Filter out patients with upcoming appointments
 		patients.removeIf(patient -> {
@@ -1531,16 +1540,10 @@ public class SSEMRWebServicesController {
 		
 		// Filter out transferred-in, deceased, transferred-out, and IIT patients
 		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
-		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
-		HashSet<Patient> transferredOutPatients = getTransferredOutClients(startDate, endDate);
-		HashSet<Patient> iitPatients = getIit(startDate, endDate);
 		
 		// Filter the enrolled clients list to remove patients from the excluded sets
 		List<PatientEnrollmentData> filteredClients = enrolledClients.stream()
-		        .filter(data -> !transferredInPatients.contains(data.getPatient())
-		                && !deceasedPatients.contains(data.getPatient())
-		                && !transferredOutPatients.contains(data.getPatient()) && !iitPatients.contains(data.getPatient()))
-		        .collect(Collectors.toList());
+		        .filter(data -> !transferredInPatients.contains(data.getPatient())).collect(Collectors.toList());
 		
 		return filteredClients;
 	}
@@ -1601,8 +1604,8 @@ public class SSEMRWebServicesController {
 	}
 	
 	private Object executePatientQuery(Date startDate, Date endDate, boolean isCountQuery, String status,
-	        boolean useCutoffDate) {
-		String baseQuery = getQueryString(isCountQuery, status, useCutoffDate);
+	        boolean useCutoffDate, boolean isIit) {
+		String baseQuery = getQueryString(isCountQuery, status, useCutoffDate, isIit);
 		
 		try {
 			// Create and configure the query
@@ -1620,7 +1623,12 @@ public class SSEMRWebServicesController {
 				Calendar calendar = Calendar.getInstance();
 				calendar.add(Calendar.DAY_OF_YEAR, -28);
 				Date cutoffDate = calendar.getTime();
-				query.setParameter("cutoffDate", cutoffDate);
+				
+				if (isIit) {
+					query.setParameter("cutoffDate", cutoffDate);
+				} else {
+					query.setParameter("cutoffDate", cutoffDate);
+				}
 			}
 			
 			// Execute the query based on `isCountQuery`
@@ -1638,15 +1646,25 @@ public class SSEMRWebServicesController {
 		}
 	}
 	
-	private static String getQueryString(boolean isCountQuery, String status, boolean useCutoffDate) {
+	private static String getQueryString(boolean isCountQuery, String status, boolean useCutoffDate, boolean isIit) {
 		String selectClause = isCountQuery ? "count(distinct fp.patient_id)" : "distinct fp.patient_id";
 		
 		// Start constructing the query
 		String baseQuery = "select " + selectClause + " from openmrs.patient_appointment fp "
 		        + "join openmrs.person p on fp.patient_id = p.person_id "
-		        + (status != null ? "where fp.status = :status " : "where 1=1 ")
-		        + (useCutoffDate ? "and fp.start_date_time <= :cutoffDate " : "")
-		        + "and fp.start_date_time between :startDate and :endDate";
+		        + (status != null ? "where fp.status = :status " : "where 1=1 ");
+		
+		if (useCutoffDate) {
+			if (isIit) {
+				// IIT: missed appointment more than 28 days ago
+				baseQuery += "and fp.start_date_time < :cutoffDate ";
+			} else {
+				// Missed appointment within the past 28 days
+				baseQuery += "and fp.start_date_time >= :cutoffDate ";
+			}
+		}
+		
+		baseQuery += "and fp.start_date_time between :startDate and :endDate";
 		return baseQuery;
 	}
 	
