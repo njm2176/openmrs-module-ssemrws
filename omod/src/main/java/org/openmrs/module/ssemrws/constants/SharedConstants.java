@@ -6,6 +6,7 @@ import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.PatientService;
+import org.openmrs.api.VisitService;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
@@ -466,6 +467,36 @@ public class SharedConstants {
 		if (!clinicianObs.isEmpty()) {
 			Obs clinicianObservation = clinicianObs.get(0);
 			return clinicianObservation.getValueText();
+		}
+		
+		return "";
+	}
+	
+	public static String getLastVisitDate(Patient patient) {
+		VisitService visitService = Context.getVisitService();
+		List<Visit> visits = visitService.getVisitsByPatient(patient);
+		
+		if (!visits.isEmpty()) {
+			// get the latest visit date
+			visits.sort((v1, v2) -> v2.getStartDatetime().compareTo(v1.getStartDatetime()));
+			
+			Date lastVisitDate = visits.get(0).getStartDatetime();
+			
+			if (lastVisitDate != null) {
+				return dateTimeFormatter.format(lastVisitDate);
+			}
+		}
+		return "";
+	}
+	
+	public static String getTbNumber(Patient patient) {
+		List<Obs> tbObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(TB_UNIT_NUMBER)), null, null, null, null,
+		    1, null, null, null, false);
+		
+		if (!tbObs.isEmpty()) {
+			Obs tbObservation = tbObs.get(0);
+			return tbObservation.getValueText();
 		}
 		
 		return "";

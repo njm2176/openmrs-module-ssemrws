@@ -1259,6 +1259,8 @@ public class SSEMRWebServicesController {
 		observations.setMuac(getMUAC(patient));
 		observations.setAppointmentDate(getNextAppointmentDate(patient.getUuid()));
 		observations.setClinicianName(getClinicianName(patient));
+		observations.setLastVisitDate(getLastVisitDate(patient));
+		observations.setTbNumber(getTbNumber(patient));
 		
 		VlEligibilityResult eligibilityResult = isPatientDueForVl(patient.getUuid());
 		
