@@ -46,4 +46,6 @@ public class PatientObservations {
 	private String vlDueDate;
 	
 	private String lastVisitDate;
+
+	private String tbNumber;
 }
