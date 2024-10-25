@@ -96,4 +96,32 @@ public class AllConcepts {
 	
 	public static final String TB_UNIT_NUMBER = "6cc3d304-26b5-43e1-951a-8a94a30841da";
 	
+	public static final String FAMILY_MEMBER_NAME_UUID = "1074cef5-e4f9-470d-aaea-a4d8d7436c49";
+	
+	public static final String FAMILY_MEMBER_AGE_UUID = "db25b3c5-10da-49a9-9137-cc8a2507585a";
+	
+	public static final String FAMILY_MEMBER_SEX_UUID = "d969948d-6671-4149-a234-7b991c70e1c1";
+	
+	public static final String FAMILY_MEMBER_HIV_STATUS_UUID = "160f21c0-9a96-4ffd-a72c-aabed02b6a53";
+	
+	public static final String FAMILY_MEMBER_UAN_UUID = "7bec5791-6cdc-4fe4-bfbb-89cbf3ab03b4";
+	
+	public static final String GENERAL_FAMILY_MEMBERS_UUID = "63ec7ffb-8a42-42ec-9aaa-4758955205b2";
+	
+	public static final String INDEX_FAMILY_MEMBERS_UUID = "1c0765df-7108-4353-9970-06cf3ce0782e";
+	
+	public static final String INDEX_FAMILY_MEMBER_NAME_UUID = "375ea4eb-6932-42a2-b675-aa6d347f975e";
+	
+	public static final String INDEX_FAMILY_MEMBER_AGE_UUID = "638fc8c1-bde8-433f-a50c-7562385b580c";
+	
+	public static final String INDEX_FAMILY_MEMBER_SEX_UUID = "9d030f9b-a181-41c9-a52b-2a965b2a5836";
+	
+	public static final String INDEX_FAMILY_MEMBER_RELATIONSHIP_UUID = "2eed6753-c2b7-4b85-a099-a78beb4eaff3";
+	
+	public static final String INDEX_FAMILY_MEMBER_HIV_STATUS_UUID = "a3014f0a-31ce-4477-9ae4-d686f0e6cea8";
+	
+	public static final String INDEX_FAMILY_MEMBER_PHONE_UUID = "ea7dbf27-e84d-43a3-bbac-d7bb06ff1f23";
+	
+	public static final String INDEX_FAMILY_MEMBER_ART_NUMBER_UUID = "7bec5791-6cdc-4fe4-bfbb-89cbf3ab03b4";
+	
 }
