@@ -1,6 +1,5 @@
 package org.openmrs.module.ssemrws.web.dto;
 
-import ca.uhn.hl7v2.model.v23.datatype.ST;
 import lombok.Data;
 
 @Data
@@ -45,4 +44,6 @@ public class PatientObservations {
 	private String vlEligibility;
 	
 	private String vlDueDate;
+	
+	private String lastVisitDate;
 }
