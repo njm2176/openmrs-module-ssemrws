@@ -353,15 +353,6 @@ public class SSEMRWebServicesController {
 
 	/**
 	 * This method handles the HTTP GET request for retrieving the list of patients who are deceased.
-	 *
-	 * @param request The HTTP request object, providing request information for HTTP servlets.
-	 * @param qStartDate The start date for the patients in the format "yyyy-MM-dd".
-	 * @param qEndDate The end date for the patients in the format "yyyy-MM-dd".
-	 * @param filterCategory The filter category for the patients.
-	 * @param page The page number for pagination.
-	 * @param size The number of patients per page.
-	 * @return A JSON object containing the list of deceased patients.
-	 * @throws ParseException If the start or end date cannot be parsed.
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/deceased")
 	@ResponseBody
