@@ -2,6 +2,8 @@ package org.openmrs.module.ssemrws.web.dto;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class PatientObservations {
 	
@@ -48,4 +50,43 @@ public class PatientObservations {
 	private String lastVisitDate;
 	
 	private String tbNumber;
+	
+	// Add a list for General family member observations
+	private List<FamilyMemberObservation> familyMembers;
+	
+	@Data
+	public static class FamilyMemberObservation {
+		
+		private String name;
+		
+		private Double age;
+		
+		private String sex;
+		
+		private String hivStatus;
+		
+		private String artNumber;
+	}
+	
+	// Add a list for Close/Index family member observations (Wife/Husband, Children
+	// under 12 years old)
+	private List<IndexFamilyMemberObservation> indexFamilyMembers;
+	
+	@Data
+	public static class IndexFamilyMemberObservation {
+		
+		private String name;
+		
+		private Double age;
+		
+		private String sex;
+		
+		private String relationship;
+		
+		private String hivStatus;
+		
+		private String phone;
+		
+		private String uniqueArtNumber;
+	}
 }

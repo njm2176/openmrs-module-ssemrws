@@ -792,4 +792,95 @@ public class SharedConstants {
 		
 		return generateSummary(dates);
 	}
+	
+	public static List<PatientObservations.FamilyMemberObservation> getFamilyMemberObservations(Patient patient) {
+		List<PatientObservations.FamilyMemberObservation> familyMemberObservations = new ArrayList<>();
+		
+		Concept familyInfoConcept = Context.getConceptService().getConceptByUuid(GENERAL_FAMILY_MEMBERS_UUID);
+		
+		List<Obs> familyObs = Context.getObsService().getObservationsByPersonAndConcept(patient.getPerson(),
+		    familyInfoConcept);
+		
+		for (Obs obs : familyObs) {
+			PatientObservations.FamilyMemberObservation memberObservation = new PatientObservations.FamilyMemberObservation();
+			
+			// Use getFamilyMemberField to populate fields dynamically
+			memberObservation.setName((String) getFamilyMemberField(patient, obs, "name", false));
+			memberObservation.setAge((Double) getFamilyMemberField(patient, obs, "age", false));
+			memberObservation.setSex((String) getFamilyMemberField(patient, obs, "sex", false));
+			memberObservation.setHivStatus((String) getFamilyMemberField(patient, obs, "hivStatus", false));
+			memberObservation.setArtNumber((String) getFamilyMemberField(patient, obs, "artNumber", false));
+			
+			familyMemberObservations.add(memberObservation);
+		}
+		
+		return familyMemberObservations;
+	}
+	
+	public static List<PatientObservations.IndexFamilyMemberObservation> getIndexFamilyMemberObservations(Patient patient) {
+		List<PatientObservations.IndexFamilyMemberObservation> indexFamilyMemberObservations = new ArrayList<>();
+		
+		Concept indexFamilyInfoConcept = Context.getConceptService().getConceptByUuid(INDEX_FAMILY_MEMBERS_UUID);
+		
+		// Retrieve index family member observations
+		List<Obs> indexFamilyObs = Context.getObsService().getObservationsByPersonAndConcept(patient.getPerson(),
+		    indexFamilyInfoConcept);
+		
+		for (Obs obs : indexFamilyObs) {
+			PatientObservations.IndexFamilyMemberObservation indexMemberObservation = new PatientObservations.IndexFamilyMemberObservation();
+			
+			// Use getFamilyMemberField to populate fields dynamically
+			indexMemberObservation.setName((String) getFamilyMemberField(patient, obs, "name", true));
+			indexMemberObservation.setAge((Double) getFamilyMemberField(patient, obs, "age", true));
+			indexMemberObservation.setSex((String) getFamilyMemberField(patient, obs, "sex", true));
+			indexMemberObservation.setRelationship((String) getFamilyMemberField(patient, obs, "relationship", true));
+			indexMemberObservation.setHivStatus((String) getFamilyMemberField(patient, obs, "hivStatus", true));
+			indexMemberObservation.setPhone((String) getFamilyMemberField(patient, obs, "phone", true));
+			indexMemberObservation.setUniqueArtNumber((String) getFamilyMemberField(patient, obs, "uniqueArtNumber", true));
+			
+			indexFamilyMemberObservations.add(indexMemberObservation);
+		}
+		
+		return indexFamilyMemberObservations;
+	}
+	
+	public static Object getObsValue(Patient patient, Obs observation, String conceptUuid) {
+		List<Obs> observations = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(conceptUuid)), null, null, null,
+		    null, null, null, null, null, false);
+		
+		for (Obs obs : observations) {
+			if (obs.getObsGroup() != null && obs.getObsGroup().equals(observation)) {
+				if (obs.getValueCoded() != null) {
+					return obs.getValueCoded().getName().getName();
+				} else if (obs.getValueNumeric() != null) {
+					return obs.getValueNumeric();
+				} else if (obs.getValueText() != null) {
+					return obs.getValueText();
+				} else if (obs.getValueDate() != null) {
+					return obs.getValueDate();
+				}
+			}
+		}
+		
+		return null;
+	}
+	
+	// General Family Members Info
+	public static final Map<String, String> familyMemberFields = Map.of("name", FAMILY_MEMBER_NAME_UUID, "age",
+	    FAMILY_MEMBER_AGE_UUID, "sex", FAMILY_MEMBER_SEX_UUID, "hivStatus", FAMILY_MEMBER_HIV_STATUS_UUID, "artNumber",
+	    FAMILY_MEMBER_UAN_UUID
+	
+	);
+	
+	// Index Family Members Info
+	public static final Map<String, String> indexFamilyMemberFields = Map.of("name", INDEX_FAMILY_MEMBER_NAME_UUID, "age",
+	    INDEX_FAMILY_MEMBER_AGE_UUID, "sex", INDEX_FAMILY_MEMBER_SEX_UUID, "relationship",
+	    INDEX_FAMILY_MEMBER_RELATIONSHIP_UUID, "hivStatus", INDEX_FAMILY_MEMBER_HIV_STATUS_UUID, "phone",
+	    INDEX_FAMILY_MEMBER_PHONE_UUID, "uniqueArtNumber", INDEX_FAMILY_MEMBER_ART_NUMBER_UUID);
+	
+	public static Object getFamilyMemberField(Patient patient, Obs observation, String field, boolean isIndexFamilyMember) {
+		String conceptUuid = isIndexFamilyMember ? indexFamilyMemberFields.get(field) : familyMemberFields.get(field);
+		return getObsValue(patient, observation, conceptUuid);
+	}
 }
