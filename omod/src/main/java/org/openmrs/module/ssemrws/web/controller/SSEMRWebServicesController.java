@@ -119,7 +119,10 @@ public class SSEMRWebServicesController {
 		return getPatientListObjectList.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate,
 		    filterCategory, allPatientsObj);
 	}
-	
+
+	/**
+	 * Retrieves all patients from the system, applying pagination and filtering options.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/allClients")
 	@ResponseBody
 	public Object getAllPatients(HttpServletRequest request,
@@ -275,7 +278,10 @@ public class SSEMRWebServicesController {
 		return fetchAndPaginatePatients(rttList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory);
 	}
-	
+
+	/**
+	 * Handles the HTTP GET request for retrieving the list of patients who are due for viral load testing.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/dueForVl")
 	// gets all visit forms for a patient
 	@ResponseBody
@@ -344,7 +350,10 @@ public class SSEMRWebServicesController {
 		return fetchAndPaginatePatients(transferOutList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory);
 	}
-	
+
+	/**
+	 * This method handles the HTTP GET request for retrieving the list of patients who are deceased.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/deceased")
 	@ResponseBody
 	public Object getDeceasedPatients(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
@@ -411,7 +420,10 @@ public class SSEMRWebServicesController {
 		return fetchAndPaginatePatients(highVlList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory);
 	}
-	
+
+	/**
+	 * Retrieves patients on adult regimen treatment within a specified date range.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/adultRegimenTreatment")
 	@ResponseBody
 	public Object getPatientsOnAdultRegimenTreatment(HttpServletRequest request,
@@ -427,7 +439,10 @@ public class SSEMRWebServicesController {
 	
 	@Autowired
 	FacilityDashboardService facilityDashboardService;
-	
+
+	/**
+	 * Retrieves patients on children regimen treatment within a specified date range.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/childRegimenTreatment")
 	@ResponseBody
 	public Object getPatientsOnChildRegimenTreatment(HttpServletRequest request,
@@ -479,7 +494,10 @@ public class SSEMRWebServicesController {
 		return paginateAndGenerateSummary(underCareList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory, false);
 	}
-	
+
+	/**
+	 * Retrieves patients with Viral Load Sample collections within a specified date range.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
 	@ResponseBody
 	public String getViralLoadSamplesCollected(HttpServletRequest request,
@@ -515,7 +533,10 @@ public class SSEMRWebServicesController {
 			throw new RuntimeException(e);
 		}
 	}
-	
+
+	/**
+	 * Retrieves patients with Viral Load results within a specified date range.
+	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadResults")
 	// gets all visit forms for a patient
 	@ResponseBody
@@ -672,13 +693,6 @@ public class SSEMRWebServicesController {
 	/**
 	 * This method handles the viral load cascade endpoint for the ART dashboard. It retrieves the
 	 * necessary data from the database and calculates the viral load cascade.
-	 * 
-	 * @param request The HTTP request object.
-	 * @param qStartDate The start date for the viral load cascade in the format "yyyy-MM-dd".
-	 * @param qEndDate The end date for the viral load cascade in the format "yyyy-MM-dd".
-	 * @param filterCategory The filter category for the viral load cascade.
-	 * @return A JSON object containing the results of the viral load cascade.
-	 * @throws ParseException If the start or end date cannot be parsed.
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCascade")
 	@ResponseBody
