@@ -883,4 +883,14 @@ public class SharedConstants {
 		String conceptUuid = isIndexFamilyMember ? indexFamilyMemberFields.get(field) : familyMemberFields.get(field);
 		return getObsValue(patient, observation, conceptUuid);
 	}
+	
+	public static Date getInitiationDate(Patient patient) {
+		Object obsValue = getObsValue(patient, null, DATE_OF_ART_INITIATION_CONCEPT_UUID);
+		
+		if (obsValue instanceof Date) {
+			return (Date) obsValue;
+		}
+		return null;
+	}
+	
 }
