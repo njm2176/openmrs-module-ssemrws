@@ -122,6 +122,6 @@ public class AllConcepts {
 	
 	public static final String INDEX_FAMILY_MEMBER_PHONE_UUID = "ea7dbf27-e84d-43a3-bbac-d7bb06ff1f23";
 	
-	public static final String INDEX_FAMILY_MEMBER_ART_NUMBER_UUID = "7bec5791-6cdc-4fe4-bfbb-89cbf3ab03b4";
+	public static final String INDEX_FAMILY_MEMBER_ART_NUMBER_UUID = "218e861d-393a-4871-9bc3-c9d0effdb073";
 	
 }
