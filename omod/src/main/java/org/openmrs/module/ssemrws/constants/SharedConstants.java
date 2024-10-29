@@ -831,7 +831,7 @@ public class SharedConstants {
 			
 			// Use getFamilyMemberField to populate fields dynamically
 			indexMemberObservation.setName((String) getFamilyMemberField(patient, obs, "name", true));
-			indexMemberObservation.setAge((Double) getFamilyMemberField(patient, obs, "age", true));
+			indexMemberObservation.setAge((String) getFamilyMemberField(patient, obs, "age", true));
 			indexMemberObservation.setSex((String) getFamilyMemberField(patient, obs, "sex", true));
 			indexMemberObservation.setRelationship((String) getFamilyMemberField(patient, obs, "relationship", true));
 			indexMemberObservation.setHivStatus((String) getFamilyMemberField(patient, obs, "hivStatus", true));

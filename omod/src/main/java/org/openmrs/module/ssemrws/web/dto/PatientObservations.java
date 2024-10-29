@@ -77,7 +77,7 @@ public class PatientObservations {
 		
 		private String name;
 		
-		private Double age;
+		private String age;
 		
 		private String sex;
 		
