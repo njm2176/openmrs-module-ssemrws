@@ -1,13 +1,10 @@
 package org.openmrs.module.ssemrws.queries;
 
-import groovy.util.logging.Commons;
-import org.checkerframework.checker.compilermsgs.qual.CompilerMessageKey;
 import org.openmrs.Patient;
 import org.springframework.stereotype.Component;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
