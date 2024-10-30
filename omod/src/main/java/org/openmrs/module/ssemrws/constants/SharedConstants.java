@@ -227,6 +227,13 @@ public class SharedConstants {
 		return (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
 	}
 	
+	public static int getPatientAge(Patient patient) {
+		Date birthdate = patient.getBirthdate();
+		Date currentDate = new Date();
+		long ageInMillis = currentDate.getTime() - birthdate.getTime();
+		return (int) (ageInMillis / (1000L * 60 * 60 * 24 * 365));
+	}
+	
 	public static Map<String, Object> buildResponseMap(Patient patient, long age, String birthdate,
 	        List<Map<String, String>> identifiersList, PatientObservations observations) {
 		Map<String, Object> responseMap = new LinkedHashMap<>();

@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
@@ -51,6 +52,10 @@ public class TxCurrController {
 			size = 15;
 		
 		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurr.getPatientsCurrentlyOnTreatment(dates[0], dates[1]);
+		
+		txCurrPatients = txCurrPatients.stream()
+		        .filter(data -> FilterUtility.applyFilter(data.getPatient(), filterCategory, dates[1]))
+		        .collect(Collectors.toList());
 		
 		int totalPatients = txCurrPatients.size();
 		

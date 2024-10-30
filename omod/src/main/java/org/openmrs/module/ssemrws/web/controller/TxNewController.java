@@ -1,6 +1,7 @@
 package org.openmrs.module.ssemrws.web.controller;
 
 import org.openmrs.Patient;
+import org.openmrs.module.ssemrws.web.constants.FilterUtility;
 import org.openmrs.module.ssemrws.web.constants.GenerateSummary;
 import org.openmrs.module.ssemrws.web.constants.GenerateSummaryResponseForTxCurrAndTxNew;
 import org.openmrs.module.webservices.rest.web.RestConstants;
@@ -14,6 +15,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.getStartAndEndDate;
 import static org.openmrs.module.ssemrws.web.constants.GetTxNew.*;
@@ -50,6 +52,10 @@ public class TxNewController {
 			size = 15;
 		
 		List<PatientEnrollmentData> enrolledPatients = getNewlyEnrolledPatients(dates[0], dates[1]);
+		
+		enrolledPatients = enrolledPatients.stream()
+		        .filter(data -> FilterUtility.applyFilter(data.getPatient(), filterCategory, dates[1]))
+		        .collect(Collectors.toList());
 		
 		int totalPatients = enrolledPatients.size();
 		

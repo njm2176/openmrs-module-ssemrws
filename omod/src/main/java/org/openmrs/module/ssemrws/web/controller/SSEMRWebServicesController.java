@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -27,10 +28,7 @@ import org.openmrs.*;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.ssemrws.queries.*;
 import org.openmrs.module.ssemrws.service.FacilityDashboardService;
-import org.openmrs.module.ssemrws.web.constants.GeneratePatientListObject;
-import org.openmrs.module.ssemrws.web.constants.GenerateSummary;
-import org.openmrs.module.ssemrws.web.constants.GenerateSummaryResponse;
-import org.openmrs.module.ssemrws.web.constants.VlEligibilityResult;
+import org.openmrs.module.ssemrws.web.constants.*;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
@@ -106,9 +104,9 @@ public class SSEMRWebServicesController {
 		}
 		
 		int fromIndex = page * size;
-		if (fromIndex >= patientList.size()) {
-			return "Page out of bounds. Please check the page number and size.";
-		}
+		// if (fromIndex >= patientList.size()) {
+		// return "Page out of bounds. Please check the page number and size.";
+		// }
 		int toIndex = Math.min((page + 1) * size, patientList.size());
 		
 		List<Patient> paginatedPatients = patientList.subList(fromIndex, toIndex);
@@ -119,7 +117,7 @@ public class SSEMRWebServicesController {
 		return getPatientListObjectList.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate,
 		    filterCategory, allPatientsObj);
 	}
-
+	
 	/**
 	 * Retrieves all patients from the system, applying pagination and filtering options.
 	 */
@@ -170,6 +168,10 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatment.getIit(dates[0], dates[1]);
 		
+		interruptedInTreatmentPatients = interruptedInTreatmentPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = interruptedInTreatmentPatients.size();
 		
 		List<Patient> iitList = new ArrayList<>(interruptedInTreatmentPatients);
@@ -203,6 +205,9 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> onAppointment = getOnAppoinment.getOnAppoinment(startDate, endDate);
 		
+		onAppointment = onAppointment.stream().filter(patient -> FilterUtility.applyFilter(patient, filterCategory, endDate))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = onAppointment.size();
 		
 		List<Patient> onAppoinmentList = new ArrayList<>(onAppointment);
@@ -235,6 +240,10 @@ public class SSEMRWebServicesController {
 			size = 15;
 		
 		HashSet<Patient> missedAppointment = getMissedAppointments.getMissedAppointment(startDate, endDate);
+		
+		missedAppointment = missedAppointment.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, endDate))
+		        .collect(Collectors.toCollection(HashSet::new));
 		
 		int totalPatients = missedAppointment.size();
 		
@@ -271,6 +280,9 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> rttPatients = getReturnToTreatmentPatients(dates[0], dates[1]);
 		
+		rttPatients = rttPatients.stream().filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = rttPatients.size();
 		
 		List<Patient> rttList = new ArrayList<>(rttPatients);
@@ -278,9 +290,10 @@ public class SSEMRWebServicesController {
 		return fetchAndPaginatePatients(rttList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory);
 	}
-
+	
 	/**
-	 * Handles the HTTP GET request for retrieving the list of patients who are due for viral load testing.
+	 * Handles the HTTP GET request for retrieving the list of patients who are due for viral load
+	 * testing.
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/dueForVl")
 	// gets all visit forms for a patient
@@ -300,6 +313,10 @@ public class SSEMRWebServicesController {
 			size = 15;
 		
 		HashSet<Patient> dueForVlClients = getDueForVl.getDueForVl(dates[0], dates[1]);
+		
+		dueForVlClients = dueForVlClients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
 		
 		int totalPatients = dueForVlClients.size();
 		
@@ -337,11 +354,16 @@ public class SSEMRWebServicesController {
 			size = 15;
 		
 		HashSet<Patient> transferredOutPatients = getTransferredOutClients(dates[0], dates[1]);
+		
 		// Filter out patients who have an upcoming appointment
 		transferredOutPatients.removeIf(patient -> {
 			String nextAppointmentDate = getNextAppointmentDate.getNextAppointmentDateByUuid(patient.getUuid());
 			return !nextAppointmentDate.equals("No Upcoming Appointments");
 		});
+		
+		transferredOutPatients = transferredOutPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
 		
 		int totalPatients = transferredOutPatients.size();
 		
@@ -350,7 +372,7 @@ public class SSEMRWebServicesController {
 		return fetchAndPaginatePatients(transferOutList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory);
 	}
-
+	
 	/**
 	 * This method handles the HTTP GET request for retrieving the list of patients who are deceased.
 	 */
@@ -377,6 +399,10 @@ public class SSEMRWebServicesController {
 			String nextAppointmentDate = getNextAppointmentDate.getNextAppointmentDateByUuid(patient.getUuid());
 			return !nextAppointmentDate.equals("No Upcoming Appointments");
 		});
+		
+		deceasedPatients = deceasedPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
 		
 		int totalPatients = deceasedPatients.size();
 		
@@ -413,6 +439,10 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> highVLPatients = getPatientsWithHighVL(dates[0], dates[1]);
 		
+		highVLPatients = highVLPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = highVLPatients.size();
 		
 		List<Patient> highVlList = new ArrayList<>(highVLPatients);
@@ -420,7 +450,7 @@ public class SSEMRWebServicesController {
 		return fetchAndPaginatePatients(highVlList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory);
 	}
-
+	
 	/**
 	 * Retrieves patients on adult regimen treatment within a specified date range.
 	 */
@@ -439,7 +469,7 @@ public class SSEMRWebServicesController {
 	
 	@Autowired
 	FacilityDashboardService facilityDashboardService;
-
+	
 	/**
 	 * Retrieves patients on children regimen treatment within a specified date range.
 	 */
@@ -487,6 +517,10 @@ public class SSEMRWebServicesController {
 		HashSet<Patient> underCareOfCommunityPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
 		    HashSet::add, HashSet::addAll);
 		
+		underCareOfCommunityPatients = underCareOfCommunityPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = underCareOfCommunityPatients.size();
 		
 		List<Patient> underCareList = new ArrayList<>(underCareOfCommunityPatients);
@@ -494,7 +528,7 @@ public class SSEMRWebServicesController {
 		return paginateAndGenerateSummary(underCareList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
 		    filterCategory, false);
 	}
-
+	
 	/**
 	 * Retrieves patients with Viral Load Sample collections within a specified date range.
 	 */
@@ -533,7 +567,7 @@ public class SSEMRWebServicesController {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
 	/**
 	 * Retrieves patients with Viral Load results within a specified date range.
 	 */
