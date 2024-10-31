@@ -96,17 +96,15 @@ public class SSEMRWebServicesController {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
-	private Object fetchAndPaginatePatients(List<Patient> patientList, int page, int size, int totalCount,
-											Date startDate, Date endDate, filterCategory filterCategory) {
+	private Object fetchAndPaginatePatients(List<Patient> patientList, int page, int size, int totalCount, Date startDate,
+	        Date endDate, filterCategory filterCategory) {
 		
 		if (page < 0 || size <= 0) {
 			return "Invalid page or size value. Page must be >= 0 and size must be > 0.";
 		}
 		
 		int fromIndex = page * size;
-		 if (fromIndex >= patientList.size()) {
-		 	return "Page out of bounds. Please check the page number and size.";
-		 }
+
 		int toIndex = Math.min((page + 1) * size, patientList.size());
 		
 		List<Patient> paginatedPatients = patientList.subList(fromIndex, toIndex);
@@ -176,8 +174,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> iitList = new ArrayList<>(interruptedInTreatmentPatients);
 		
-		return fetchAndPaginatePatients(iitList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(iitList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -212,8 +209,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> onAppoinmentList = new ArrayList<>(onAppointment);
 		
-		return fetchAndPaginatePatients(onAppoinmentList, page, size, totalPatients, startDate, endDate,
-		    filterCategory);
+		return fetchAndPaginatePatients(onAppoinmentList, page, size, totalPatients, startDate, endDate, filterCategory);
 	}
 	
 	/**
@@ -249,8 +245,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> missedAppoinmentList = new ArrayList<>(missedAppointment);
 		
-		return fetchAndPaginatePatients(missedAppoinmentList, page, size, totalPatients, startDate, endDate,
-		    filterCategory);
+		return fetchAndPaginatePatients(missedAppoinmentList, page, size, totalPatients, startDate, endDate, filterCategory);
 	}
 	
 	/**
@@ -287,8 +282,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> rttList = new ArrayList<>(rttPatients);
 		
-		return fetchAndPaginatePatients(rttList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(rttList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -322,8 +316,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> dueForVlList = new ArrayList<>(dueForVlClients);
 		
-		return paginateAndGenerateSummary(dueForVlList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return paginateAndGenerateSummary(dueForVlList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -369,8 +362,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> transferOutList = new ArrayList<>(transferredOutPatients);
 		
-		return fetchAndPaginatePatients(transferOutList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(transferOutList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -408,8 +400,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> deceasedList = new ArrayList<>(deceasedPatients);
 		
-		return fetchAndPaginatePatients(deceasedList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(deceasedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -447,8 +438,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> highVlList = new ArrayList<>(highVLPatients);
 		
-		return fetchAndPaginatePatients(highVlList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(highVlList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -525,8 +515,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> underCareList = new ArrayList<>(underCareOfCommunityPatients);
 		
-		return paginateAndGenerateSummary(underCareList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return paginateAndGenerateSummary(underCareList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -558,8 +547,8 @@ public class SSEMRWebServicesController {
 			
 			// Convert the summary data to JSON format
 			ObjectMapper objectMapper = new ObjectMapper();
-
-            return objectMapper.writeValueAsString(summaryData);
+			
+			return objectMapper.writeValueAsString(summaryData);
 			
 		}
 		catch (Exception e) {
@@ -614,8 +603,8 @@ public class SSEMRWebServicesController {
 			
 			// Convert the summary data to JSON format
 			ObjectMapper objectMapper = new ObjectMapper();
-
-            return objectMapper.writeValueAsString(summaryData);
+			
+			return objectMapper.writeValueAsString(summaryData);
 			
 		}
 		catch (Exception e) {
@@ -666,8 +655,8 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> underVLCoverageList = new ArrayList<>(viralLoadCoveragePatients);
 		
-		return paginateAndGenerateSummary(underVLCoverageList, page, size, totalPatients, dates[0],
-		    dates[1], filterCategory);
+		return paginateAndGenerateSummary(underVLCoverageList, page, size, totalPatients, dates[0], dates[1],
+		    filterCategory);
 	}
 	
 	/**
@@ -718,8 +707,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> vlSuppressedList = new ArrayList<>(viralLoadSuppressedPatients);
 		
-		return paginateAndGenerateSummary(vlSuppressedList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return paginateAndGenerateSummary(vlSuppressedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -773,10 +761,10 @@ public class SSEMRWebServicesController {
 		return new ResponseEntity<>(responseMap, new HttpHeaders(), HttpStatus.OK);
 	}
 	
-	private Object paginateAndGenerateSummary(List<Patient> patientList, int page, int size, int totalCount,
-											  Date startDate, Date endDate, filterCategory filterCategory) {
-		return getSummaryResponse.generateSummaryResponse(patientList, page, size, "totalPatients", totalCount, startDate, endDate,
-		    filterCategory, GenerateSummary::generateSummary);
+	private Object paginateAndGenerateSummary(List<Patient> patientList, int page, int size, int totalCount, Date startDate,
+	        Date endDate, filterCategory filterCategory) {
+		return getSummaryResponse.generateSummaryResponse(patientList, page, size, "totalPatients", totalCount, startDate,
+		    endDate, filterCategory, GenerateSummary::generateSummary);
 	}
 	
 	private PatientObservations getPatientObservations(Patient patient) {

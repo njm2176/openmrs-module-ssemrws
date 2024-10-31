@@ -28,9 +28,7 @@ public class PaginateTxCurrAndTxNewPages {
 		}
 		
 		int fromIndex = page * size;
-		if (fromIndex >= patientList.size()) {
-			return "Page out of bounds. Please check the page number and size.";
-		}
+
 		int toIndex = Math.min((page + 1) * size, patientList.size());
 		
 		List<Patient> paginatedPatients = patientList.subList(fromIndex, toIndex);
