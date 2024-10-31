@@ -7,10 +7,12 @@ import org.openmrs.Person;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.ssemrws.queries.GetInterruptedInTreatment;
 import org.openmrs.module.ssemrws.queries.GetMissedAppointments;
+import org.openmrs.module.ssemrws.queries.GetNextAppointmentDate;
 import org.openmrs.module.ssemrws.queries.GetOnAppointment;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.DATE_OF_ENROLLMENT_UUID;
@@ -18,17 +20,13 @@ import static org.openmrs.module.ssemrws.web.constants.AllConcepts.DATE_OF_ENROL
 @Component
 public class GetTxCurr {
 	
-	private final GetOnAppointment getOnAppoinment;
-	
 	private final GetMissedAppointments getMissedAppointments;
 	
-	private final GetInterruptedInTreatment getInterruptedInTreatment;
+	private final GetOnAppointment getOnAppointment;
 	
-	public GetTxCurr(GetOnAppointment getOnAppoinment, GetMissedAppointments getMissedAppointments,
-	    GetInterruptedInTreatment getInterruptedInTreatment) {
-		this.getOnAppoinment = getOnAppoinment;
+	public GetTxCurr(GetMissedAppointments getMissedAppointments, GetOnAppointment getOnAppointment) {
 		this.getMissedAppointments = getMissedAppointments;
-		this.getInterruptedInTreatment = getInterruptedInTreatment;
+		this.getOnAppointment = getOnAppointment;
 	}
 	
 	public List<GetTxNew.PatientEnrollmentData> getTxCurrPatients(Date startDate, Date endDate) {
@@ -60,7 +58,7 @@ public class GetTxCurr {
 		// Include patients from transferred-in, on appointment, and missed appointment
 		// sets
 		HashSet<Patient> transferredInPatients = getTransferredInPatients(startDate, endDate);
-		HashSet<Patient> onAppointmentPatients = getOnAppoinment.getOnAppoinment(startDate, endDate);
+		HashSet<Patient> onAppointmentPatients = getOnAppointment.getOnAppoinment(startDate, endDate);
 		HashSet<Patient> missedAppointmentPatients = getMissedAppointments.getMissedAppointment(startDate, endDate);
 		
 		// Combine all patient sets into a single set to avoid duplicates
@@ -72,11 +70,9 @@ public class GetTxCurr {
 		// Remove all died, IIT and Transferred out patients
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
 		HashSet<Patient> transferredOutPatients = getTransferredOutClients(startDate, endDate);
-		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatment.getIit(startDate, endDate);
 		
 		allPatientsSet.removeAll(deceasedPatients);
 		allPatientsSet.removeAll(transferredOutPatients);
-		allPatientsSet.removeAll(interruptedInTreatmentPatients);
 		
 		// Filter all patients that have enrollment dates within the date range
 		List<GetTxNew.PatientEnrollmentData> allPatientsWithEnrollment = new ArrayList<>();
