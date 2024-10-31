@@ -1,15 +1,12 @@
 package org.openmrs.module.ssemrws.web.constants;
 
-import org.openmrs.Concept;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
 import org.openmrs.Person;
 import org.openmrs.api.context.Context;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
-import static org.openmrs.module.ssemrws.constants.SharedConstants.getTransferredInPatients;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.DATE_OF_ENROLLMENT_UUID;
 
 public class GetTxNew {
@@ -25,8 +22,6 @@ public class GetTxNew {
 		
 		for (Obs obs : enrollmentDateObs) {
 			Date enrollmentDate = obs.getValueDate();
-			
-			System.out.println("Date Enrolled: " + enrollmentDate);
 			
 			// Check if the enrollment date falls within the start and end dates
 			if (enrollmentDate != null && !enrollmentDate.before(startDate) && !enrollmentDate.after(endDate)) {

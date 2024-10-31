@@ -26,8 +26,8 @@ public class GenerateSummaryResponseForTxCurrAndTxNew {
 	        List<GetTxNew.PatientEnrollmentData> patientDataList, int page, int size, String totalKey, int totalCount,
 	        Date startDate, Date endDate, SSEMRWebServicesController.filterCategory filterCategory,
 	        Function<List<Date>, Map<String, Map<String, Integer>>> summaryGenerator) {
-		// Step 1: Calculate the summary based on the full patient list using enrollment
-		// dates
+		// Step 1: Calculate the summary based on the filtered patient list using
+		// enrollment dates
 		List<Date> enrollmentDates = patientDataList.stream().map(GetTxNew.PatientEnrollmentData::getEnrollmentDate)
 		        .collect(Collectors.toList());
 		
@@ -49,22 +49,30 @@ public class GenerateSummaryResponseForTxCurrAndTxNew {
 				responseObj = (ObjectNode) objectMapper.readTree((String) paginatedResponse);
 			}
 			catch (Exception e) {
-				throw new RuntimeException("Failed to parse paginated response as JSON", e);
+				// Handle the case when no data is available gracefully by returning an empty
+				// response
+				responseObj = JsonNodeFactory.instance.objectNode();
 			}
-		} else {
+		} else if (paginatedResponse instanceof ObjectNode) {
 			responseObj = (ObjectNode) paginatedResponse;
+		} else {
+			// Default empty response to avoid serialization issues
+			responseObj = JsonNodeFactory.instance.objectNode();
 		}
 		
-		// Step 4: Add the summary to the paginated response
-		ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
-		ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
+		// Step 4: Add the summary to the paginated response if available
+		if (summary != null && !summary.isEmpty()) {
+			ObjectNode groupingObj = JsonNodeFactory.instance.objectNode();
+			ObjectNode groupYear = JsonNodeFactory.instance.objectNode();
+			
+			// Populate the summary into the response
+			summary.get("groupYear").forEach(groupYear::put);
+			
+			groupingObj.put("groupYear", groupYear);
+			responseObj.put("summary", groupingObj);
+		}
 		
-		// Populate the summary into the response
-		summary.get("groupYear").forEach(groupYear::put);
-		
-		groupingObj.put("groupYear", groupYear);
-		
-		responseObj.put("summary", groupingObj);
+		responseObj.put(totalKey, totalCount);
 		
 		return responseObj.toString();
 	}
