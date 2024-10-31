@@ -28,8 +28,8 @@ public class GeneratePatientObject {
 		String artRegimen = getARTRegimen(patient);
 		String dateEnrolled = getEnrolmentDate(patient);
 		String artInitiationDate = getEnrolmentDate(patient);
-		String datePatientDied = String.valueOf(getDateOfDeath(patient));
-		String datePatientTransferredOut = String.valueOf(getDateTransferredOut(patient));
+		String datePatientDied = getDateOfDeath(patient);
+		String datePatientTransferredOut = getDateTransferredOut(patient);
 		String lastRefillDate = getLastRefillDate(patient);
 		String artAppointmentDate = getNextAppointmentDate.getNextArtAppointmentDate(patient);
 		String contact = patient.getAttribute("Client Telephone Number") != null
