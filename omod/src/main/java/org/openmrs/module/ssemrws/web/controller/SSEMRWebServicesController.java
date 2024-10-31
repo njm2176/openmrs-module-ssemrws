@@ -892,15 +892,23 @@ public class SSEMRWebServicesController {
 	private HashSet<Patient> filterInterruptedInTreatmentPatients(HashSet<Patient> patients, int months, boolean moreThan) {
 		HashSet<Patient> filteredPatients = new HashSet<>();
 		LocalDate currentDate = LocalDate.now();
+		SimpleDateFormat dateFormatter = new SimpleDateFormat("dd-MM-yyyy");
 		
 		for (Patient patient : patients) {
-			Date enrollmentDate = getInitiationDate(patient);
+			String enrollmentDate = getInitiationDate(patient);
+			
 			if (enrollmentDate != null) {
-				LocalDate enrollmentLocalDate = enrollmentDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-				long monthsOnTreatment = ChronoUnit.MONTHS.between(enrollmentLocalDate, currentDate);
-				
-				if ((moreThan && monthsOnTreatment >= months) || (!moreThan && monthsOnTreatment < months)) {
-					filteredPatients.add(patient);
+				try {
+					Date parsedDate = dateFormatter.parse(enrollmentDate);
+					LocalDate enrollmentLocalDate = parsedDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+					long monthsOnTreatment = ChronoUnit.MONTHS.between(enrollmentLocalDate, currentDate);
+					
+					if ((moreThan && monthsOnTreatment >= months) || (!moreThan && monthsOnTreatment < months)) {
+						filteredPatients.add(patient);
+					}
+				}
+				catch (ParseException e) {
+					e.printStackTrace();
 				}
 			}
 		}

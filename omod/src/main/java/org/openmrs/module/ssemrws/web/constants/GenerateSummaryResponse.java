@@ -9,6 +9,8 @@ import org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController;
 import org.springframework.stereotype.Component;
 
 import javax.persistence.EntityManager;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +32,20 @@ public class GenerateSummaryResponse {
 	public Object generateSummaryResponse(List<Patient> patientList, int page, int size, String totalKey, int totalCount,
 	        Date startDate, Date endDate, SSEMRWebServicesController.filterCategory filterCategory,
 	        Function<List<Date>, Map<String, Map<String, Integer>>> summaryGenerator) {
+		
+		SimpleDateFormat dateFormatter = new SimpleDateFormat("dd-MM-yyyy");
+		
 		// Step 1: Calculate the summary based on the full patient list
 		List<Date> patientDates = patientList.stream().map(SharedConstants::getInitiationDate).filter(Objects::nonNull)
-		        .collect(Collectors.toList());
+		        .map(dateString -> {
+			        try {
+				        return dateFormatter.parse(dateString);
+			        }
+			        catch (ParseException e) {
+				        e.printStackTrace();
+				        return null;
+			        }
+		        }).filter(Objects::nonNull).collect(Collectors.toList());
 		
 		Map<String, Map<String, Integer>> summary = summaryGenerator.apply(patientDates);
 		

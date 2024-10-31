@@ -25,6 +25,8 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.openmrs.module.ssemrws.constants.GetDateObservations.getPatientDateByConcept;
+import static org.openmrs.module.ssemrws.constants.GetObservationValue.getObsValue;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 import static org.openmrs.module.ssemrws.web.constants.GenerateSummary.generateSummary;
 import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
@@ -34,9 +36,6 @@ public class SharedConstants {
 	public static SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("dd-MM-yyyy");
 	
 	public static final double THRESHOLD = 1000.0;
-	
-	@PersistenceContext
-	private EntityManager entityManager;
 	
 	public static Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
 	        throws ParseException {
@@ -227,7 +226,7 @@ public class SharedConstants {
 	public static Double getPatientAge(Patient patient) {
 		LocalDate birthdate = patient.getBirthdate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 		LocalDate currentDate = LocalDate.now();
-
+		
 		return (double) Period.between(birthdate, currentDate).getYears();
 	}
 	
@@ -809,40 +808,29 @@ public class SharedConstants {
 		return indexFamilyMemberObservations;
 	}
 	
-	public static Object getObsValue(Patient patient, Obs observation, String conceptUuid) {
-		List<Obs> observations = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(conceptUuid)), null, null, null,
-		    null, null, null, null, null, false);
-		
-		for (Obs obs : observations) {
-			if (obs.getObsGroup() != null && obs.getObsGroup().equals(observation)) {
-				if (obs.getValueCoded() != null) {
-					return obs.getValueCoded().getName().getName();
-				} else if (obs.getValueNumeric() != null) {
-					return obs.getValueNumeric();
-				} else if (obs.getValueText() != null) {
-					return obs.getValueText();
-				} else if (obs.getValueDate() != null) {
-					return obs.getValueDate();
-				}
-			}
-		}
-		
-		return null;
+	// General Family Members Info
+	public static final Map<String, String> familyMemberFields;
+	static {
+		familyMemberFields = new HashMap<>();
+		familyMemberFields.put("name", FAMILY_MEMBER_NAME_UUID);
+		familyMemberFields.put("age", FAMILY_MEMBER_AGE_UUID);
+		familyMemberFields.put("sex", FAMILY_MEMBER_SEX_UUID);
+		familyMemberFields.put("hivStatus", FAMILY_MEMBER_HIV_STATUS_UUID);
+		familyMemberFields.put("artNumber", FAMILY_MEMBER_UAN_UUID);
 	}
 	
-	// General Family Members Info
-	public static final Map<String, String> familyMemberFields = Map.of("name", FAMILY_MEMBER_NAME_UUID, "age",
-	    FAMILY_MEMBER_AGE_UUID, "sex", FAMILY_MEMBER_SEX_UUID, "hivStatus", FAMILY_MEMBER_HIV_STATUS_UUID, "artNumber",
-	    FAMILY_MEMBER_UAN_UUID
-	
-	);
-	
 	// Index Family Members Info
-	public static final Map<String, String> indexFamilyMemberFields = Map.of("name", INDEX_FAMILY_MEMBER_NAME_UUID, "age",
-	    INDEX_FAMILY_MEMBER_AGE_UUID, "sex", INDEX_FAMILY_MEMBER_SEX_UUID, "relationship",
-	    INDEX_FAMILY_MEMBER_RELATIONSHIP_UUID, "hivStatus", INDEX_FAMILY_MEMBER_HIV_STATUS_UUID, "phone",
-	    INDEX_FAMILY_MEMBER_PHONE_UUID, "uniqueArtNumber", INDEX_FAMILY_MEMBER_ART_NUMBER_UUID);
+	public static final Map<String, String> indexFamilyMemberFields;
+	static {
+		indexFamilyMemberFields = new HashMap<>();
+		indexFamilyMemberFields.put("name", INDEX_FAMILY_MEMBER_NAME_UUID);
+		indexFamilyMemberFields.put("age", INDEX_FAMILY_MEMBER_AGE_UUID);
+		indexFamilyMemberFields.put("sex", INDEX_FAMILY_MEMBER_SEX_UUID);
+		indexFamilyMemberFields.put("relationship", INDEX_FAMILY_MEMBER_RELATIONSHIP_UUID);
+		indexFamilyMemberFields.put("hivStatus", INDEX_FAMILY_MEMBER_HIV_STATUS_UUID);
+		indexFamilyMemberFields.put("phone", INDEX_FAMILY_MEMBER_PHONE_UUID);
+		indexFamilyMemberFields.put("uniqueArtNumber", INDEX_FAMILY_MEMBER_ART_NUMBER_UUID);
+	}
 	
 	public static Object getFamilyMemberField(Patient patient, Obs observation, String field, boolean isIndexFamilyMember) {
 		String conceptUuid = isIndexFamilyMember ? indexFamilyMemberFields.get(field) : familyMemberFields.get(field);
