@@ -8,7 +8,7 @@ import java.util.Date;
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
 public class FilterUtility {
-
+	
 	private static final int CHILDREN_ADOLESCENT_AGE = 19;
 	
 	public static boolean applyFilter(Patient patient, SSEMRWebServicesController.filterCategory filterCategory,
