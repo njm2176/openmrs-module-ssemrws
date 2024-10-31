@@ -1,6 +1,6 @@
 package org.openmrs.module.ssemrws.web.controller;
 
-import org.openmrs.Patient;
+import org.openmrs.module.ssemrws.web.constants.FilterUtility;
 import org.openmrs.module.ssemrws.web.constants.GenerateSummary;
 import org.openmrs.module.ssemrws.web.constants.GenerateSummaryResponseForTxCurrAndTxNew;
 import org.openmrs.module.webservices.rest.web.RestConstants;
@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.getStartAndEndDate;
 import static org.openmrs.module.ssemrws.web.constants.GetTxNew.*;
@@ -51,20 +52,24 @@ public class TxNewController {
 		
 		List<PatientEnrollmentData> enrolledPatients = getNewlyEnrolledPatients(dates[0], dates[1]);
 		
+		enrolledPatients = enrolledPatients.stream()
+		        .filter(data -> FilterUtility.applyFilter(data.getPatient(), filterCategory, dates[1]))
+		        .collect(Collectors.toList());
+		
 		int totalPatients = enrolledPatients.size();
 		
 		ArrayList<PatientEnrollmentData> txNewList = new ArrayList<>(enrolledPatients);
 		
 		// Use the reusable method
-		return paginateAndGenerateSummaryForNewlyEnrolledClients(txNewList, page, size, "totalPatients", totalPatients,
+		return paginateAndGenerateSummaryForNewlyEnrolledClients(txNewList, page, size, totalPatients,
 		    dates[0], dates[1], filterCategory);
 	}
 	
 	private Object paginateAndGenerateSummaryForNewlyEnrolledClients(ArrayList<PatientEnrollmentData> patientList, int page,
-	        int size, String totalKey, int totalCount, Date startDate, Date endDate,
-	        SSEMRWebServicesController.filterCategory filterCategory) {
+																	 int size, int totalCount, Date startDate, Date endDate,
+																	 SSEMRWebServicesController.filterCategory filterCategory) {
 		return getGenerateSummaryResponseForTxCurrAndTxNew.generateSummaryResponseForActiveAndNewlyEnrolledClients(
-		    patientList, page, size, totalKey, totalCount, startDate, endDate, filterCategory,
+		    patientList, page, size, "totalPatients", totalCount, startDate, endDate, filterCategory,
 		    GenerateSummary::generateSummary);
 	}
 }

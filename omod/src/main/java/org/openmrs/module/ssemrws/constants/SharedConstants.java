@@ -19,6 +19,9 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -212,12 +215,6 @@ public class SharedConstants {
 		return "Village: " + village + ", Landmark: " + landmark;
 	}
 	
-	// Method to extract the numeric part of the identifier
-	public static String extractNumericPart(String identifier) {
-		String numericPart = identifier.replaceAll("\\D+", "");
-		return numericPart.isEmpty() ? "0" : numericPart;
-	}
-	
 	public static String formatBirthdate(Date birthdate) {
 		return dateTimeFormatter.format(birthdate);
 	}
@@ -225,6 +222,13 @@ public class SharedConstants {
 	public static long calculateAge(Date birthdate) {
 		Date currentDate = new Date();
 		return (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+	}
+	
+	public static Double getPatientAge(Patient patient) {
+		LocalDate birthdate = patient.getBirthdate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+		LocalDate currentDate = LocalDate.now();
+
+		return (double) Period.between(birthdate, currentDate).getYears();
 	}
 	
 	public static Map<String, Object> buildResponseMap(Patient patient, long age, String birthdate,
@@ -502,13 +506,6 @@ public class SharedConstants {
 		return "";
 	}
 	
-	public enum ClinicalStatus {
-		INTERRUPTED_IN_TREATMENT,
-		DIED,
-		ACTIVE,
-		TRANSFERRED_OUT
-	}
-	
 	public enum Flags {
 		MISSED_APPOINTMENT,
 		IIT,
@@ -565,38 +562,6 @@ public class SharedConstants {
 		}
 		
 		return deadPatients;
-	}
-	
-	public static List<Encounter> getEncountersByDateRange(List<String> encounterTypeUuids, Date startDate, Date endDate) {
-		return getEncountersByEncounterTypes(encounterTypeUuids, startDate, endDate);
-	}
-	
-	public static List<Obs> getObservationsByDateRange(List<Encounter> encounters, List<Concept> concepts, Date startDate,
-	        Date endDate) {
-		return Context.getObsService().getObservations(null, null, concepts, null, null, null, null, null, null, startDate,
-		    endDate, false);
-	}
-	
-	public static HashSet<Patient> extractPatientsFromEncounters(List<Encounter> encounters) {
-		HashSet<Patient> patients = new HashSet<>();
-		for (Encounter encounter : encounters) {
-			patients.add(encounter.getPatient());
-		}
-		return patients;
-	}
-	
-	public static HashSet<Patient> extractPatientsFromObservations(List<Obs> observations) {
-		HashSet<Patient> patients = new HashSet<>();
-		for (Obs obs : observations) {
-			Person person = obs.getPerson();
-			if (person != null) {
-				Patient patient = Context.getPatientService().getPatient(person.getPersonId());
-				if (patient != null) {
-					patients.add(patient);
-				}
-			}
-		}
-		return patients;
 	}
 	
 	public static HashSet<Patient> getTransferredInPatients(Date startDate, Date endDate) {

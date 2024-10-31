@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -27,10 +28,7 @@ import org.openmrs.*;
 import org.openmrs.api.context.Context;
 import org.openmrs.module.ssemrws.queries.*;
 import org.openmrs.module.ssemrws.service.FacilityDashboardService;
-import org.openmrs.module.ssemrws.web.constants.GeneratePatientListObject;
-import org.openmrs.module.ssemrws.web.constants.GenerateSummary;
-import org.openmrs.module.ssemrws.web.constants.GenerateSummaryResponse;
-import org.openmrs.module.ssemrws.web.constants.VlEligibilityResult;
+import org.openmrs.module.ssemrws.web.constants.*;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
@@ -98,8 +96,8 @@ public class SSEMRWebServicesController {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
-	private Object fetchAndPaginatePatients(List<Patient> patientList, int page, int size, String totalKey, int totalCount,
-	        Date startDate, Date endDate, filterCategory filterCategory) {
+	private Object fetchAndPaginatePatients(List<Patient> patientList, int page, int size, int totalCount, Date startDate,
+	        Date endDate, filterCategory filterCategory) {
 		
 		if (page < 0 || size <= 0) {
 			return "Invalid page or size value. Page must be >= 0 and size must be > 0.";
@@ -109,17 +107,18 @@ public class SSEMRWebServicesController {
 		if (fromIndex >= patientList.size()) {
 			return "Page out of bounds. Please check the page number and size.";
 		}
+		
 		int toIndex = Math.min((page + 1) * size, patientList.size());
 		
 		List<Patient> paginatedPatients = patientList.subList(fromIndex, toIndex);
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
-		allPatientsObj.put(totalKey, totalCount);
+		allPatientsObj.put("totalPatients", totalCount);
 		
 		return getPatientListObjectList.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate,
 		    filterCategory, allPatientsObj);
 	}
-
+	
 	/**
 	 * Retrieves all patients from the system, applying pagination and filtering options.
 	 */
@@ -170,12 +169,15 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatment.getIit(dates[0], dates[1]);
 		
+		interruptedInTreatmentPatients = interruptedInTreatmentPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = interruptedInTreatmentPatients.size();
 		
 		List<Patient> iitList = new ArrayList<>(interruptedInTreatmentPatients);
 		
-		return fetchAndPaginatePatients(iitList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(iitList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -203,12 +205,14 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> onAppointment = getOnAppoinment.getOnAppoinment(startDate, endDate);
 		
+		onAppointment = onAppointment.stream().filter(patient -> FilterUtility.applyFilter(patient, filterCategory, endDate))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = onAppointment.size();
 		
 		List<Patient> onAppoinmentList = new ArrayList<>(onAppointment);
 		
-		return fetchAndPaginatePatients(onAppoinmentList, page, size, "totalPatients", totalPatients, startDate, endDate,
-		    filterCategory);
+		return fetchAndPaginatePatients(onAppoinmentList, page, size, totalPatients, startDate, endDate, filterCategory);
 	}
 	
 	/**
@@ -236,12 +240,15 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> missedAppointment = getMissedAppointments.getMissedAppointment(startDate, endDate);
 		
+		missedAppointment = missedAppointment.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, endDate))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = missedAppointment.size();
 		
 		List<Patient> missedAppoinmentList = new ArrayList<>(missedAppointment);
 		
-		return fetchAndPaginatePatients(missedAppoinmentList, page, size, "totalPatients", totalPatients, startDate, endDate,
-		    filterCategory);
+		return fetchAndPaginatePatients(missedAppoinmentList, page, size, totalPatients, startDate, endDate, filterCategory);
 	}
 	
 	/**
@@ -271,16 +278,19 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> rttPatients = getReturnToTreatmentPatients(dates[0], dates[1]);
 		
+		rttPatients = rttPatients.stream().filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = rttPatients.size();
 		
 		List<Patient> rttList = new ArrayList<>(rttPatients);
 		
-		return fetchAndPaginatePatients(rttList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(rttList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
-
+	
 	/**
-	 * Handles the HTTP GET request for retrieving the list of patients who are due for viral load testing.
+	 * Handles the HTTP GET request for retrieving the list of patients who are due for viral load
+	 * testing.
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/dueForVl")
 	// gets all visit forms for a patient
@@ -301,12 +311,15 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> dueForVlClients = getDueForVl.getDueForVl(dates[0], dates[1]);
 		
+		dueForVlClients = dueForVlClients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = dueForVlClients.size();
 		
 		List<Patient> dueForVlList = new ArrayList<>(dueForVlClients);
 		
-		return paginateAndGenerateSummary(dueForVlList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory, false);
+		return paginateAndGenerateSummary(dueForVlList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -337,20 +350,24 @@ public class SSEMRWebServicesController {
 			size = 15;
 		
 		HashSet<Patient> transferredOutPatients = getTransferredOutClients(dates[0], dates[1]);
+		
 		// Filter out patients who have an upcoming appointment
 		transferredOutPatients.removeIf(patient -> {
 			String nextAppointmentDate = getNextAppointmentDate.getNextAppointmentDateByUuid(patient.getUuid());
 			return !nextAppointmentDate.equals("No Upcoming Appointments");
 		});
 		
+		transferredOutPatients = transferredOutPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = transferredOutPatients.size();
 		
 		List<Patient> transferOutList = new ArrayList<>(transferredOutPatients);
 		
-		return fetchAndPaginatePatients(transferOutList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(transferOutList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
-
+	
 	/**
 	 * This method handles the HTTP GET request for retrieving the list of patients who are deceased.
 	 */
@@ -378,12 +395,15 @@ public class SSEMRWebServicesController {
 			return !nextAppointmentDate.equals("No Upcoming Appointments");
 		});
 		
+		deceasedPatients = deceasedPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = deceasedPatients.size();
 		
 		List<Patient> deceasedList = new ArrayList<>(deceasedPatients);
 		
-		return fetchAndPaginatePatients(deceasedList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(deceasedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -413,14 +433,17 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> highVLPatients = getPatientsWithHighVL(dates[0], dates[1]);
 		
+		highVLPatients = highVLPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = highVLPatients.size();
 		
 		List<Patient> highVlList = new ArrayList<>(highVLPatients);
 		
-		return fetchAndPaginatePatients(highVlList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return fetchAndPaginatePatients(highVlList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
-
+	
 	/**
 	 * Retrieves patients on adult regimen treatment within a specified date range.
 	 */
@@ -439,7 +462,7 @@ public class SSEMRWebServicesController {
 	
 	@Autowired
 	FacilityDashboardService facilityDashboardService;
-
+	
 	/**
 	 * Retrieves patients on children regimen treatment within a specified date range.
 	 */
@@ -487,14 +510,17 @@ public class SSEMRWebServicesController {
 		HashSet<Patient> underCareOfCommunityPatients = encounters.stream().map(Encounter::getPatient).collect(HashSet::new,
 		    HashSet::add, HashSet::addAll);
 		
+		underCareOfCommunityPatients = underCareOfCommunityPatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
 		int totalPatients = underCareOfCommunityPatients.size();
 		
 		List<Patient> underCareList = new ArrayList<>(underCareOfCommunityPatients);
 		
-		return paginateAndGenerateSummary(underCareList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory, false);
+		return paginateAndGenerateSummary(underCareList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
-
+	
 	/**
 	 * Retrieves patients with Viral Load Sample collections within a specified date range.
 	 */
@@ -524,16 +550,15 @@ public class SSEMRWebServicesController {
 			
 			// Convert the summary data to JSON format
 			ObjectMapper objectMapper = new ObjectMapper();
-			String jsonResponse = objectMapper.writeValueAsString(summaryData);
 			
-			return jsonResponse;
+			return objectMapper.writeValueAsString(summaryData);
 			
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
-
+	
 	/**
 	 * Retrieves patients with Viral Load results within a specified date range.
 	 */
@@ -575,15 +600,14 @@ public class SSEMRWebServicesController {
 			// Generate the summary data
 			Map<String, Map<String, Integer>> summaryData = generateDashboardSummaryFromObs(dates[0], dates[1],
 			    viralLoadResultObs, filterCategory);
-			if (summaryData == null || summaryData.isEmpty()) {
+			if (summaryData.isEmpty()) {
 				throw new RuntimeException("Failed to generate summary data");
 			}
 			
 			// Convert the summary data to JSON format
 			ObjectMapper objectMapper = new ObjectMapper();
-			String jsonResponse = objectMapper.writeValueAsString(summaryData);
 			
-			return jsonResponse;
+			return objectMapper.writeValueAsString(summaryData);
 			
 		}
 		catch (Exception e) {
@@ -634,8 +658,8 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> underVLCoverageList = new ArrayList<>(viralLoadCoveragePatients);
 		
-		return paginateAndGenerateSummary(underVLCoverageList, page, size, "totalPatients", totalPatients, dates[0],
-		    dates[1], filterCategory, false);
+		return paginateAndGenerateSummary(underVLCoverageList, page, size, totalPatients, dates[0], dates[1],
+		    filterCategory);
 	}
 	
 	/**
@@ -686,8 +710,7 @@ public class SSEMRWebServicesController {
 		
 		List<Patient> vlSuppressedList = new ArrayList<>(viralLoadSuppressedPatients);
 		
-		return paginateAndGenerateSummary(vlSuppressedList, page, size, "totalPatients", totalPatients, dates[0], dates[1],
-		    filterCategory, false);
+		return paginateAndGenerateSummary(vlSuppressedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -741,10 +764,10 @@ public class SSEMRWebServicesController {
 		return new ResponseEntity<>(responseMap, new HttpHeaders(), HttpStatus.OK);
 	}
 	
-	private Object paginateAndGenerateSummary(List<Patient> patientList, int page, int size, String totalKey, int totalCount,
-	        Date startDate, Date endDate, filterCategory filterCategory, boolean includeClinicalStatus) {
-		return getSummaryResponse.generateSummaryResponse(patientList, page, size, totalKey, totalCount, startDate, endDate,
-		    filterCategory, GenerateSummary::generateSummary);
+	private Object paginateAndGenerateSummary(List<Patient> patientList, int page, int size, int totalCount, Date startDate,
+	        Date endDate, filterCategory filterCategory) {
+		return getSummaryResponse.generateSummaryResponse(patientList, page, size, "totalPatients", totalCount, startDate,
+		    endDate, filterCategory, GenerateSummary::generateSummary);
 	}
 	
 	private PatientObservations getPatientObservations(Patient patient) {

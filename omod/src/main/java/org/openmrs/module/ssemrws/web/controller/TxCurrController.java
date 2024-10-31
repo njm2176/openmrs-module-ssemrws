@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
@@ -52,19 +53,23 @@ public class TxCurrController {
 		
 		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurr.getPatientsCurrentlyOnTreatment(dates[0], dates[1]);
 		
+		txCurrPatients = txCurrPatients.stream()
+		        .filter(data -> FilterUtility.applyFilter(data.getPatient(), filterCategory, dates[1]))
+		        .collect(Collectors.toList());
+		
 		int totalPatients = txCurrPatients.size();
 		
 		ArrayList<GetTxNew.PatientEnrollmentData> txCurrList = new ArrayList<>(txCurrPatients);
 		
-		return paginateAndGenerateSummaryForTxCurr(txCurrList, page, size, "totalPatients", totalPatients, dates[0],
+		return paginateAndGenerateSummaryForTxCurr(txCurrList, page, size, totalPatients, dates[0],
 		    dates[1], filterCategory);
 	}
 	
 	private Object paginateAndGenerateSummaryForTxCurr(ArrayList<GetTxNew.PatientEnrollmentData> patientList, int page,
-	        int size, String totalKey, int totalCount, Date startDate, Date endDate,
-	        SSEMRWebServicesController.filterCategory filterCategory) {
+													   int size, int totalCount, Date startDate, Date endDate,
+													   SSEMRWebServicesController.filterCategory filterCategory) {
 		return getGenerateSummaryResponseForTxCurrAndTxNew.generateSummaryResponseForActiveAndNewlyEnrolledClients(
-		    patientList, page, size, totalKey, totalCount, startDate, endDate, filterCategory,
+		    patientList, page, size, "totalPatients", totalCount, startDate, endDate, filterCategory,
 		    GenerateCumulativeSummary::generateCumulativeSummary);
 	}
 }
