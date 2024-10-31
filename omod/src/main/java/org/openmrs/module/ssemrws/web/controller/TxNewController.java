@@ -61,13 +61,13 @@ public class TxNewController {
 		ArrayList<PatientEnrollmentData> txNewList = new ArrayList<>(enrolledPatients);
 		
 		// Use the reusable method
-		return paginateAndGenerateSummaryForNewlyEnrolledClients(txNewList, page, size, totalPatients,
-		    dates[0], dates[1], filterCategory);
+		return paginateAndGenerateSummaryForNewlyEnrolledClients(txNewList, page, size, totalPatients, dates[0], dates[1],
+		    filterCategory);
 	}
 	
 	private Object paginateAndGenerateSummaryForNewlyEnrolledClients(ArrayList<PatientEnrollmentData> patientList, int page,
-																	 int size, int totalCount, Date startDate, Date endDate,
-																	 SSEMRWebServicesController.filterCategory filterCategory) {
+	        int size, int totalCount, Date startDate, Date endDate,
+	        SSEMRWebServicesController.filterCategory filterCategory) {
 		return getGenerateSummaryResponseForTxCurrAndTxNew.generateSummaryResponseForActiveAndNewlyEnrolledClients(
 		    patientList, page, size, "totalPatients", totalCount, startDate, endDate, filterCategory,
 		    GenerateSummary::generateSummary);

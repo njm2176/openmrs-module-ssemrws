@@ -61,13 +61,13 @@ public class TxCurrController {
 		
 		ArrayList<GetTxNew.PatientEnrollmentData> txCurrList = new ArrayList<>(txCurrPatients);
 		
-		return paginateAndGenerateSummaryForTxCurr(txCurrList, page, size, totalPatients, dates[0],
-		    dates[1], filterCategory);
+		return paginateAndGenerateSummaryForTxCurr(txCurrList, page, size, totalPatients, dates[0], dates[1],
+		    filterCategory);
 	}
 	
 	private Object paginateAndGenerateSummaryForTxCurr(ArrayList<GetTxNew.PatientEnrollmentData> patientList, int page,
-													   int size, int totalCount, Date startDate, Date endDate,
-													   SSEMRWebServicesController.filterCategory filterCategory) {
+	        int size, int totalCount, Date startDate, Date endDate,
+	        SSEMRWebServicesController.filterCategory filterCategory) {
 		return getGenerateSummaryResponseForTxCurrAndTxNew.generateSummaryResponseForActiveAndNewlyEnrolledClients(
 		    patientList, page, size, "totalPatients", totalCount, startDate, endDate, filterCategory,
 		    GenerateCumulativeSummary::generateCumulativeSummary);
