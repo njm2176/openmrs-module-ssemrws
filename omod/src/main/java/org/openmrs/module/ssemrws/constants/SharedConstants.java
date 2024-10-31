@@ -837,13 +837,16 @@ public class SharedConstants {
 		return getObsValue(patient, observation, conceptUuid);
 	}
 	
-	public static Date getInitiationDate(Patient patient) {
-		Object obsValue = getObsValue(patient, null, DATE_OF_ART_INITIATION_CONCEPT_UUID);
-		
-		if (obsValue instanceof Date) {
-			return (Date) obsValue;
-		}
-		return null;
+	public static String getInitiationDate(Patient patient) {
+		return getPatientDateByConcept(patient, DATE_OF_ART_INITIATION_CONCEPT_UUID);
+	}
+	
+	public static String getDateOfDeath(Patient patient) {
+		return getPatientDateByConcept(patient, DATE_OF_DEATH_UUID);
+	}
+	
+	public static String getDateTransferredOut(Patient patient) {
+		return getPatientDateByConcept(patient, DATE_TRANSFERRED_OUT_UUID);
 	}
 	
 }
