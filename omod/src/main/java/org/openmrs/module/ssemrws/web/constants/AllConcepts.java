@@ -124,4 +124,8 @@ public class AllConcepts {
 	
 	public static final String INDEX_FAMILY_MEMBER_ART_NUMBER_UUID = "218e861d-393a-4871-9bc3-c9d0effdb073";
 	
+	public static final String DATE_OF_DEATH_UUID = "bced5365-80f5-4a27-a287-60296c4e4ff9";
+	
+	public static final String DATE_TRANSFERRED_OUT_UUID = "9531371b-ba97-4f57-9edb-7480d908b8f8";
+	
 }
