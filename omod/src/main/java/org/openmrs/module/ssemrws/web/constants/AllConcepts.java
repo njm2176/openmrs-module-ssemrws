@@ -127,5 +127,7 @@ public class AllConcepts {
 	public static final String DATE_OF_DEATH_UUID = "bced5365-80f5-4a27-a287-60296c4e4ff9";
 	
 	public static final String DATE_TRANSFERRED_OUT_UUID = "9531371b-ba97-4f57-9edb-7480d908b8f8";
+
+	public static final String DATE_RETURNED_TO_TREATMENT = "fa954f61-ffaf-426c-a70b-3da7fddafbf8";
 	
 }
