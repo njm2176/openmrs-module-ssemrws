@@ -15,8 +15,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -847,6 +845,10 @@ public class SharedConstants {
 	
 	public static String getDateTransferredOut(Patient patient) {
 		return getPatientDateByConcept(patient, DATE_TRANSFERRED_OUT_UUID);
+	}
+
+	public static String getReturnToTreatmentDate(Patient patient){
+		return getPatientDateByConcept(patient, DATE_RETURNED_TO_TREATMENT);
 	}
 	
 }

@@ -30,6 +30,7 @@ public class GeneratePatientObject {
 		String artInitiationDate = getEnrolmentDate(patient);
 		String datePatientDied = getDateOfDeath(patient);
 		String datePatientTransferredOut = getDateTransferredOut(patient);
+		String dateReturnedToTreatment = getReturnToTreatmentDate(patient);
 		String lastRefillDate = getLastRefillDate(patient);
 		String artAppointmentDate = getNextAppointmentDate.getNextArtAppointmentDate(patient);
 		String contact = patient.getAttribute("Client Telephone Number") != null
@@ -65,6 +66,7 @@ public class GeneratePatientObject {
 		patientObj.put("appointmentDate", artAppointmentDate);
 		patientObj.put("datePatientDied", datePatientDied);
 		patientObj.put("datePatientTransferredOut", datePatientTransferredOut);
+		patientObj.put("dateReturnedToTreatment", dateReturnedToTreatment);
 		
 		// Check filter category and return only the matching patients
 		if (filterCategory != null) {
