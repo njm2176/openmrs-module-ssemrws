@@ -8,12 +8,14 @@ import org.openmrs.*;
 import org.openmrs.api.PatientService;
 import org.openmrs.api.VisitService;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ssemrws.queries.GetInterruptedInTreatment;
 import org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.parameter.EncounterSearchCriteria;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -29,11 +31,18 @@ import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 import static org.openmrs.module.ssemrws.web.constants.GenerateSummary.generateSummary;
 import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
 
+@Component
 public class SharedConstants {
+	
+	private final GetInterruptedInTreatment getInterruptedInTreatment;
 	
 	public static SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("dd-MM-yyyy");
 	
 	public static final double THRESHOLD = 1000.0;
+	
+	public SharedConstants(GetInterruptedInTreatment getInterruptedInTreatment) {
+		this.getInterruptedInTreatment = getInterruptedInTreatment;
+	}
 	
 	public static Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
 	        throws ParseException {
@@ -44,42 +53,6 @@ public class SharedConstants {
 		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
 		
 		return new Date[] { startDate, endDate };
-	}
-	
-	public static Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
-	        String activeRegimenConceptUuid) throws ParseException {
-		
-		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-		
-		List<Concept> regimenConcepts = getConceptsByUuids(regimenConceptUuids);
-		
-		List<Obs> regimenTreatmentObs = Context.getObsService().getObservations(null, null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(activeRegimenConceptUuid)),
-		    regimenConcepts, null, null, null, null, null, dates[0], dates[1], false);
-		
-		Map<String, Integer> regimenCounts = new HashMap<>();
-		
-		for (Obs obs : regimenTreatmentObs) {
-			Concept regimenConcept = obs.getValueCoded();
-			if (regimenConcept != null) {
-				String conceptName = regimenConcept.getName().getName();
-				regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
-			}
-		}
-		
-		Map<String, Object> results = new HashMap<>();
-		List<Map<String, Object>> regimenList = new ArrayList<>();
-		
-		for (Map.Entry<String, Integer> entry : regimenCounts.entrySet()) {
-			Map<String, Object> regimenEntry = new HashMap<>();
-			regimenEntry.put("text", entry.getKey());
-			regimenEntry.put("total", entry.getValue());
-			regimenList.add(regimenEntry);
-		}
-		
-		results.put("results", regimenList);
-		return results;
 	}
 	
 	// Retrieves a list of encounters filtered by encounter types.
@@ -846,9 +819,13 @@ public class SharedConstants {
 	public static String getDateTransferredOut(Patient patient) {
 		return getPatientDateByConcept(patient, DATE_TRANSFERRED_OUT_UUID);
 	}
-
-	public static String getReturnToTreatmentDate(Patient patient){
+	
+	public static String getReturnToTreatmentDate(Patient patient) {
 		return getPatientDateByConcept(patient, DATE_RETURNED_TO_TREATMENT);
+	}
+	
+	public static String getViralLoadSampleCollectionDate(Patient patient) {
+		return getPatientDateByConcept(patient, SAMPLE_COLLECTION_DATE_UUID);
 	}
 	
 }

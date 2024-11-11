@@ -10,7 +10,7 @@ public class AllConcepts {
 	
 	public static final String PERSONAL_FAMILY_HISTORY_ENCOUNTERTYPE_UUID = "0e9f540d-92cb-43c9-a95c-9407f5bf3f2a";
 	
-	public static final String SAMPLE_COLLECTION_DATE_UUID = "ed520e2d-acb4-4ea9-8ae5-16ca27ace96d";
+	public static final String SAMPLE_COLLECTION_DATE_UUID = "fc684917-4deb-42cf-9245-8a13c6a232bc";
 	
 	public static final String YES_CONCEPT = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
@@ -127,7 +127,9 @@ public class AllConcepts {
 	public static final String DATE_OF_DEATH_UUID = "bced5365-80f5-4a27-a287-60296c4e4ff9";
 	
 	public static final String DATE_TRANSFERRED_OUT_UUID = "9531371b-ba97-4f57-9edb-7480d908b8f8";
-
+	
 	public static final String DATE_RETURNED_TO_TREATMENT = "fa954f61-ffaf-426c-a70b-3da7fddafbf8";
+	
+	public static final String VIRAL_LOAD_TEST_DONE_UUID = "2cef90d7-7d4f-4bda-accd-8e51e612037f";
 	
 }
