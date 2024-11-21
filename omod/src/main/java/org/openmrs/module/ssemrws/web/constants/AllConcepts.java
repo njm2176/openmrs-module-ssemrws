@@ -88,7 +88,7 @@ public class AllConcepts {
 	
 	public static final String CURRENTLY_BREASTFEEDING_CONCEPT_UUID = "e288fc7d-bbc5-479a-b94d-857e3819f926";
 	
-	public static final String CURRENTLY_PREGNANT_CONCEPT_UUID = "235a6246-6179-4309-ba84-6f0ec337eb48";
+	public static final String CURRENTLY_PREGNANT_CONCEPT_UUID = "5dcb1bc9-ee89-4b57-9493-a1f245c5ee8b";
 	
 	public static final String CONCEPT_BY_UUID = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
