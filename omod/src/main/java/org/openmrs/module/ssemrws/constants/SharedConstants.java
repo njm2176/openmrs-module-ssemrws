@@ -8,7 +8,6 @@ import org.openmrs.*;
 import org.openmrs.api.PatientService;
 import org.openmrs.api.VisitService;
 import org.openmrs.api.context.Context;
-import org.openmrs.module.ssemrws.queries.GetInterruptedInTreatment;
 import org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.parameter.EncounterSearchCriteria;
@@ -25,6 +24,7 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.openmrs.module.ssemrws.constants.GetDateObservations.getDateByConcept;
 import static org.openmrs.module.ssemrws.constants.GetDateObservations.getPatientDateByConcept;
 import static org.openmrs.module.ssemrws.constants.GetObservationValue.getObsValue;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
@@ -34,15 +34,9 @@ import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
 @Component
 public class SharedConstants {
 	
-	private final GetInterruptedInTreatment getInterruptedInTreatment;
-	
 	public static SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("dd-MM-yyyy");
 	
 	public static final double THRESHOLD = 1000.0;
-	
-	public SharedConstants(GetInterruptedInTreatment getInterruptedInTreatment) {
-		this.getInterruptedInTreatment = getInterruptedInTreatment;
-	}
 	
 	public static Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
 	        throws ParseException {
@@ -827,5 +821,17 @@ public class SharedConstants {
 	public static String getViralLoadSampleCollectionDate(Patient patient) {
 		return getPatientDateByConcept(patient, SAMPLE_COLLECTION_DATE_UUID);
 	}
+
+	public static Date getDeathDate(Patient patient) {
+		return getDateByConcept(patient, DATE_OF_DEATH_UUID);
+	}
+
+	public static Date getTransfereedOutDate(Patient patient) {
+		return getDateByConcept(patient, DATE_TRANSFERRED_OUT_UUID);
+	}
+
+	public static Date getReturnedToTreatmentDate(Patient patient) {
+        return getDateByConcept(patient, DATE_RETURNED_TO_TREATMENT);
+    }
 	
 }
