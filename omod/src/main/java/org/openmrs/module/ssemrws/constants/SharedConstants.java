@@ -826,7 +826,7 @@ public class SharedConstants {
 		return getDateByConcept(patient, DATE_OF_DEATH_UUID);
 	}
 
-	public static Date getTransfereedOutDate(Patient patient) {
+	public static Date getTransferredOutDate(Patient patient) {
 		return getDateByConcept(patient, DATE_TRANSFERRED_OUT_UUID);
 	}
 
