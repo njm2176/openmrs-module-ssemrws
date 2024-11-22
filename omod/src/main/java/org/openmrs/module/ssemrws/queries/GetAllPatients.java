@@ -4,6 +4,7 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.Patient;
+import org.openmrs.module.ssemrws.web.constants.FetchPatientsByIdentifier;
 import org.springframework.stereotype.Component;
 
 import javax.persistence.EntityManager;

@@ -26,6 +26,7 @@ import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ssemrws.constants.SharedConstants;
 import org.openmrs.module.ssemrws.queries.*;
 import org.openmrs.module.ssemrws.service.FacilityDashboardService;
 import org.openmrs.module.ssemrws.web.constants.*;
@@ -73,10 +74,15 @@ public class SSEMRWebServicesController {
 	
 	private final GetAllPatients getAllPatients;
 	
+	private final SharedConstants sharedConstants;
+	
+	private final GetPatientRegimens getPatientRegimens;
+	
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
 	    GeneratePatientListObject getPatientListObjectList, GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GenerateSummaryResponse getSummaryResponse,
-	    GetDueForVL getDueForVl, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients) {
+	    GetDueForVL getDueForVl, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
+	    SharedConstants sharedConstants, GetPatientRegimens getPatientRegimens) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getPatientListObjectList = getPatientListObjectList;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
@@ -86,6 +92,8 @@ public class SSEMRWebServicesController {
 		this.getDueForVl = getDueForVl;
 		this.getOnAppoinment = getOnAppoinment;
 		this.getAllPatients = getAllPatients;
+		this.sharedConstants = sharedConstants;
+		this.getPatientRegimens = getPatientRegimens;
 	}
 	
 	public enum filterCategory {
@@ -453,7 +461,7 @@ public class SSEMRWebServicesController {
 	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
 		
-		return getPatientsOnRegimenTreatment(qStartDate, qEndDate,
+		return getPatientRegimens.getPatientsOnRegimenTreatment(qStartDate, qEndDate,
 		    Arrays.asList(regimen_1A, regimen_1B, regimen_1C, regimen_1D, regimen_1E, regimen_1F, regimen_1G, regimen_1H,
 		        regimen_1J, regimen_2A, regimen_2B, regimen_2C, regimen_2D, regimen_2E, regimen_2F, regimen_2G, regimen_2H,
 		        regimen_2I, regimen_2J, regimen_2K),
@@ -534,7 +542,7 @@ public class SSEMRWebServicesController {
 			Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 			
 			EncounterType viralLoadEncounterType = Context.getEncounterService()
-			        .getEncounterTypeByUuid(VL_LAB_REQUEST_ENCOUNTER_TYPE);
+			        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
 			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, dates[0], dates[1],
 			        null, null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
 			List<Encounter> viralLoadSampleEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
@@ -637,18 +645,20 @@ public class SSEMRWebServicesController {
 		if (size == null)
 			size = 15;
 		
-		HashSet<Patient> viralLoadCoveragePatients = new HashSet<>();
-		
-		List<Obs> viralLoadObs = Context.getObsService().getObservations(null, null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
-		    null, null, null, null, dates[0], dates[1], false);
-		
-		for (Obs obs : viralLoadObs) {
-			Patient patient = Context.getPatientService().getPatient(obs.getPersonId());
-			if (patient != null) {
-				viralLoadCoveragePatients.add(patient);
+		// Retrieve all patients and filter those with a sample collection date within
+		// the date range
+		List<Patient> allPatients = Context.getPatientService().getAllPatients();
+		List<Patient> viralLoadCoveragePatients = allPatients.stream().filter(patient -> {
+			String sampleCollectionDate = getViralLoadSampleCollectionDate(patient);
+			try {
+				// Check if the sample collection date falls within the start and end dates
+				Date collectionDate = dateTimeFormatter.parse(sampleCollectionDate);
+				return collectionDate != null && !collectionDate.before(dates[0]) && !collectionDate.after(dates[1]);
 			}
-		}
+			catch (ParseException e) {
+				return false;
+			}
+		}).collect(Collectors.toList());
 		
 		int totalPatients = viralLoadCoveragePatients.size();
 		
@@ -656,10 +666,11 @@ public class SSEMRWebServicesController {
 			return "No Clients with VL Coverage found for the given date range";
 		}
 		
-		List<Patient> underVLCoverageList = new ArrayList<>(viralLoadCoveragePatients);
+		// Apply pagination
+		List<Patient> paginatedList = viralLoadCoveragePatients.stream().skip(page * size).limit(size)
+		        .collect(Collectors.toList());
 		
-		return paginateAndGenerateSummary(underVLCoverageList, page, size, totalPatients, dates[0], dates[1],
-		    filterCategory);
+		return paginateAndGenerateSummary(paginatedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**

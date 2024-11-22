@@ -4,7 +4,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.api.APIAuthenticationException;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ssemrws.constants.SharedConstants;
 import org.openmrs.module.ssemrws.service.FacilityDashboardService;
+import org.openmrs.module.ssemrws.web.constants.GetPatientRegimens;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,12 @@ public class FacilityDashboardServiceImpl implements FacilityDashboardService {
 	private static final String PRIVILEGES_EXCEPTION_CODE = "error.privilegesRequired";
 	
 	private final Log log = LogFactory.getLog(this.getClass());
+	
+	private final GetPatientRegimens getPatientRegimens;
+	
+	public FacilityDashboardServiceImpl(GetPatientRegimens getPatientRegimens) {
+		this.getPatientRegimens = getPatientRegimens;
+	}
 	
 	private boolean validateIfUserHasSelfOrAllChildRegimenAccess() {
 		return Context.hasPrivilege(VIEW_CHILD_REGIMEN_TREATMENT);
@@ -41,7 +49,8 @@ public class FacilityDashboardServiceImpl implements FacilityDashboardService {
 		try {
 			// Utilize the getPatientsOnRegimenTreatment method to handle the main data
 			// processing
-			return getPatientsOnRegimenTreatment(startDate, endDate, regimenConceptUuids, activeRegimenConceptUuid);
+			return getPatientRegimens.getPatientsOnRegimenTreatment(startDate, endDate, regimenConceptUuids,
+			    activeRegimenConceptUuid);
 		}
 		catch (ParseException e) {
 			log.error("Error parsing dates for fetching patients on regimen treatment: " + e.getMessage(), e);
