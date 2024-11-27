@@ -42,13 +42,6 @@ public class GetTxCurr {
 				Date iitDate = getDatePatientBecameIIT.getIitDateForPatient(patient);
 				Date rttDate = getReturnedToTreatmentDate(patient);
 				
-				System.out.println("Patient: " + patient.getPersonName().getFullName());
-				System.out.println("Enrollment Date: " + enrollmentDate);
-				System.out.println("Death Date: " + deathDate);
-				System.out.println("Transfer Out Date: " + transferOutDate);
-				System.out.println("IIT Date: " + iitDate);
-				System.out.println("RTT Date: " + rttDate);
-				
 				// Determine the earliest exclusion date
 				Date exclusionDate = null;
 				if (deathDate != null)
