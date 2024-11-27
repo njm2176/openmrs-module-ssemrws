@@ -1,8 +1,8 @@
 package org.openmrs.module.ssemrws.web.controller;
 
 import org.openmrs.module.ssemrws.web.constants.FilterUtility;
-import org.openmrs.module.ssemrws.web.constants.GenerateSummary;
-import org.openmrs.module.ssemrws.web.constants.GenerateSummaryResponseForTxCurrAndTxNew;
+import org.openmrs.module.ssemrws.web.constants.GenerateTxNewSummary;
+import org.openmrs.module.ssemrws.web.constants.GenerateTxNewSummaryResponse;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,10 +27,10 @@ import static org.openmrs.module.ssemrws.web.constants.GetTxNew.*;
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ssemr")
 public class TxNewController {
 	
-	private final GenerateSummaryResponseForTxCurrAndTxNew getGenerateSummaryResponseForTxCurrAndTxNew;
+	private final GenerateTxNewSummaryResponse getGenerateTxNewSummaryResponse;
 	
-	public TxNewController(GenerateSummaryResponseForTxCurrAndTxNew getGenerateSummaryResponseForTxCurrAndTxNew) {
-		this.getGenerateSummaryResponseForTxCurrAndTxNew = getGenerateSummaryResponseForTxCurrAndTxNew;
+	public TxNewController(GenerateTxNewSummaryResponse getGenerateTxNewSummaryResponse) {
+		this.getGenerateTxNewSummaryResponse = getGenerateTxNewSummaryResponse;
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/newClients")
@@ -68,8 +68,7 @@ public class TxNewController {
 	private Object paginateAndGenerateSummaryForNewlyEnrolledClients(ArrayList<PatientEnrollmentData> patientList, int page,
 	        int size, int totalCount, Date startDate, Date endDate,
 	        SSEMRWebServicesController.filterCategory filterCategory) {
-		return getGenerateSummaryResponseForTxCurrAndTxNew.generateSummaryResponseForActiveAndNewlyEnrolledClients(
-		    patientList, page, size, "totalPatients", totalCount, startDate, endDate, filterCategory,
-		    GenerateSummary::generateSummary);
+		return getGenerateTxNewSummaryResponse.generateNewlyEnrolledClientsSummaryResponse(patientList, page, size,
+		    "totalPatients", totalCount, startDate, endDate, filterCategory, GenerateTxNewSummary::generateTxNewSummary);
 	}
 }

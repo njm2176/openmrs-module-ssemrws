@@ -1,5 +1,7 @@
 package org.openmrs.module.ssemrws.web.controller;
 
+import org.openmrs.Patient;
+import org.openmrs.module.ssemrws.queries.GetTxCurrQueries;
 import org.openmrs.module.ssemrws.web.constants.*;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.stereotype.Controller;
@@ -24,13 +26,12 @@ import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ssemr")
 public class TxCurrController {
 	
-	private final GenerateSummaryResponseForTxCurrAndTxNew getGenerateSummaryResponseForTxCurrAndTxNew;
+	private final GenerateTxCurrSummaryResponse generateTxCurrSummaryResponse;
 	
 	private final GetTxCurr getTxCurr;
 	
-	public TxCurrController(GenerateSummaryResponseForTxCurrAndTxNew getGenerateSummaryResponseForTxCurrAndTxNew,
-	    GetTxCurr getTxCurr) {
-		this.getGenerateSummaryResponseForTxCurrAndTxNew = getGenerateSummaryResponseForTxCurrAndTxNew;
+	public TxCurrController(GenerateTxCurrSummaryResponse generateTxCurrSummaryResponse, GetTxCurr getTxCurr) {
+		this.generateTxCurrSummaryResponse = generateTxCurrSummaryResponse;
 		this.getTxCurr = getTxCurr;
 	}
 	
@@ -51,7 +52,7 @@ public class TxCurrController {
 		if (size == null)
 			size = 15;
 		
-		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurr.getPatientsCurrentlyOnTreatment(dates[0], dates[1]);
+		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurr.getTxCurrPatients(dates[0], dates[1]);
 		
 		txCurrPatients = txCurrPatients.stream()
 		        .filter(data -> FilterUtility.applyFilter(data.getPatient(), filterCategory, dates[1]))
@@ -68,8 +69,8 @@ public class TxCurrController {
 	private Object paginateAndGenerateSummaryForTxCurr(ArrayList<GetTxNew.PatientEnrollmentData> patientList, int page,
 	        int size, int totalCount, Date startDate, Date endDate,
 	        SSEMRWebServicesController.filterCategory filterCategory) {
-		return getGenerateSummaryResponseForTxCurrAndTxNew.generateSummaryResponseForActiveAndNewlyEnrolledClients(
-		    patientList, page, size, "totalPatients", totalCount, startDate, endDate, filterCategory,
-		    GenerateCumulativeSummary::generateCumulativeSummary);
+		return generateTxCurrSummaryResponse.generateActiveClientsSummaryResponse(patientList, page, size, "totalPatients",
+		    totalCount, startDate, endDate, filterCategory,
+		    (enrollmentDates) -> GenerateCumulativeSummary.generateCumulativeSummary(enrollmentDates, startDate, endDate));
 	}
 }

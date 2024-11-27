@@ -14,17 +14,17 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
-public class GenerateSummaryResponseForTxCurrAndTxNew {
+public class GenerateTxNewSummaryResponse {
 	
 	private final PaginateTxCurrAndTxNewPages paginateTxCurrAndTxNewPages;
 	
-	public GenerateSummaryResponseForTxCurrAndTxNew(PaginateTxCurrAndTxNewPages paginateTxCurrAndTxNewPages) {
+	public GenerateTxNewSummaryResponse(PaginateTxCurrAndTxNewPages paginateTxCurrAndTxNewPages) {
 		this.paginateTxCurrAndTxNewPages = paginateTxCurrAndTxNewPages;
 	}
 	
-	public Object generateSummaryResponseForActiveAndNewlyEnrolledClients(
-	        List<GetTxNew.PatientEnrollmentData> patientDataList, int page, int size, String totalKey, int totalCount,
-	        Date startDate, Date endDate, SSEMRWebServicesController.filterCategory filterCategory,
+	public Object generateNewlyEnrolledClientsSummaryResponse(List<GetTxNew.PatientEnrollmentData> patientDataList, int page,
+	        int size, String totalKey, int totalCount, Date startDate, Date endDate,
+	        SSEMRWebServicesController.filterCategory filterCategory,
 	        Function<List<Date>, Map<String, Map<String, Integer>>> summaryGenerator) {
 		// Step 1: Calculate the summary based on the filtered patient list using
 		// enrollment dates

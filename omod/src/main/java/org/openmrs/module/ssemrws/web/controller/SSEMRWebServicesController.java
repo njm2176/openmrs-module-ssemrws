@@ -78,11 +78,13 @@ public class SSEMRWebServicesController {
 	
 	private final GetPatientRegimens getPatientRegimens;
 	
+	private final GetVLDueDate getVLDueDate;
+	
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
 	    GeneratePatientListObject getPatientListObjectList, GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GenerateSummaryResponse getSummaryResponse,
 	    GetDueForVL getDueForVl, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
-	    SharedConstants sharedConstants, GetPatientRegimens getPatientRegimens) {
+	    SharedConstants sharedConstants, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getPatientListObjectList = getPatientListObjectList;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
@@ -94,6 +96,7 @@ public class SSEMRWebServicesController {
 		this.getAllPatients = getAllPatients;
 		this.sharedConstants = sharedConstants;
 		this.getPatientRegimens = getPatientRegimens;
+		this.getVLDueDate = getVLDueDate;
 	}
 	
 	public enum filterCategory {
@@ -806,21 +809,7 @@ public class SSEMRWebServicesController {
 		observations.setTbNumber(getTbNumber(patient));
 		observations.setFamilyMembers(getFamilyMemberObservations(patient));
 		observations.setIndexFamilyMembers(getIndexFamilyMemberObservations(patient));
-		
-		VlEligibilityResult eligibilityResult = getDueForVl.isPatientDueForVl(patient.getUuid());
-		
-		if (eligibilityResult.isEligible()) {
-			observations.setVlEligibility("Eligible");
-			
-			if (eligibilityResult.getVlDueDate() != null) {
-				SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-				String formattedDate = dateFormat.format(eligibilityResult.getVlDueDate());
-				observations.setVlDueDate(formattedDate);
-			}
-		} else {
-			observations.setVlEligibility("Not Eligible");
-			observations.setVlDueDate(null);
-		}
+		observations.setVlDueDate(getVLDueDate.getVLDueDate(patient));
 		
 		return observations;
 	}
