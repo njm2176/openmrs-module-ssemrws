@@ -24,7 +24,7 @@ public class GetPatientRegimens {
 	
 	public Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
 	        String activeRegimenConceptUuid) throws ParseException {
-
+		
 		if (qStartDate == null || qStartDate.isEmpty()) {
 			throw new IllegalArgumentException("Start date cannot be null or empty");
 		}
@@ -37,8 +37,7 @@ public class GetPatientRegimens {
 		if (activeRegimenConceptUuid == null || activeRegimenConceptUuid.isEmpty()) {
 			throw new IllegalArgumentException("Active regimen concept UUID cannot be null or empty");
 		}
-
-
+		
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
@@ -93,7 +92,7 @@ public class GetPatientRegimens {
 			if (!excludedPatients.contains(patient)) {
 				Concept regimenConcept = obs.getValueCoded();
 				if (regimenConcept != null) {
-					if(regimenConcept.getName() != null) {
+					if (regimenConcept.getName() != null) {
 						String conceptName = regimenConcept.getName().getName();
 						regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
 					}

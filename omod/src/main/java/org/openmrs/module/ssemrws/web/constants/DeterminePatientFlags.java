@@ -19,28 +19,31 @@ import static org.openmrs.module.ssemrws.constants.SharedConstants.getTransferre
 @Component
 public class DeterminePatientFlags {
 	
-	private final GetTxCurrQueries getTxCurr;
-	
 	private final GetInterruptedInTreatment getInterruptedInTreatment;
 	
 	private final GetMissedAppointments getMissedAppointments;
 	
 	private final GetDueForVL getDueForVl;
 	
-	public DeterminePatientFlags(GetTxCurrQueries getTxCurr, GetInterruptedInTreatment getInterruptedInTreatment,
-	    GetMissedAppointments getMissedAppointments, GetDueForVL getDueForVl) {
-		this.getTxCurr = getTxCurr;
+	private final GetTxCurr getTxCurr;
+	
+	public DeterminePatientFlags(GetInterruptedInTreatment getInterruptedInTreatment,
+	    GetMissedAppointments getMissedAppointments, GetDueForVL getDueForVl, GetTxCurr getTxCurr) {
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getMissedAppointments = getMissedAppointments;
 		this.getDueForVl = getDueForVl;
+		this.getTxCurr = getTxCurr;
 	}
 	
 	public List<SharedConstants.Flags> determinePatientFlags(Patient patient, Date startDate, Date endDate) {
 		List<SharedConstants.Flags> flags = new ArrayList<>();
 		
-		HashSet<Patient> activeClients = getTxCurr.getTxCurr(startDate, endDate);
-		if (activeClients.contains(patient)) {
-			flags.add(SharedConstants.Flags.ACTIVE);
+		List<GetTxNew.PatientEnrollmentData> activeClients = getTxCurr.getTxCurrPatients(startDate, endDate);
+		for (GetTxNew.PatientEnrollmentData activeClient : activeClients) {
+			if (activeClient.getPatient().getId().equals(patient.getId())) {
+				flags.add(SharedConstants.Flags.ACTIVE);
+				break;
+			}
 		}
 		
 		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
