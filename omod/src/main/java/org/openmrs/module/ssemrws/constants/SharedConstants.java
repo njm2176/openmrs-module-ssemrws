@@ -821,17 +821,17 @@ public class SharedConstants {
 	public static String getViralLoadSampleCollectionDate(Patient patient) {
 		return getPatientDateByConcept(patient, SAMPLE_COLLECTION_DATE_UUID);
 	}
-
+	
 	public static Date getDeathDate(Patient patient) {
 		return getDateByConcept(patient, DATE_OF_DEATH_UUID);
 	}
-
+	
 	public static Date getTransferredOutDate(Patient patient) {
 		return getDateByConcept(patient, DATE_TRANSFERRED_OUT_UUID);
 	}
-
+	
 	public static Date getReturnedToTreatmentDate(Patient patient) {
-        return getDateByConcept(patient, DATE_RETURNED_TO_TREATMENT);
-    }
+		return getDateByConcept(patient, DATE_RETURNED_TO_TREATMENT);
+	}
 	
 }
