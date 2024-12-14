@@ -57,7 +57,7 @@ public class GetPatientRegimens {
 		List<Concept> regimenConcepts = getConceptsByUuids(regimenConceptUuids);
 		return Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(activeRegimenConceptUuid)),
-		    regimenConcepts, null, null, null, 0, null, dates[0], dates[1], false);
+		    regimenConcepts, null, null, null, null, null, dates[0], dates[1], false);
 	}
 	
 	private Map<Integer, Obs> getLatestObservationsByPatient(List<Obs> regimenTreatmentObs) {

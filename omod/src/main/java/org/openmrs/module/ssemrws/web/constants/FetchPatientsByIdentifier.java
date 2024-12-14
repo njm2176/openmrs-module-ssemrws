@@ -15,6 +15,8 @@ public class FetchPatientsByIdentifier {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
+	private static final int BATCH_SIZE = 15;
+	
 	public static HashSet<Patient> fetchPatientsByIds(List<Integer> patientIds) {
 		HashSet<Patient> patients = new HashSet<>();
 		for (Integer patientId : patientIds) {
@@ -27,11 +29,14 @@ public class FetchPatientsByIdentifier {
 	}
 	
 	public HashSet<Patient> fetchPatientsIds(List<Integer> patientIds) {
-		if (patientIds == null || patientIds.isEmpty()) {
-			return new HashSet<>();
+		HashSet<Patient> patients = new HashSet<>();
+		int total = patientIds.size();
+		for (int i = 0; i < total; i += BATCH_SIZE) {
+			List<Integer> batchIds = patientIds.subList(i, Math.min(i + BATCH_SIZE, total));
+			patients.addAll(
+			    entityManager.createQuery("SELECT p FROM Patient p WHERE p.patientId IN :patientIds", Patient.class)
+			            .setParameter("patientIds", batchIds).getResultList());
 		}
-		return new HashSet<>(
-		        entityManager.createQuery("SELECT p FROM Patient p WHERE p.patientId IN :patientIds", Patient.class)
-		                .setParameter("patientIds", patientIds).getResultList());
+		return patients;
 	}
 }
