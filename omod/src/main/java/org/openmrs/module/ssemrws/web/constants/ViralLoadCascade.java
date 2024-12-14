@@ -1,5 +1,7 @@
 package org.openmrs.module.ssemrws.web.constants;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.openmrs.Concept;
 import org.openmrs.Encounter;
 import org.openmrs.Obs;
@@ -16,7 +18,10 @@ import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 
 public class ViralLoadCascade {
 	
-	static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+	private static final Log log = LogFactory.getLog(ViralLoadCascade.class);
+	
+	private static final ThreadLocal<SimpleDateFormat> formatter = ThreadLocal
+	        .withInitial(() -> new SimpleDateFormat("yyyy-MM-dd"));
 	
 	/**
 	 * This method calculates the viral load cascade for the ART dashboard. It retrieves the necessary
@@ -157,7 +162,7 @@ public class ViralLoadCascade {
 		System.out.println("==== " + sessionName + " ====");
 		System.out.println("Total Patients: " + sessionDates.size());
 		sessionDates.forEach((patient, date) -> {
-			System.out.println("Patient: " + patient.getPersonName() + ", Date: " + date);
+			System.out.println("Patient: " + patient.getPatientIdentifier() + ", Date: " + date);
 		});
 	}
 	
@@ -203,13 +208,18 @@ public class ViralLoadCascade {
 	private static Map<String, Date> getAllRelevantDates(Patient patient) {
 		Map<String, Date> dates = new HashMap<>();
 		
-		dates.put("firstEACDate", getFirstEACDate(patient));
-		dates.put("secondEACDate", getSecondEACDate(patient));
-		dates.put("thirdEACDate", getThirdEACDate(patient));
-		dates.put("extendedEACDate", getExtendedEACDate(patient));
-		dates.put("repeatVLDate", getRepeatVLDate(patient));
-		dates.put("artSwitchDate", getARTFirstLineSwitchDate(patient));
-		dates.put("secondLineSwitchArt", getARTSecondLineSwitchDate(patient));
+		try {
+			dates.put("firstEACDate", getFirstEACDate(patient));
+			dates.put("secondEACDate", getSecondEACDate(patient));
+			dates.put("thirdEACDate", getThirdEACDate(patient));
+			dates.put("extendedEACDate", getExtendedEACDate(patient));
+			dates.put("repeatVLDate", getRepeatVLDate(patient));
+			dates.put("artSwitchDate", getARTFirstLineSwitchDate(patient));
+			dates.put("secondLineSwitchArt", getARTSecondLineSwitchDate(patient));
+		}
+		catch (Exception e) {
+			log.error("Error retrieving dates for patient " + patient.getPatientIdentifier() + ": " + e.getMessage(), e);
+		}
 		
 		return dates;
 	}
