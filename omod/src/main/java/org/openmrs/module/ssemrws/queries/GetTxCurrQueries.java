@@ -7,12 +7,9 @@ import org.springframework.stereotype.Component;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
-import java.math.BigInteger;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-
-import static org.openmrs.module.ssemrws.web.constants.FetchPatientsByIdentifier.fetchPatientsByIds;
 
 @Component
 public class GetTxCurrQueries {
@@ -20,32 +17,31 @@ public class GetTxCurrQueries {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
-	public HashSet<Patient> getTxCurr(Date startDate, Date endDate) {
-		List<Integer> patientIds = (List<Integer>) executeTxCurrQuery(startDate, endDate, false);
-		return fetchPatientsByIds(patientIds);
+	private final FetchPatientsByIdentifier fetchPatientsByIdentifier;
+	
+	public GetTxCurrQueries(FetchPatientsByIdentifier fetchPatientsByIdentifier) {
+		this.fetchPatientsByIdentifier = fetchPatientsByIdentifier;
 	}
 	
-	private Object executeTxCurrQuery(Date startDate, Date endDate, boolean isCountQuery) {
-		String selectClause = isCountQuery ? "count(distinct fp.patient_id)" : "distinct fp.patient_id";
-		String baseQuery = "select " + selectClause + " from openmrs.patient_appointment fp "
-		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where (fp.start_date_time >= :now "
-		        + "or (fp.start_date_time between :startDate and :endDate "
-		        + "and date(fp.start_date_time) >= current_date() - interval 28 day))";
+	public HashSet<Patient> getTxCurr(Date startDate, Date endDate) {
+		List<Integer> patientIds = executeTxCurrQuery(startDate, endDate);
+		return fetchPatientsByIdentifier.fetchPatientsIds(patientIds);
+	}
+	
+	private List<Integer> executeTxCurrQuery(Date startDate, Date endDate) {
+		String baseQuery = "SELECT DISTINCT fp.patient_id " + "FROM openmrs.patient_appointment fp "
+		        + "JOIN openmrs.person p ON fp.patient_id = p.person_id "
+		        + "JOIN openmrs.obs obs ON obs.person_id = p.person_id "
+		        + "WHERE obs.concept_id = (SELECT concept_id FROM openmrs.concept WHERE uuid = :enrollmentUuid) "
+		        + "AND obs.value_datetime IS NOT NULL " + "AND (fp.start_date_time >= :currentDate "
+		        + "     OR (fp.start_date_time BETWEEN :startDate AND :endDate "
+		        + "         AND DATE(fp.start_date_time) >= CURRENT_DATE - INTERVAL 28 DAY))";
 		
-		try {
-			Query query = entityManager.createNativeQuery(baseQuery).setParameter("now", new Date())
-			        .setParameter("startDate", startDate).setParameter("endDate", endDate);
-			
-			if (isCountQuery) {
-				BigInteger totalTxCurr = (BigInteger) query.getSingleResult();
-				return totalTxCurr.intValue();
-			} else {
-				return query.getResultList();
-			}
-		}
-		catch (Exception e) {
-			System.err.println("Error executing TxCurr query: " + e.getMessage());
-			throw new RuntimeException("Failed to execute TxCurr query", e);
-		}
+		Query query = entityManager.createNativeQuery(baseQuery)
+		        .setParameter("enrollmentUuid", "73779d67-7e8f-46fe-b723-8879838da5f8")
+		        .setParameter("currentDate", new Date()).setParameter("startDate", startDate)
+		        .setParameter("endDate", endDate);
+		
+		return query.getResultList();
 	}
 }

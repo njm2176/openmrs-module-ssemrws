@@ -68,31 +68,33 @@ public class ViralLoadCascade {
 		Map<Patient, Date> artSwitchSecondLineDates = new HashMap<>();
 		
 		for (Patient patient : patientsWithHighViralLoad) {
-			Date firstEACDate = getFirstEACDate(patient);
+			Map<String, Date> patientDates = getAllRelevantDates(patient);
+			
+			Date firstEACDate = patientDates.get("firstEACDate");
 			if (firstEACDate != null)
 				firstEACDates.put(patient, firstEACDate);
 			
-			Date secondEACDate = getSecondEACDate(patient);
+			Date secondEACDate = patientDates.get("secondEACDate");
 			if (secondEACDate != null)
 				secondEACDates.put(patient, secondEACDate);
 			
-			Date thirdEACDate = getThirdEACDate(patient);
+			Date thirdEACDate = patientDates.get("thirdEACDate");
 			if (thirdEACDate != null)
 				thirdEACDates.put(patient, thirdEACDate);
 			
-			Date extendedEACDate = getExtendedEACDate(patient);
+			Date extendedEACDate = patientDates.get("extendedEACDate");
 			if (extendedEACDate != null)
 				extendedEACDates.put(patient, extendedEACDate);
 			
-			Date repeatVLDate = getRepeatVLDate(patient);
+			Date repeatVLDate = patientDates.get("repeatVLDate");
 			if (repeatVLDate != null)
 				repeatVLCollectedDates.put(patient, repeatVLDate);
 			
-			Date switchArt = getARTFirstLineSwitchDate(patient);
+			Date switchArt = patientDates.get("artSwitchDate");
 			if (switchArt != null)
 				artSwitchDates.put(patient, switchArt);
 			
-			Date secondLineSwitchArt = getARTSecondLineSwitchDate(patient);
+			Date secondLineSwitchArt = patientDates.get("secondLineSwitchArt");
 			if (secondLineSwitchArt != null)
 				artSwitchSecondLineDates.put(patient, secondLineSwitchArt);
 		}
@@ -196,5 +198,19 @@ public class ViralLoadCascade {
 			return 0.0;
 		double totalTime = (endDate.getTime() - startDate.getTime()) / (1000.0 * 60 * 60 * 24 * 30);
 		return totalTime / count;
+	}
+	
+	private static Map<String, Date> getAllRelevantDates(Patient patient) {
+		Map<String, Date> dates = new HashMap<>();
+		
+		dates.put("firstEACDate", getFirstEACDate(patient));
+		dates.put("secondEACDate", getSecondEACDate(patient));
+		dates.put("thirdEACDate", getThirdEACDate(patient));
+		dates.put("extendedEACDate", getExtendedEACDate(patient));
+		dates.put("repeatVLDate", getRepeatVLDate(patient));
+		dates.put("artSwitchDate", getARTFirstLineSwitchDate(patient));
+		dates.put("secondLineSwitchArt", getARTSecondLineSwitchDate(patient));
+		
+		return dates;
 	}
 }
