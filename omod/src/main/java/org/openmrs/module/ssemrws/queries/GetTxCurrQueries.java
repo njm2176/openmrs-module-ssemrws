@@ -1,6 +1,7 @@
 package org.openmrs.module.ssemrws.queries;
 
 import org.openmrs.Patient;
+import org.openmrs.module.ssemrws.web.constants.AllConcepts;
 import org.openmrs.module.ssemrws.web.constants.FetchPatientsByIdentifier;
 import org.springframework.stereotype.Component;
 
@@ -38,7 +39,7 @@ public class GetTxCurrQueries {
 		        + "         AND DATE(fp.start_date_time) >= CURRENT_DATE - INTERVAL 28 DAY))";
 		
 		Query query = entityManager.createNativeQuery(baseQuery)
-		        .setParameter("enrollmentUuid", "73779d67-7e8f-46fe-b723-8879838da5f8")
+		        .setParameter("enrollmentUuid", AllConcepts.DATE_OF_ART_INITIATION_CONCEPT_UUID)
 		        .setParameter("currentDate", new Date()).setParameter("startDate", startDate)
 		        .setParameter("endDate", endDate);
 		
