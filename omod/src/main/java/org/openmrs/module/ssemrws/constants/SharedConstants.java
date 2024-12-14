@@ -485,7 +485,7 @@ public class SharedConstants {
 		
 		List<Obs> transferredOutPatientsObs = Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(transferredOutConcept), Collections.singletonList(yesConcept), null, null, null, null,
-		    null, startDate, endDate, false);
+		    null, null, null, false);
 		
 		HashSet<Patient> transferredOutPatients = new HashSet<>();
 		
@@ -832,6 +832,34 @@ public class SharedConstants {
 	
 	public static Date getReturnedToTreatmentDate(Patient patient) {
 		return getDateByConcept(patient, DATE_RETURNED_TO_TREATMENT);
+	}
+	
+	public static Date getFirstEACDate(Patient patient) {
+		return getDateByConcept(patient, FIRST_EAC_DATE_UUID);
+	}
+	
+	public static Date getSecondEACDate(Patient patient) {
+		return getDateByConcept(patient, SECOND_EAC_DATE_UUID);
+	}
+	
+	public static Date getThirdEACDate(Patient patient) {
+		return getDateByConcept(patient, THIRD_EAC_DATE_UUID);
+	}
+	
+	public static Date getExtendedEACDate(Patient patient) {
+		return getDateByConcept(patient, EXTENDED_EAC_DATE_UUID);
+	}
+	
+	public static Date getRepeatVLDate(Patient patient) {
+		return getDateByConcept(patient, REPEAT_VIRAL_LOAD_DATE);
+	}
+	
+	public static Date getARTFirstLineSwitchDate(Patient patient) {
+		return getDateByConcept(patient, ART_FIRST_LINE_SWITCH_DATE);
+	}
+	
+	public static Date getARTSecondLineSwitchDate(Patient patient) {
+		return getDateByConcept(patient, ART_SECOND_LINE_SWITCH_DATE);
 	}
 	
 }

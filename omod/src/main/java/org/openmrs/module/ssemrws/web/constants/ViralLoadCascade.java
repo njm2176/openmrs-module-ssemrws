@@ -9,11 +9,14 @@ import org.openmrs.api.context.Context;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.BiConsumer;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 
 public class ViralLoadCascade {
+	
+	static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 	
 	/**
 	 * This method calculates the viral load cascade for the ART dashboard. It retrieves the necessary
@@ -64,47 +67,46 @@ public class ViralLoadCascade {
 		Map<Patient, Date> artSwitchDates = new HashMap<>();
 		Map<Patient, Date> artSwitchSecondLineDates = new HashMap<>();
 		
-		// Filter the observations to only include patients with high viral load
-		for (Obs obs : viralLoadCascadeObs) {
-			Concept viralLoadCascadeConcept = obs.getValueCoded();
-			Patient patient = (Patient) obs.getPerson();
-			if (viralLoadCascadeConcept != null && patientsWithHighViralLoad.contains(patient)) {
-				String conceptName = viralLoadCascadeConcept.getName().getName();
-				viralLoadCascadeCounts.put(conceptName, viralLoadCascadeCounts.getOrDefault(conceptName, 0) + 1);
-				
-				// Track the observation dates for each EAC session
-				switch (conceptName) {
-					case "First EAC Session":
-						firstEACDates.put(patient, obs.getObsDatetime());
-						break;
-					case "Second EAC Session":
-						secondEACDates.put(patient, obs.getObsDatetime());
-						break;
-					case "Third EAC Session":
-						thirdEACDates.put(patient, obs.getObsDatetime());
-						break;
-					case "Extended EAC Session":
-						extendedEACDates.put(patient, obs.getObsDatetime());
-						break;
-					case "Repeat Viral Load Collected":
-						repeatVLCollectedDates.put(patient, obs.getObsDatetime());
-						break;
-					case "Persistent High Viral Load":
-						persistentHVLDates.put(patient, obs.getObsDatetime());
-						break;
-					case "ART Switch":
-						artSwitchDates.put(patient, obs.getObsDatetime());
-						break;
-					case "ART Switch (2nd Line)":
-						artSwitchSecondLineDates.put(patient, obs.getObsDatetime());
-						break;
-					default:
-						break;
-				}
-			}
+		for (Patient patient : patientsWithHighViralLoad) {
+			Map<String, Date> patientDates = getAllRelevantDates(patient);
+			
+			Date firstEACDate = patientDates.get("firstEACDate");
+			if (firstEACDate != null)
+				firstEACDates.put(patient, firstEACDate);
+			
+			Date secondEACDate = patientDates.get("secondEACDate");
+			if (secondEACDate != null)
+				secondEACDates.put(patient, secondEACDate);
+			
+			Date thirdEACDate = patientDates.get("thirdEACDate");
+			if (thirdEACDate != null)
+				thirdEACDates.put(patient, thirdEACDate);
+			
+			Date extendedEACDate = patientDates.get("extendedEACDate");
+			if (extendedEACDate != null)
+				extendedEACDates.put(patient, extendedEACDate);
+			
+			Date repeatVLDate = patientDates.get("repeatVLDate");
+			if (repeatVLDate != null)
+				repeatVLCollectedDates.put(patient, repeatVLDate);
+			
+			Date switchArt = patientDates.get("artSwitchDate");
+			if (switchArt != null)
+				artSwitchDates.put(patient, switchArt);
+			
+			Date secondLineSwitchArt = patientDates.get("secondLineSwitchArt");
+			if (secondLineSwitchArt != null)
+				artSwitchSecondLineDates.put(patient, secondLineSwitchArt);
 		}
 		
-		// Calculate total turnaround time for each session
+		// Log the counts and dates for each session
+		logPatientDates("First EAC Session", firstEACDates);
+		logPatientDates("Second EAC Session", secondEACDates);
+		logPatientDates("Third EAC Session", thirdEACDates);
+		logPatientDates("Extended EAC Session", extendedEACDates);
+		logPatientDates("Repeat Viral Load", repeatVLCollectedDates);
+		
+		// Calculate total turnaround times
 		double totalFirstToSecond = calculateTotalTurnaroundTime(firstEACDates, secondEACDates);
 		double totalSecondToThird = calculateTotalTurnaroundTime(secondEACDates, thirdEACDates);
 		double totalThirdToExtended = calculateTotalTurnaroundTime(thirdEACDates, extendedEACDates);
@@ -119,8 +121,9 @@ public class ViralLoadCascade {
 		int repeatVLCount = (int) repeatVLCollectedDates.keySet().stream().filter(extendedEACDates::containsKey).count();
 		int persistentHighVLCount = (int) patientsWithPersistentHighVL.stream().filter(repeatVLCollectedDates::containsKey)
 		        .count();
-		int artSwitchCount = (int) patientsWithARTSwitch.stream().filter(persistentHVLDates::containsKey).count();
-		int secondLineSwitchCount = (int) patientsWithSecondLineSwitch.stream().filter(artSwitchDates::containsKey).count();
+		int artSwitchCount = (int) patientsWithARTSwitch.stream().filter(artSwitchDates::containsKey).count();
+		int secondLineSwitchCount = (int) patientsWithSecondLineSwitch.stream().filter(artSwitchSecondLineDates::containsKey)
+		        .count();
 		
 		// Combine the results
 		Map<String, Object> results = new LinkedHashMap<>();
@@ -148,6 +151,14 @@ public class ViralLoadCascade {
 		
 		results.put("results", viralLoadCascadeList);
 		return results;
+	}
+	
+	private static void logPatientDates(String sessionName, Map<Patient, Date> sessionDates) {
+		System.out.println("==== " + sessionName + " ====");
+		System.out.println("Total Patients: " + sessionDates.size());
+		sessionDates.forEach((patient, date) -> {
+			System.out.println("Patient: " + patient.getPersonName() + ", Date: " + date);
+		});
 	}
 	
 	private static void addCascadeEntry(List<Map<String, Object>> list, String text, int count, int previousCount,
@@ -187,5 +198,19 @@ public class ViralLoadCascade {
 			return 0.0;
 		double totalTime = (endDate.getTime() - startDate.getTime()) / (1000.0 * 60 * 60 * 24 * 30);
 		return totalTime / count;
+	}
+	
+	private static Map<String, Date> getAllRelevantDates(Patient patient) {
+		Map<String, Date> dates = new HashMap<>();
+		
+		dates.put("firstEACDate", getFirstEACDate(patient));
+		dates.put("secondEACDate", getSecondEACDate(patient));
+		dates.put("thirdEACDate", getThirdEACDate(patient));
+		dates.put("extendedEACDate", getExtendedEACDate(patient));
+		dates.put("repeatVLDate", getRepeatVLDate(patient));
+		dates.put("artSwitchDate", getARTFirstLineSwitchDate(patient));
+		dates.put("secondLineSwitchArt", getARTSecondLineSwitchDate(patient));
+		
+		return dates;
 	}
 }

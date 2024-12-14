@@ -132,4 +132,18 @@ public class AllConcepts {
 	
 	public static final String VIRAL_LOAD_TEST_DONE_UUID = "2cef90d7-7d4f-4bda-accd-8e51e612037f";
 	
+	public static final String FIRST_EAC_DATE_UUID = "039704e4-7d5c-4062-b490-8252069ba142";
+	
+	public static final String SECOND_EAC_DATE_UUID = "4bf2af69-1576-44a9-ae60-95cd3ca2ae72";
+	
+	public static final String THIRD_EAC_DATE_UUID = "599137e4-9f91-4b51-aa73-c9b68fe81ac5";
+	
+	public static final String EXTENDED_EAC_DATE_UUID = "0fa5669b-041d-446d-9ae6-8e88a980858f";
+	
+	public static final String REPEAT_VIRAL_LOAD_DATE = "06cee3e6-daaa-48cf-aa53-296254ee61a3";
+	
+	public static final String ART_FIRST_LINE_SWITCH_DATE = "ad884e26-5e18-4ec3-b471-c1cd1374387f";
+	
+	public static final String ART_SECOND_LINE_SWITCH_DATE = "55337ca1-c8b5-43e4-bed3-845a01463020";
+	
 }
