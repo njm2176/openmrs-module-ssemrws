@@ -10,20 +10,15 @@ import org.springframework.stereotype.Component;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
 @Component
 public class GetPatientRegimens {
 	
-	private final GetInterruptedInTreatment getInterruptedInTreatment;
-	
-	public GetPatientRegimens(GetInterruptedInTreatment getInterruptedInTreatment) {
-		this.getInterruptedInTreatment = getInterruptedInTreatment;
-	}
-	
 	public Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
-	        String activeRegimenConceptUuid) throws ParseException {
+	        String activeRegimenConceptUuid, List<GetTxNew.PatientEnrollmentData> txCurrPatients) throws ParseException {
 		
 		if (qStartDate == null || qStartDate.isEmpty()) {
 			throw new IllegalArgumentException("Start date cannot be null or empty");
@@ -41,13 +36,18 @@ public class GetPatientRegimens {
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
-		List<Obs> regimenTreatmentObs = getRegimenTreatmentObservations(dates, regimenConceptUuids,
-		    activeRegimenConceptUuid);
+		// Get the IDs of txCurr patients
+		Set<Integer> txCurrPatientIds = txCurrPatients.stream().map(data -> data.getPatient().getPatientId())
+		        .collect(Collectors.toSet());
+		
+		// Get regimen observations and filter them based on txCurr patients
+		List<Obs> regimenTreatmentObs = getRegimenTreatmentObservations(dates, regimenConceptUuids, activeRegimenConceptUuid)
+		        .stream().filter(obs -> txCurrPatientIds.contains(obs.getPerson().getPersonId()))
+		        .collect(Collectors.toList());
+		
 		Map<Integer, Obs> latestObsByPatient = getLatestObservationsByPatient(regimenTreatmentObs);
 		
-		HashSet<Patient> excludedPatients = getExcludedPatients(dates);
-		
-		Map<String, Integer> regimenCounts = countRegimens(latestObsByPatient, excludedPatients);
+		Map<String, Integer> regimenCounts = countRegimens(latestObsByPatient);
 		
 		return prepareResults(regimenCounts);
 	}
@@ -57,7 +57,7 @@ public class GetPatientRegimens {
 		List<Concept> regimenConcepts = getConceptsByUuids(regimenConceptUuids);
 		return Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(activeRegimenConceptUuid)),
-		    regimenConcepts, null, null, null, null, null, dates[0], dates[1], false);
+		    regimenConcepts, null, null, null, 0, null, null, dates[1], false);
 	}
 	
 	private Map<Integer, Obs> getLatestObservationsByPatient(List<Obs> regimenTreatmentObs) {
@@ -72,31 +72,13 @@ public class GetPatientRegimens {
 		return latestObsByPatient;
 	}
 	
-	private HashSet<Patient> getExcludedPatients(Date[] dates) {
-		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(dates[0], dates[1]);
-		HashSet<Patient> transferredOutPatients = getTransferredOutClients(dates[0], dates[1]);
-		HashSet<Patient> iitPatients = getInterruptedInTreatment.getIit(dates[0], dates[1]);
-		
-		HashSet<Patient> excludedPatients = new HashSet<>();
-		excludedPatients.addAll(deceasedPatients);
-		excludedPatients.addAll(transferredOutPatients);
-		excludedPatients.addAll(iitPatients);
-		
-		return excludedPatients;
-	}
-	
-	private Map<String, Integer> countRegimens(Map<Integer, Obs> latestObsByPatient, HashSet<Patient> excludedPatients) {
+	private Map<String, Integer> countRegimens(Map<Integer, Obs> latestObsByPatient) {
 		Map<String, Integer> regimenCounts = new HashMap<>();
 		for (Obs obs : latestObsByPatient.values()) {
-			Patient patient = Context.getPatientService().getPatient(obs.getPerson().getPersonId());
-			if (!excludedPatients.contains(patient)) {
-				Concept regimenConcept = obs.getValueCoded();
-				if (regimenConcept != null) {
-					if (regimenConcept.getName() != null) {
-						String conceptName = regimenConcept.getName().getName();
-						regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
-					}
-				}
+			Concept regimenConcept = obs.getValueCoded();
+			if (regimenConcept != null && regimenConcept.getName() != null) {
+				String conceptName = regimenConcept.getName().getName();
+				regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
 			}
 		}
 		return regimenCounts;
@@ -115,5 +97,16 @@ public class GetPatientRegimens {
 		
 		results.put("results", regimenList);
 		return results;
+	}
+	
+	private Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
+	        throws ParseException {
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		return new Date[] { startDate, endDate };
+	}
+	
+	private List<Concept> getConceptsByUuids(List<String> conceptUuids) {
+		return conceptUuids.stream().map(Context.getConceptService()::getConceptByUuid).collect(Collectors.toList());
 	}
 }
