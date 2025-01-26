@@ -17,9 +17,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.getVLResults;
@@ -96,6 +98,11 @@ public class FormsController {
 			return new ResponseEntity<>("The patient has no active visits.", new HttpHeaders(), HttpStatus.NOT_FOUND);
 		}
 		
+		activeVisits.sort(Comparator.comparing(Visit::getStartDatetime).reversed());
+		Visit latestVisit = activeVisits.get(0);
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String latestVisitDate = dateFormat.format(latestVisit.getStartDatetime());
+		
 		ArrayNode formList = JsonNodeFactory.instance.arrayNode();
 		ObjectNode allFormsObj = JsonNodeFactory.instance.objectNode();
 		
@@ -103,6 +110,7 @@ public class FormsController {
 		allFormsObj.put("patientName", patient.getGivenName() + " " + patient.getFamilyName());
 		allFormsObj.put("patientUuid", patient.getUuid());
 		allFormsObj.put("patientAge", ageDisplay);
+		allFormsObj.put("latestVisitDate", latestVisitDate);
 		
 		// Fetch all published forms
 		List<Form> availableForms = Context.getFormService().getPublishedForms();

@@ -1,56 +1,55 @@
 package org.openmrs.module.ssemrws.web.constants;
 
 import org.openmrs.*;
-import org.openmrs.api.context.Context;
 import org.openmrs.module.ssemrws.queries.*;
 import org.springframework.stereotype.Component;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
-
-import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
-import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 
 @Component
 public class GetTxCurr {
 	
-	private final GetInterruptedInTreatment getInterruptedInTreatment;
-	
 	private final GetTxCurrQueries getTxCurrQueries;
 	
-	public GetTxCurr(GetInterruptedInTreatment getInterruptedInTreatment, GetTxCurrQueries getTxCurrQueries) {
-		this.getInterruptedInTreatment = getInterruptedInTreatment;
+	private final GetInterruptedInTreatment getInterruptedInTreatment;
+	
+	private final GetEnrollmentDate getEnrollmentDate;
+	
+	public GetTxCurr(GetTxCurrQueries getTxCurrQueries, GetInterruptedInTreatment getInterruptedInTreatment,
+	    GetEnrollmentDate getEnrollmentDate) {
 		this.getTxCurrQueries = getTxCurrQueries;
+		this.getInterruptedInTreatment = getInterruptedInTreatment;
+		this.getEnrollmentDate = getEnrollmentDate;
 	}
 	
 	public List<GetTxNew.PatientEnrollmentData> getTxCurrPatients(Date startDate, Date endDate) {
-		HashSet<Patient> allPatientsSet = getTxCurrQueries.getTxCurr(startDate, endDate);
+		HashSet<Patient> txCurrPatients = getTxCurrQueries.getTxCurr(endDate);
 		
-		// Remove all deceased, IIT, and transferred-out patients
-		HashSet<Patient> deceasedPatients = getDeceasedPatientsByDateRange(startDate, endDate);
-		HashSet<Patient> transferredOutPatients = getTransferredOutClients(startDate, endDate);
-		HashSet<Patient> iitPatients = getInterruptedInTreatment.getIit(startDate, endDate);
+		HashSet<Patient> interruptedInTreatmentPatients = getInterruptedInTreatment.getIit(startDate, endDate);
 		
-		allPatientsSet.removeAll(deceasedPatients);
-		allPatientsSet.removeAll(transferredOutPatients);
-		allPatientsSet.removeAll(iitPatients);
+		txCurrPatients.removeAll(interruptedInTreatmentPatients);
 		
-		// Convert patients to PatientEnrollmentData format
-		List<GetTxNew.PatientEnrollmentData> result = new ArrayList<>();
-		for (Patient patient : allPatientsSet) {
-			Obs enrollmentObs = getEnrollmentObsForPatient(patient);
-			if (enrollmentObs != null) {
-				result.add(new GetTxNew.PatientEnrollmentData(patient, enrollmentObs.getValueDate()));
+		// Transform patients into PatientEnrollmentData objects
+		List<GetTxNew.PatientEnrollmentData> filteredClients = new ArrayList<>();
+		for (Patient patient : txCurrPatients) {
+			String artStartDateString = getEnrollmentDate.getARTStartDate(patient, endDate);
+			if (artStartDateString != null && !artStartDateString.isEmpty()) {
+				try {
+					Date artStartDate = new SimpleDateFormat("dd-MM-yyyy").parse(artStartDateString);
+					if (!artStartDate.after(endDate)) {
+						GetTxNew.PatientEnrollmentData patientData = new GetTxNew.PatientEnrollmentData(patient,
+						        artStartDate);
+						filteredClients.add(patientData);
+					}
+				}
+				catch (ParseException e) {
+					System.err.println("Failed to parse ART start date for patient " + patient.getPatientId());
+				}
 			}
 		}
 		
-		// Remove duplicates and return the final list
-		return new ArrayList<>(new LinkedHashSet<>(result));
-		
-	}
-	
-	private Obs getEnrollmentObsForPatient(Patient patient) {
-		Concept enrollmentConcept = Context.getConceptService().getConceptByUuid(DATE_OF_ART_INITIATION_CONCEPT_UUID);
-		List<Obs> enrollmentObs = Context.getObsService().getObservationsByPersonAndConcept(patient, enrollmentConcept);
-		return enrollmentObs.stream().findFirst().orElse(null);
+		return filteredClients;
 	}
 }

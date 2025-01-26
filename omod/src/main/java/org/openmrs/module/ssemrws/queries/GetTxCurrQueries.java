@@ -24,25 +24,37 @@ public class GetTxCurrQueries {
 		this.fetchPatientsByIdentifier = fetchPatientsByIdentifier;
 	}
 	
-	public HashSet<Patient> getTxCurr(Date startDate, Date endDate) {
-		List<Integer> patientIds = executeTxCurrQuery(startDate, endDate);
+	public HashSet<Patient> getTxCurr(Date endDate) {
+		List<Integer> patientIds = executeTxCurrQuery(endDate);
 		return fetchPatientsByIdentifier.fetchPatientsIds(patientIds);
 	}
 	
-	private List<Integer> executeTxCurrQuery(Date startDate, Date endDate) {
-		String baseQuery = "SELECT DISTINCT fp.patient_id " + "FROM openmrs.patient_appointment fp "
-		        + "JOIN openmrs.person p ON fp.patient_id = p.person_id "
-		        + "JOIN openmrs.obs obs ON obs.person_id = p.person_id "
-		        + "WHERE obs.concept_id = (SELECT concept_id FROM openmrs.concept WHERE uuid = :enrollmentUuid) "
-		        + "AND obs.value_datetime IS NOT NULL " + "AND (fp.start_date_time >= :currentDate "
-		        + "     OR (fp.start_date_time BETWEEN :startDate AND :endDate "
-		        + "         AND DATE(fp.start_date_time) >= CURRENT_DATE - INTERVAL 28 DAY))";
+	public List<Integer> executeTxCurrQuery(Date endDate) {
+		String sql = "SELECT DISTINCT p.patient_id " + "FROM openmrs.patient_appointment p " + "JOIN ( "
+		        + "    SELECT client_id, art_start_date "
+		        + "    FROM ssemr_etl.ssemr_flat_encounter_personal_family_tx_history " + "    UNION "
+		        + "    SELECT client_id, art_start_date "
+		        + "    FROM ssemr_etl.ssemr_flat_encounter_adult_and_adolescent_intake " + "    UNION "
+		        + "    SELECT client_id, art_start_date "
+		        + "    FROM ssemr_etl.ssemr_flat_encounter_pediatric_intake_report " + ") tx ON tx.client_id = p.patient_id "
+		        + "LEFT JOIN ( " + "    SELECT client_id, transfer_out, death, client_refused_treatment "
+		        + "    FROM ssemr_etl.ssemr_flat_encounter_end_of_follow_up " + ") f ON f.client_id = p.patient_id "
+		        + "WHERE tx.art_start_date IS NOT NULL " + "  AND ( " + "      EXISTS ( " + "          SELECT 1 "
+		        + "          FROM openmrs.patient_appointment future_appointments "
+		        + "          WHERE future_appointments.patient_id = p.patient_id "
+		        + "            AND future_appointments.start_date_time > :endDate " + "      ) "
+		        + "      OR (p.status = 'Missed' AND DATEDIFF(:endDate, p.start_date_time) <= 28) "
+		        + "      OR DATE(p.start_date_time) = DATE(:endDate) " + "  ) "
+		        + "  AND DATE(tx.art_start_date) <= DATE(:endDate) " + "  AND (f.death IS NULL OR f.death != 'Yes') "
+		        + "  AND (f.transfer_out IS NULL OR f.transfer_out != 'Yes') "
+		        + "  AND (f.client_refused_treatment IS NULL OR f.client_refused_treatment != 'Yes') "
+		        + "ORDER BY p.patient_id ASC";
 		
-		Query query = entityManager.createNativeQuery(baseQuery)
-		        .setParameter("enrollmentUuid", AllConcepts.DATE_OF_ART_INITIATION_CONCEPT_UUID)
-		        .setParameter("currentDate", new Date()).setParameter("startDate", startDate)
-		        .setParameter("endDate", endDate);
+		Query query = entityManager.createNativeQuery(sql).setParameter("endDate", endDate);
 		
-		return query.getResultList();
+		@SuppressWarnings("unchecked")
+		List<Integer> patientIds = query.getResultList();
+		
+		return patientIds;
 	}
 }

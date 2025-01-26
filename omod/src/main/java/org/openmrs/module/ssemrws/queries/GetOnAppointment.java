@@ -20,41 +20,20 @@ public class GetOnAppointment {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
-	// Method to fetch the list of IIT patients
 	public HashSet<Patient> getOnAppoinment(Date startDate, Date endDate) {
-		List<Integer> iitIds = (List<Integer>) executePatientQuery(startDate, endDate, false, "Scheduled", false, false);
-		return fetchPatientsByIds(iitIds);
+		// Execute the query
+		List<Integer> patientIds = (List<Integer>) executePatientQuery(startDate, endDate, false);
+		return fetchPatientsByIds(patientIds);
 	}
 	
-	private Object executePatientQuery(Date startDate, Date endDate, boolean isCountQuery, String status,
-	        boolean useCutoffDate, boolean isIit) {
-		String baseQuery = getQueryString(isCountQuery, status, useCutoffDate, isIit);
+	private Object executePatientQuery(Date startDate, Date endDate, boolean isCountQuery) {
+		String baseQuery = getQueryString(isCountQuery);
 		
 		try {
 			// Create and configure the query
 			Query query = entityManager.createNativeQuery(baseQuery).setParameter("startDate", startDate)
 			        .setParameter("endDate", endDate);
 			
-			// Set the status parameter if required
-			if (status != null) {
-				query.setParameter("status", status);
-			}
-			
-			// Set the cutoff date if required
-			if (useCutoffDate) {
-				// Calculate the cutoff date (28 days ago from today)
-				Calendar calendar = Calendar.getInstance();
-				calendar.add(Calendar.DAY_OF_YEAR, -28);
-				Date cutoffDate = calendar.getTime();
-				
-				if (isIit) {
-					query.setParameter("cutoffDate", cutoffDate);
-				} else {
-					query.setParameter("cutoffDate", cutoffDate);
-				}
-			}
-			
-			// Execute the query based on `isCountQuery`
 			if (isCountQuery) {
 				BigInteger totalCount = (BigInteger) query.getSingleResult();
 				return totalCount.intValue();
@@ -63,31 +42,19 @@ public class GetOnAppointment {
 			}
 		}
 		catch (Exception e) {
-			// Log the error and rethrow a runtime exception
 			System.err.println("Error executing patient query: " + e.getMessage());
 			throw new RuntimeException("Failed to execute patient query", e);
 		}
 	}
 	
-	private static String getQueryString(boolean isCountQuery, String status, boolean useCutoffDate, boolean isIit) {
-		String selectClause = isCountQuery ? "count(distinct fp.patient_id)" : "distinct fp.patient_id";
+	private static String getQueryString(boolean isCountQuery) {
+		String selectClause = isCountQuery ? "COUNT(DISTINCT fp.patient_id)" : "DISTINCT fp.patient_id";
 		
-		// Start constructing the query
-		String baseQuery = "select " + selectClause + " from openmrs.patient_appointment fp "
-		        + "join openmrs.person p on fp.patient_id = p.person_id "
-		        + (status != null ? "where fp.status = :status " : "where 1=1 ");
+		// Base query to fetch patients based on appointment dates
+		String baseQuery = "SELECT " + selectClause + " " + "FROM openmrs.patient_appointment fp "
+		        + "JOIN openmrs.person p ON fp.patient_id = p.person_id " + "WHERE fp.start_date_time >= :startDate "
+		        + "  AND fp.start_date_time < DATE_ADD(:endDate, INTERVAL 1 DAY)";
 		
-		if (useCutoffDate) {
-			if (isIit) {
-				// IIT: missed appointment more than 28 days ago
-				baseQuery += "and fp.start_date_time < :cutoffDate ";
-			} else {
-				// Missed appointment within the past 28 days
-				baseQuery += "and fp.start_date_time >= :cutoffDate ";
-			}
-		}
-		
-		baseQuery += "and fp.start_date_time between :startDate and :endDate";
 		return baseQuery;
 	}
 }

@@ -511,7 +511,7 @@ public class SharedConstants {
 		
 		List<Obs> deceasedPatientsObs = Context.getObsService().getObservations(null, null,
 		    Collections.singletonList(deceasedConcept), Collections.singletonList(yesConcept), null, null, null, null, null,
-		    startDate, endDate, false);
+		    null, endDate, false);
 		
 		HashSet<Patient> deadPatients = new HashSet<>();
 		
