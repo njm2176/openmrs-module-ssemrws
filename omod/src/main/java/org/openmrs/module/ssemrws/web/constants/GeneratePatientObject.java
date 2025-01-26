@@ -4,6 +4,8 @@ import org.codehaus.jackson.node.ArrayNode;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.Patient;
+import org.openmrs.module.ssemrws.queries.GetDatePatientBecameIIT;
+import org.openmrs.module.ssemrws.queries.GetEnrollmentDate;
 import org.openmrs.module.ssemrws.queries.GetNextAppointmentDate;
 import org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController;
 import org.springframework.stereotype.Component;
@@ -18,8 +20,15 @@ public class GeneratePatientObject {
 	
 	private final GetNextAppointmentDate getNextAppointmentDate;
 	
-	public GeneratePatientObject(GetNextAppointmentDate getNextAppointmentDate) {
+	private final GetDatePatientBecameIIT getDatePatientBecameIIT;
+	
+	private final GetEnrollmentDate getEnrollmentDate;
+	
+	public GeneratePatientObject(GetNextAppointmentDate getNextAppointmentDate,
+	    GetDatePatientBecameIIT getDatePatientBecameIIT, GetEnrollmentDate getEnrollmentDate) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
+		this.getDatePatientBecameIIT = getDatePatientBecameIIT;
+		this.getEnrollmentDate = getEnrollmentDate;
 	}
 	
 	public ObjectNode generatePatientObject(Date startDate, Date endDate,
@@ -33,6 +42,7 @@ public class GeneratePatientObject {
 		String dateReturnedToTreatment = getReturnToTreatmentDate(patient);
 		String lastRefillDate = getLastRefillDate(patient);
 		String artAppointmentDate = getNextAppointmentDate.getNextArtAppointmentDate(patient);
+		String iitDate = String.valueOf(getDatePatientBecameIIT.getIitDateForPatient(patient, startDate, endDate));
 		String contact = patient.getAttribute("Client Telephone Number") != null
 		        ? String.valueOf(patient.getAttribute("Client Telephone Number"))
 		        : "";
@@ -67,6 +77,7 @@ public class GeneratePatientObject {
 		patientObj.put("datePatientDied", datePatientDied);
 		patientObj.put("datePatientTransferredOut", datePatientTransferredOut);
 		patientObj.put("dateReturnedToTreatment", dateReturnedToTreatment);
+		patientObj.put("dateClientBecameIIT", iitDate);
 		
 		// Check filter category and return only the matching patients
 		if (filterCategory != null) {

@@ -62,6 +62,8 @@ public class SSEMRWebServicesController {
 	
 	private final GetInterruptedInTreatment getInterruptedInTreatment;
 	
+	private final GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange;
+	
 	private final GetMissedAppointments getMissedAppointments;
 	
 	private final GetTxCurrQueries getTxCurr;
@@ -80,14 +82,19 @@ public class SSEMRWebServicesController {
 	
 	private final GetVLDueDate getVLDueDate;
 	
+	private final GetTxCurr getTxCurrMain;
+	
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
 	    GeneratePatientListObject getPatientListObjectList, GetInterruptedInTreatment getInterruptedInTreatment,
+	    GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange,
 	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GenerateSummaryResponse getSummaryResponse,
 	    GetDueForVL getDueForVl, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
-	    SharedConstants sharedConstants, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate) {
+	    SharedConstants sharedConstants, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate,
+	    GetTxCurr getTxCurrMain) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getPatientListObjectList = getPatientListObjectList;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
+		this.getInterruptedInTreatmentWithinRange = getInterruptedInTreatmentWithinRange;
 		this.getMissedAppointments = getMissedAppointments;
 		this.getTxCurr = getTxCurr;
 		this.getSummaryResponse = getSummaryResponse;
@@ -97,6 +104,7 @@ public class SSEMRWebServicesController {
 		this.sharedConstants = sharedConstants;
 		this.getPatientRegimens = getPatientRegimens;
 		this.getVLDueDate = getVLDueDate;
+		this.getTxCurrMain = getTxCurrMain;
 	}
 	
 	public enum filterCategory {
@@ -189,6 +197,41 @@ public class SSEMRWebServicesController {
 		List<Patient> iitList = new ArrayList<>(interruptedInTreatmentPatients);
 		
 		return fetchAndPaginatePatients(iitList, page, size, totalPatients, dates[0], dates[1], filterCategory);
+	}
+	
+	/**
+	 * Handles the HTTP GET request to retrieve patients who have experienced an interruption in their
+	 * treatment. This method filters encounters based on ART treatment interruption encounter types and
+	 * aggregates patients who have had such encounters within the specified date range. It aims to
+	 * identify patients who might need follow-up or intervention due to treatment interruption.
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/interruptedInTreatmentWithinRange")
+	@ResponseBody
+	public Object getPatientsInterruptedInTreatmentWithinRange(HttpServletRequest request,
+	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
+	        @RequestParam(value = "page", required = false) Integer page,
+	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
+		
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
+		
+		if (page == null)
+			page = 0;
+		if (size == null)
+			size = 15;
+		
+		HashSet<Patient> iitWithinRangePatients = getInterruptedInTreatmentWithinRange.getIitWithinRange(dates[0], dates[1]);
+		
+		iitWithinRangePatients = iitWithinRangePatients.stream()
+		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
+		        .collect(Collectors.toCollection(HashSet::new));
+		
+		int totalPatients = iitWithinRangePatients.size();
+		
+		List<Patient> iitWithinRangeList = new ArrayList<>(iitWithinRangePatients);
+		
+		return fetchAndPaginatePatients(iitWithinRangeList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -463,16 +506,19 @@ public class SSEMRWebServicesController {
 	public Object getPatientsOnAdultRegimenTreatment(HttpServletRequest request,
 	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
+		
+		// Get txCurrPatients within the date range
+		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurrMain.getTxCurrPatients(startDate, endDate);
 		
 		return getPatientRegimens.getPatientsOnRegimenTreatment(qStartDate, qEndDate,
 		    Arrays.asList(regimen_1A, regimen_1B, regimen_1C, regimen_1D, regimen_1E, regimen_1F, regimen_1G, regimen_1H,
 		        regimen_1J, regimen_2A, regimen_2B, regimen_2C, regimen_2D, regimen_2E, regimen_2F, regimen_2G, regimen_2H,
 		        regimen_2I, regimen_2J, regimen_2K),
-		    ACTIVE_REGIMEN_CONCEPT_UUID);
+		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients);
 	}
-	
-	@Autowired
-	FacilityDashboardService facilityDashboardService;
 	
 	/**
 	 * Retrieves patients on children regimen treatment within a specified date range.
@@ -482,12 +528,18 @@ public class SSEMRWebServicesController {
 	public Object getPatientsOnChildRegimenTreatment(HttpServletRequest request,
 	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date startDate = dateTimeFormatter.parse(qStartDate);
+		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
-		return facilityDashboardService.getPatientsOnChildRegimenTreatment(qStartDate, qEndDate,
+		// Get txCurrPatients within the date range
+		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurrMain.getTxCurrPatients(startDate, endDate);
+		
+		return getPatientRegimens.getPatientsOnRegimenTreatment(qStartDate, qEndDate,
 		    Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
-		    ACTIVE_REGIMEN_CONCEPT_UUID);
+		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients);
 	}
 	
 	/**
@@ -819,14 +871,14 @@ public class SSEMRWebServicesController {
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
 		// Get all active clients for the entire period
-		HashSet<Patient> activeClientsEntirePeriod = getTxCurr.getTxCurr(dates[0], dates[1]);
+		HashSet<Patient> activeClientsEntirePeriod = getTxCurr.getTxCurr(dates[1]);
 		
 		// Get active clients for the last 30 days
 		Calendar last30DaysCal = Calendar.getInstance();
 		last30DaysCal.setTime(dates[1]);
 		last30DaysCal.add(Calendar.DAY_OF_MONTH, -30);
 		Date last30DaysStartDate = last30DaysCal.getTime();
-		HashSet<Patient> activeClientsLast30Days = getTxCurr.getTxCurr(last30DaysStartDate, dates[1]);
+		HashSet<Patient> activeClientsLast30Days = getTxCurr.getTxCurr(dates[1]);
 		
 		// Exclude active clients from the last 30 days
 		activeClientsEntirePeriod.removeAll(activeClientsLast30Days);
@@ -835,7 +887,7 @@ public class SSEMRWebServicesController {
 		int txCurrFirstTwoMonths = activeClientsEntirePeriod.size();
 		
 		// Get active clients for the third month
-		HashSet<Patient> activeClientsThirdMonth = getTxCurr.getTxCurr(dates[0], dates[1]);
+		HashSet<Patient> activeClientsThirdMonth = getTxCurr.getTxCurr(dates[1]);
 		
 		// TX_NEW is the new clients in the third month, excluding those from the first
 		// two months

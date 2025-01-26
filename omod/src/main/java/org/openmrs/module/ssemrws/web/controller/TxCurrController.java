@@ -1,7 +1,5 @@
 package org.openmrs.module.ssemrws.web.controller;
 
-import org.openmrs.Patient;
-import org.openmrs.module.ssemrws.queries.GetTxCurrQueries;
 import org.openmrs.module.ssemrws.web.constants.*;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.springframework.stereotype.Controller;

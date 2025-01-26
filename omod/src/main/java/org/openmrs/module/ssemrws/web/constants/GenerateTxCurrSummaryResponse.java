@@ -4,7 +4,6 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.Patient;
-import org.openmrs.module.ssemrws.constants.SharedConstants;
 import org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController;
 import org.springframework.stereotype.Component;
 
