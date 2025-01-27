@@ -2,9 +2,7 @@ package org.openmrs.module.ssemrws.web.constants;
 
 import org.openmrs.Concept;
 import org.openmrs.Obs;
-import org.openmrs.Patient;
 import org.openmrs.api.context.Context;
-import org.openmrs.module.ssemrws.queries.GetInterruptedInTreatment;
 import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
@@ -17,21 +15,9 @@ import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 @Component
 public class GetPatientRegimens {
 	
-	public Object getPatientsOnRegimenTreatment(String qStartDate, String qEndDate, List<String> regimenConceptUuids,
-	        String activeRegimenConceptUuid, List<GetTxNew.PatientEnrollmentData> txCurrPatients) throws ParseException {
-		
-		if (qStartDate == null || qStartDate.isEmpty()) {
-			throw new IllegalArgumentException("Start date cannot be null or empty");
-		}
-		if (qEndDate == null || qEndDate.isEmpty()) {
-			throw new IllegalArgumentException("End date cannot be null or empty");
-		}
-		if (regimenConceptUuids == null || regimenConceptUuids.isEmpty()) {
-			throw new IllegalArgumentException("Regimen concept UUIDs cannot be null or empty");
-		}
-		if (activeRegimenConceptUuid == null || activeRegimenConceptUuid.isEmpty()) {
-			throw new IllegalArgumentException("Active regimen concept UUID cannot be null or empty");
-		}
+	public Object getFilteredPatientsOnRegimenTreatment(String qStartDate, String qEndDate,
+	        List<String> adultRegimenConceptUuids, List<String> childRegimenConceptUuids, String activeRegimenConceptUuid,
+	        List<GetTxNew.PatientEnrollmentData> txCurrPatients, boolean isAdultCategory) throws ParseException {
 		
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
@@ -40,14 +26,23 @@ public class GetPatientRegimens {
 		Set<Integer> txCurrPatientIds = txCurrPatients.stream().map(data -> data.getPatient().getPatientId())
 		        .collect(Collectors.toSet());
 		
-		// Get regimen observations and filter them based on txCurr patients
-		List<Obs> regimenTreatmentObs = getRegimenTreatmentObservations(dates, regimenConceptUuids, activeRegimenConceptUuid)
-		        .stream().filter(obs -> txCurrPatientIds.contains(obs.getPerson().getPersonId()))
-		        .collect(Collectors.toList());
+		// Fetch both adult and child regimen observations
+		List<Obs> adultRegimenObs = getRegimenTreatmentObservations(dates, adultRegimenConceptUuids,
+		    activeRegimenConceptUuid);
+		List<Obs> childRegimenObs = getRegimenTreatmentObservations(dates, childRegimenConceptUuids,
+		    activeRegimenConceptUuid);
 		
-		Map<Integer, Obs> latestObsByPatient = getLatestObservationsByPatient(regimenTreatmentObs);
+		// Combine observations and determine the latest observation for each patient
+		Map<Integer, Obs> latestObsByPatient = getLatestObservationsAcrossCategories(txCurrPatientIds, adultRegimenObs,
+		    childRegimenObs);
 		
-		Map<String, Integer> regimenCounts = countRegimens(latestObsByPatient);
+		// Filter patients based on category (adult or child)
+		Map<Integer, Obs> filteredObsByPatient = latestObsByPatient.entrySet().stream().filter(
+		    entry -> isAdultCategory == adultRegimenConceptUuids.contains(entry.getValue().getValueCoded().getUuid()))
+		        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		
+		// Count regimens
+		Map<String, Integer> regimenCounts = countRegimens(filteredObsByPatient);
 		
 		return prepareResults(regimenCounts);
 	}
@@ -60,25 +55,38 @@ public class GetPatientRegimens {
 		    regimenConcepts, null, null, null, 0, null, null, dates[1], false);
 	}
 	
-	private Map<Integer, Obs> getLatestObservationsByPatient(List<Obs> regimenTreatmentObs) {
+	private Map<Integer, Obs> getLatestObservationsAcrossCategories(Set<Integer> txCurrPatientIds, List<Obs> adultRegimenObs,
+	        List<Obs> childRegimenObs) {
 		Map<Integer, Obs> latestObsByPatient = new HashMap<>();
-		for (Obs obs : regimenTreatmentObs) {
+		
+		// Combine adult and child observations into one list
+		List<Obs> allObservations = new ArrayList<>();
+		allObservations.addAll(adultRegimenObs);
+		allObservations.addAll(childRegimenObs);
+		
+		// Determine the latest observation for each patient
+		for (Obs obs : allObservations) {
 			Integer patientId = obs.getPerson().getPersonId();
-			if (!latestObsByPatient.containsKey(patientId)
-			        || obs.getObsDatetime().after(latestObsByPatient.get(patientId).getObsDatetime())) {
-				latestObsByPatient.put(patientId, obs);
+			if (txCurrPatientIds.contains(patientId)) {
+				if (!latestObsByPatient.containsKey(patientId)
+				        || obs.getObsDatetime().after(latestObsByPatient.get(patientId).getObsDatetime())) {
+					latestObsByPatient.put(patientId, obs);
+				}
 			}
 		}
+		
 		return latestObsByPatient;
 	}
 	
 	private Map<String, Integer> countRegimens(Map<Integer, Obs> latestObsByPatient) {
 		Map<String, Integer> regimenCounts = new HashMap<>();
 		for (Obs obs : latestObsByPatient.values()) {
-			Concept regimenConcept = obs.getValueCoded();
-			if (regimenConcept != null && regimenConcept.getName() != null) {
-				String conceptName = regimenConcept.getName().getName();
-				regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
+			if (obs != null) {
+				Concept regimenConcept = obs.getValueCoded();
+				if (regimenConcept != null && regimenConcept.getName() != null) {
+					String conceptName = regimenConcept.getName().getName();
+					regimenCounts.put(conceptName, regimenCounts.getOrDefault(conceptName, 0) + 1);
+				}
 			}
 		}
 		return regimenCounts;
@@ -97,16 +105,5 @@ public class GetPatientRegimens {
 		
 		results.put("results", regimenList);
 		return results;
-	}
-	
-	private Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
-	        throws ParseException {
-		Date startDate = dateTimeFormatter.parse(qStartDate);
-		Date endDate = dateTimeFormatter.parse(qEndDate);
-		return new Date[] { startDate, endDate };
-	}
-	
-	private List<Concept> getConceptsByUuids(List<String> conceptUuids) {
-		return conceptUuids.stream().map(Context.getConceptService()::getConceptByUuid).collect(Collectors.toList());
 	}
 }
