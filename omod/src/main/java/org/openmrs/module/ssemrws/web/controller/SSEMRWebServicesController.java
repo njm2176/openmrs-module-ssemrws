@@ -405,12 +405,6 @@ public class SSEMRWebServicesController {
 		
 		HashSet<Patient> transferredOutPatients = getTransferredOutClients(dates[0], dates[1]);
 		
-		// Filter out patients who have an upcoming appointment
-		transferredOutPatients.removeIf(patient -> {
-			String nextAppointmentDate = getNextAppointmentDate.getNextAppointmentDateByUuid(patient.getUuid());
-			return !nextAppointmentDate.equals("No Upcoming Appointments");
-		});
-		
 		transferredOutPatients = transferredOutPatients.stream()
 		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
 		        .collect(Collectors.toCollection(HashSet::new));

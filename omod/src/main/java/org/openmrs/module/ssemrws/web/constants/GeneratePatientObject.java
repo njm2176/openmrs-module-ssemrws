@@ -7,6 +7,7 @@ import org.openmrs.Patient;
 import org.openmrs.module.ssemrws.queries.GetDatePatientBecameIIT;
 import org.openmrs.module.ssemrws.queries.GetEnrollmentDate;
 import org.openmrs.module.ssemrws.queries.GetNextAppointmentDate;
+import org.openmrs.module.ssemrws.queries.GetVLDueDate;
 import org.openmrs.module.ssemrws.web.controller.SSEMRWebServicesController;
 import org.springframework.stereotype.Component;
 
@@ -22,12 +23,15 @@ public class GeneratePatientObject {
 	
 	private final GetDatePatientBecameIIT getDatePatientBecameIIT;
 	
+	private final GetVLDueDate getVLDueDate;
+	
 	private final GetEnrollmentDate getEnrollmentDate;
 	
 	public GeneratePatientObject(GetNextAppointmentDate getNextAppointmentDate,
-	    GetDatePatientBecameIIT getDatePatientBecameIIT, GetEnrollmentDate getEnrollmentDate) {
+	    GetDatePatientBecameIIT getDatePatientBecameIIT, GetVLDueDate getVLDueDate, GetEnrollmentDate getEnrollmentDate) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getDatePatientBecameIIT = getDatePatientBecameIIT;
+		this.getVLDueDate = getVLDueDate;
 		this.getEnrollmentDate = getEnrollmentDate;
 	}
 	
@@ -43,6 +47,7 @@ public class GeneratePatientObject {
 		String lastRefillDate = getLastRefillDate(patient);
 		String artAppointmentDate = getNextAppointmentDate.getNextArtAppointmentDate(patient);
 		String iitDate = String.valueOf(getDatePatientBecameIIT.getIitDateForPatient(patient, startDate, endDate));
+		String vlDueDate = getVLDueDate.getVLDueDate(patient);
 		String contact = patient.getAttribute("Client Telephone Number") != null
 		        ? String.valueOf(patient.getAttribute("Client Telephone Number"))
 		        : "";
@@ -78,6 +83,7 @@ public class GeneratePatientObject {
 		patientObj.put("datePatientTransferredOut", datePatientTransferredOut);
 		patientObj.put("dateReturnedToTreatment", dateReturnedToTreatment);
 		patientObj.put("dateClientBecameIIT", iitDate);
+		patientObj.put("vlDueDate", vlDueDate);
 		
 		// Check filter category and return only the matching patients
 		if (filterCategory != null) {
