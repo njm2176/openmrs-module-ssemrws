@@ -500,6 +500,7 @@ public class SSEMRWebServicesController {
 	public Object getPatientsOnAdultRegimenTreatment(HttpServletRequest request,
 	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
@@ -507,21 +508,25 @@ public class SSEMRWebServicesController {
 		// Get txCurrPatients within the date range
 		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurrMain.getTxCurrPatients(startDate, endDate);
 		
-		return getPatientRegimens.getPatientsOnRegimenTreatment(qStartDate, qEndDate,
+		// Fetch adult and child regimens
+		return getPatientRegimens.getFilteredPatientsOnRegimenTreatment(qStartDate, qEndDate,
 		    Arrays.asList(regimen_1A, regimen_1B, regimen_1C, regimen_1D, regimen_1E, regimen_1F, regimen_1G, regimen_1H,
 		        regimen_1J, regimen_2A, regimen_2B, regimen_2C, regimen_2D, regimen_2E, regimen_2F, regimen_2G, regimen_2H,
 		        regimen_2I, regimen_2J, regimen_2K),
-		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients);
+		    Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
+		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
+		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
+		    // regimens
+		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, true
+		);
 	}
 	
-	/**
-	 * Retrieves patients on children regimen treatment within a specified date range.
-	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/childRegimenTreatment")
 	@ResponseBody
 	public Object getPatientsOnChildRegimenTreatment(HttpServletRequest request,
 	        @RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
+		
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
@@ -529,11 +534,17 @@ public class SSEMRWebServicesController {
 		// Get txCurrPatients within the date range
 		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurrMain.getTxCurrPatients(startDate, endDate);
 		
-		return getPatientRegimens.getPatientsOnRegimenTreatment(qStartDate, qEndDate,
+		// Fetch adult and child regimens
+		return getPatientRegimens.getFilteredPatientsOnRegimenTreatment(qStartDate, qEndDate,
+		    Arrays.asList(regimen_1A, regimen_1B, regimen_1C, regimen_1D, regimen_1E, regimen_1F, regimen_1G, regimen_1H,
+		        regimen_1J, regimen_2A, regimen_2B, regimen_2C, regimen_2D, regimen_2E, regimen_2F, regimen_2G, regimen_2H,
+		        regimen_2I, regimen_2J, regimen_2K),
 		    Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
-		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients);
+		    // regimens
+		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, false
+		);
 	}
 	
 	/**
