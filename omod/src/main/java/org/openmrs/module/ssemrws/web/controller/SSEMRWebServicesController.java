@@ -517,8 +517,7 @@ public class SSEMRWebServicesController {
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
 		    // regimens
-		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, true
-		);
+		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, true);
 	}
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/childRegimenTreatment")
@@ -543,8 +542,7 @@ public class SSEMRWebServicesController {
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
 		    // regimens
-		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, false
-		);
+		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, false);
 	}
 	
 	/**

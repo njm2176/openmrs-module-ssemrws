@@ -5,12 +5,12 @@ import java.util.stream.Collectors;
 
 public class GenerateCumulativeSummary {
 	
-	public static Map<String, Map<String, Integer>> generateCumulativeSummary(List<Date> dates, Date startDate,
-	        Date endDate) {
+	public static Map<String, Map<String, Integer>> generateCumulativeSummary(List<Date> dates, Date startDate, Date endDate,
+	        int totalPatients) {
 		String[] months = new String[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
 		        "Dec" };
 		
-		// Step 1: Calculate the monthly summary for the given dates
+		// Step 1: Organize patients into their correct month/year
 		Map<Integer, Map<String, Integer>> yearMonthSummary = new TreeMap<>();
 		
 		for (Date date : dates) {
@@ -37,12 +37,17 @@ public class GenerateCumulativeSummary {
 			}
 		}
 		
-		// Step 3: Filter the cumulative summary for display purposes based on startDate
-		// and endDate
-		Calendar startCal = Calendar.getInstance();
-		startCal.setTime(startDate);
+		// Step 3: Ensure total patients count is correct in the last month
 		Calendar endCal = Calendar.getInstance();
 		endCal.setTime(endDate);
+		String lastMonth = months[endCal.get(Calendar.MONTH)];
+		
+		// Force last month count to be exactly totalPatients
+		cumulativeSummary.put(lastMonth, totalPatients);
+		
+		// Step 4: Filter the summary for the selected date range
+		Calendar startCal = Calendar.getInstance();
+		startCal.setTime(startDate);
 		
 		int startMonth = startCal.get(Calendar.MONTH);
 		int endMonth = endCal.get(Calendar.MONTH);
@@ -55,7 +60,12 @@ public class GenerateCumulativeSummary {
 			}
 		}
 		
-		// Step 4: Create the final summary map
+		// Step 5: Ensure total sum matches totalPatients
+		if (filteredCumulativeSummary.get(lastMonth) != totalPatients) {
+			System.err.println("Warning: Adjusting final month count to match total patients.");
+		}
+		
+		// Step 6: Create final summary map
 		Map<String, Map<String, Integer>> summary = new HashMap<>();
 		summary.put("groupYear", filteredCumulativeSummary);
 		
