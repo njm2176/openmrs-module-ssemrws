@@ -505,6 +505,12 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
+		// Add 23 hours to endDate
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.add(Calendar.HOUR_OF_DAY, 23);
+		endDate = calendar.getTime();
+		
 		// Get txCurrPatients within the date range
 		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurrMain.getTxCurrPatients(startDate, endDate);
 		
@@ -516,7 +522,6 @@ public class SSEMRWebServicesController {
 		    Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
-		    // regimens
 		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, true);
 	}
 	
@@ -530,6 +535,12 @@ public class SSEMRWebServicesController {
 		Date startDate = dateTimeFormatter.parse(qStartDate);
 		Date endDate = dateTimeFormatter.parse(qEndDate);
 		
+		// Add 23 hours to endDate
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.add(Calendar.HOUR_OF_DAY, 23);
+		endDate = calendar.getTime();
+		
 		// Get txCurrPatients within the date range
 		List<GetTxNew.PatientEnrollmentData> txCurrPatients = getTxCurrMain.getTxCurrPatients(startDate, endDate);
 		
@@ -541,7 +552,6 @@ public class SSEMRWebServicesController {
 		    Arrays.asList(regimen_4A, regimen_4B, regimen_4C, regimen_4D, regimen_4E, regimen_4F, regimen_4G, regimen_4H,
 		        regimen_4I, regimen_4J, regimen_4K, regimen_4L, regimen_5A, regimen_5B, regimen_5C, regimen_5D, regimen_5E,
 		        regimen_5F, regimen_5G, regimen_5H, regimen_5I, regimen_5J),
-		    // regimens
 		    ACTIVE_REGIMEN_CONCEPT_UUID, txCurrPatients, false);
 	}
 	

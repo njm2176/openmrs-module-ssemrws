@@ -106,4 +106,24 @@ public class GetPatientRegimens {
 		results.put("results", regimenList);
 		return results;
 	}
+	
+	public static Date[] getStartAndEndDate(String qStartDate, String qEndDate, SimpleDateFormat dateTimeFormatter)
+	        throws ParseException {
+		Date endDate = (qEndDate != null) ? dateTimeFormatter.parse(qEndDate) : new Date();
+		
+		// Extend endDate to 23:59:59
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(endDate);
+		calendar.set(Calendar.HOUR_OF_DAY, 23);
+		calendar.set(Calendar.MINUTE, 59);
+		calendar.set(Calendar.SECOND, 59);
+		calendar.set(Calendar.MILLISECOND, 999);
+		endDate = calendar.getTime();
+		
+		// Set startDate correctly
+		calendar.set(Calendar.DAY_OF_MONTH, 1);
+		Date startDate = (qStartDate != null) ? dateTimeFormatter.parse(qStartDate) : calendar.getTime();
+		
+		return new Date[] { startDate, endDate };
+	}
 }
