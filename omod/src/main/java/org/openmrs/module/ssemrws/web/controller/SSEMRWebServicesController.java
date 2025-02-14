@@ -21,19 +21,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
-import org.openmrs.module.ssemrws.constants.SharedConstants;
 import org.openmrs.module.ssemrws.queries.*;
-import org.openmrs.module.ssemrws.service.FacilityDashboardService;
 import org.openmrs.module.ssemrws.web.constants.*;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,7 +42,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
-import static org.openmrs.module.ssemrws.web.constants.ViralLoadCascade.getViralLoadCascade;
 
 /**
  * This class configured as controller using annotation and mapped with the URL of
@@ -58,8 +53,6 @@ public class SSEMRWebServicesController {
 	
 	private final GetNextAppointmentDate getNextAppointmentDate;
 	
-	private final GeneratePatientListObject getPatientListObjectList;
-	
 	private final GetInterruptedInTreatment getInterruptedInTreatment;
 	
 	private final GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange;
@@ -68,15 +61,9 @@ public class SSEMRWebServicesController {
 	
 	private final GetTxCurrQueries getTxCurr;
 	
-	private final GenerateSummaryResponse getSummaryResponse;
-	
-	private final GetDueForVL getDueForVl;
-	
 	private final GetOnAppointment getOnAppoinment;
 	
 	private final GetAllPatients getAllPatients;
-	
-	private final SharedConstants sharedConstants;
 	
 	private final GetPatientRegimens getPatientRegimens;
 	
@@ -85,23 +72,18 @@ public class SSEMRWebServicesController {
 	private final GetTxCurr getTxCurrMain;
 	
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
-	    GeneratePatientListObject getPatientListObjectList, GetInterruptedInTreatment getInterruptedInTreatment,
+	    GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange,
-	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GenerateSummaryResponse getSummaryResponse,
-	    GetDueForVL getDueForVl, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
-	    SharedConstants sharedConstants, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate,
+	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GetOnAppointment getOnAppoinment,
+	    GetAllPatients getAllPatients, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate,
 	    GetTxCurr getTxCurrMain) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
-		this.getPatientListObjectList = getPatientListObjectList;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getInterruptedInTreatmentWithinRange = getInterruptedInTreatmentWithinRange;
 		this.getMissedAppointments = getMissedAppointments;
 		this.getTxCurr = getTxCurr;
-		this.getSummaryResponse = getSummaryResponse;
-		this.getDueForVl = getDueForVl;
 		this.getOnAppoinment = getOnAppoinment;
 		this.getAllPatients = getAllPatients;
-		this.sharedConstants = sharedConstants;
 		this.getPatientRegimens = getPatientRegimens;
 		this.getVLDueDate = getVLDueDate;
 		this.getTxCurrMain = getTxCurrMain;
@@ -114,29 +96,6 @@ public class SSEMRWebServicesController {
 	
 	@PersistenceContext
 	private EntityManager entityManager;
-	
-	private Object fetchAndPaginatePatients(List<Patient> patientList, int page, int size, int totalCount, Date startDate,
-	        Date endDate, filterCategory filterCategory) {
-		
-		if (page < 0 || size <= 0) {
-			return "Invalid page or size value. Page must be >= 0 and size must be > 0.";
-		}
-		
-		int fromIndex = page * size;
-		if (fromIndex >= patientList.size()) {
-			return "Page out of bounds. Please check the page number and size.";
-		}
-		
-		int toIndex = Math.min((page + 1) * size, patientList.size());
-		
-		List<Patient> paginatedPatients = patientList.subList(fromIndex, toIndex);
-		
-		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
-		allPatientsObj.put("totalPatients", totalCount);
-		
-		return getPatientListObjectList.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate,
-		    filterCategory, allPatientsObj);
-	}
 	
 	/**
 	 * Retrieves all patients from the system, applying pagination and filtering options.
@@ -343,40 +302,6 @@ public class SSEMRWebServicesController {
 	}
 	
 	/**
-	 * Handles the HTTP GET request for retrieving the list of patients who are due for viral load
-	 * testing.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/dueForVl")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getPatientsDueForVl(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(value = "page", required = false) Integer page,
-	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
-		
-		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-		
-		if (page == null)
-			page = 0;
-		if (size == null)
-			size = 15;
-		
-		HashSet<Patient> dueForVlClients = getDueForVl.getDueForVl(dates[0], dates[1]);
-		
-		dueForVlClients = dueForVlClients.stream()
-		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
-		        .collect(Collectors.toCollection(HashSet::new));
-		
-		int totalPatients = dueForVlClients.size();
-		
-		List<Patient> dueForVlList = new ArrayList<>(dueForVlClients);
-		
-		return paginateAndGenerateSummary(dueForVlList, page, size, totalPatients, dates[0], dates[1], filterCategory);
-	}
-	
-	/**
 	 * This method handles the HTTP GET request for retrieving the list of patients who have been
 	 * transferred out.
 	 * 
@@ -452,44 +377,6 @@ public class SSEMRWebServicesController {
 		List<Patient> deceasedList = new ArrayList<>(deceasedPatients);
 		
 		return fetchAndPaginatePatients(deceasedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
-	}
-	
-	/**
-	 * Handles the HTTP GET request to retrieve patients with high viral load values within a specified
-	 * date range. This method filters patients based on their viral load observations, identifying
-	 * those with values above a predefined threshold.
-	 * 
-	 * @return A JSON representation of the list of patients with high viral load, including summary
-	 *         information about each patient.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/highVl")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getPatientsOnHighVl(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(value = "page", required = false) Integer page,
-	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
-		
-		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-		
-		if (page == null)
-			page = 0;
-		if (size == null)
-			size = 15;
-		
-		HashSet<Patient> highVLPatients = getPatientsWithHighVL(dates[0], dates[1]);
-		
-		highVLPatients = highVLPatients.stream()
-		        .filter(patient -> FilterUtility.applyFilter(patient, filterCategory, dates[1]))
-		        .collect(Collectors.toCollection(HashSet::new));
-		
-		int totalPatients = highVLPatients.size();
-		
-		List<Patient> highVlList = new ArrayList<>(highVLPatients);
-		
-		return fetchAndPaginatePatients(highVlList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
 	/**
@@ -597,217 +484,6 @@ public class SSEMRWebServicesController {
 		return paginateAndGenerateSummary(underCareList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
-	/**
-	 * Retrieves patients with Viral Load Sample collections within a specified date range.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSamplesCollected")
-	@ResponseBody
-	public String getViralLoadSamplesCollected(HttpServletRequest request,
-	        @RequestParam(value = "startDate") String qStartDate, @RequestParam(value = "endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
-		try {
-			SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-			Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-			
-			EncounterType viralLoadEncounterType = Context.getEncounterService()
-			        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, dates[0], dates[1],
-			        null, null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
-			List<Encounter> viralLoadSampleEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
-			
-			Concept sampleCollectionDateConcept = Context.getConceptService().getConceptByUuid(SAMPLE_COLLECTION_DATE_UUID);
-			List<Obs> sampleCollectionDateObs = Context.getObsService().getObservations(null, viralLoadSampleEncounters,
-			    Collections.singletonList(sampleCollectionDateConcept), null, null, null, null, null, null, dates[0],
-			    dates[1], false);
-			
-			// Generate the summary data
-			Object summaryData = generateDashboardSummaryFromObs(dates[0], dates[1], sampleCollectionDateObs,
-			    filterCategory);
-			
-			// Convert the summary data to JSON format
-			ObjectMapper objectMapper = new ObjectMapper();
-			
-			return objectMapper.writeValueAsString(summaryData);
-			
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
-	
-	/**
-	 * Retrieves patients with Viral Load results within a specified date range.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadResults")
-	// gets all visit forms for a patient
-	@ResponseBody
-	public Object getViralLoadResults(HttpServletRequest request, @RequestParam(value = "startDate") String qStartDate,
-	        @RequestParam(value = "endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) {
-		try {
-			SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-			Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-			
-			EncounterType viralLoadEncounterType = Context.getEncounterService()
-			        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-			if (viralLoadEncounterType == null) {
-				throw new RuntimeException("Encounter type not found: " + FOLLOW_UP_FORM_ENCOUNTER_TYPE);
-			}
-			
-			EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, dates[0], dates[1],
-			        null, null, Collections.singletonList(viralLoadEncounterType), null, null, null, false);
-			List<Encounter> viralLoadSampleEncounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
-			if (viralLoadSampleEncounters == null || viralLoadSampleEncounters.isEmpty()) {
-				throw new RuntimeException("No encounters found for criteria");
-			}
-			
-			Concept viralLoadResultConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
-			if (viralLoadResultConcept == null) {
-				throw new RuntimeException("Concept not found: " + VIRAL_LOAD_RESULTS_UUID);
-			}
-			
-			List<Obs> viralLoadResultObs = Context.getObsService().getObservations(null, viralLoadSampleEncounters,
-			    Collections.singletonList(viralLoadResultConcept), null, null, null, null, null, null, dates[0], dates[1],
-			    false);
-			if (viralLoadResultObs == null || viralLoadResultObs.isEmpty()) {
-				throw new RuntimeException("No observations found for the given criteria");
-			}
-			
-			// Generate the summary data
-			Map<String, Map<String, Integer>> summaryData = generateDashboardSummaryFromObs(dates[0], dates[1],
-			    viralLoadResultObs, filterCategory);
-			if (summaryData.isEmpty()) {
-				throw new RuntimeException("Failed to generate summary data");
-			}
-			
-			// Convert the summary data to JSON format
-			ObjectMapper objectMapper = new ObjectMapper();
-			
-			return objectMapper.writeValueAsString(summaryData);
-			
-		}
-		catch (Exception e) {
-			e.printStackTrace();
-			throw new RuntimeException("Error occurred while processing viral load results", e);
-		}
-	}
-	
-	/**
-	 * Retrieves Clients with viral load coverage data
-	 * 
-	 * @return JSON representation of the list of patients with viral load coverage data
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCoverage")
-	@ResponseBody
-	public Object getViralLoadCoverage(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(value = "page", required = false) Integer page,
-	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
-		
-		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-		
-		if (page == null)
-			page = 0;
-		if (size == null)
-			size = 15;
-		
-		// Retrieve all patients and filter those with a sample collection date within
-		// the date range
-		List<Patient> allPatients = Context.getPatientService().getAllPatients();
-		List<Patient> viralLoadCoveragePatients = allPatients.stream().filter(patient -> {
-			String sampleCollectionDate = getViralLoadSampleCollectionDate(patient);
-			try {
-				// Check if the sample collection date falls within the start and end dates
-				Date collectionDate = dateTimeFormatter.parse(sampleCollectionDate);
-				return collectionDate != null && !collectionDate.before(dates[0]) && !collectionDate.after(dates[1]);
-			}
-			catch (ParseException e) {
-				return false;
-			}
-		}).collect(Collectors.toList());
-		
-		int totalPatients = viralLoadCoveragePatients.size();
-		
-		if (viralLoadCoveragePatients.isEmpty()) {
-			return "No Clients with VL Coverage found for the given date range";
-		}
-		
-		// Apply pagination
-		List<Patient> paginatedList = viralLoadCoveragePatients.stream().skip(page * size).limit(size)
-		        .collect(Collectors.toList());
-		
-		return paginateAndGenerateSummary(paginatedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
-	}
-	
-	/**
-	 * Handles the HTTP GET request to retrieve patients with Suppressed viral load values. This method
-	 * filters patients based on their viral load observations, identifying those with values below a
-	 * predefined threshold.
-	 * 
-	 * @return A JSON representation of the list of patients with Suppressed viral load
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadSuppression")
-	@ResponseBody
-	public Object getViralLoadSuppression(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
-	        @RequestParam(value = "page", required = false) Integer page,
-	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
-		
-		// Date format and range parsing
-		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-		
-		// Set default values for pagination
-		if (page == null)
-			page = 0;
-		if (size == null)
-			size = 15;
-		
-		HashSet<Patient> viralLoadSuppressedPatients = new HashSet<>();
-		
-		List<Obs> viralLoadSuppressedPatientsObs = Context.getObsService().getObservations(null, null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
-		    null, null, null, null, dates[0], dates[1], false);
-		
-		for (Obs obs : viralLoadSuppressedPatientsObs) {
-			if (obs.getValueNumeric() != null && obs.getValueNumeric() < THRESHOLD) {
-				Patient patient = Context.getPatientService().getPatient(obs.getPersonId());
-				if (patient != null) {
-					viralLoadSuppressedPatients.add(patient);
-				}
-			}
-		}
-		
-		int totalPatients = viralLoadSuppressedPatients.size();
-		
-		if (viralLoadSuppressedPatients.isEmpty()) {
-			return "No Clients with Suppressed VL found for the given date range.";
-		}
-		
-		List<Patient> vlSuppressedList = new ArrayList<>(viralLoadSuppressedPatients);
-		
-		return paginateAndGenerateSummary(vlSuppressedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
-	}
-	
-	/**
-	 * This method handles the viral load cascade endpoint for the ART dashboard. It retrieves the
-	 * necessary data from the database and calculates the viral load cascade.
-	 */
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/viralLoadCascade")
-	@ResponseBody
-	public Object viralLoadCascade(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		
-		return getViralLoadCascade(qStartDate, qEndDate,
-		    Arrays.asList(FIRST_EAC_SESSION, SECOND_EAC_SESSION, THIRD_EAC_SESSION, EXTENDED_EAC_CONCEPT_UUID,
-		        REAPEAT_VL_COLLECTION, REPEAT_VL_RESULTS, HIGH_VL_ENCOUNTERTYPE_UUID, ACTIVE_REGIMEN_CONCEPT_UUID),
-		    EAC_SESSION_CONCEPT_UUID);
-	}
-	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/waterfallAnalysis")
 	@ResponseBody
 	public Object getWaterfallAnalysis(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
@@ -841,12 +517,6 @@ public class SSEMRWebServicesController {
 		Map<String, Object> responseMap = buildResponseMap(patient, age, formattedBirthDate, identifiersList, observations);
 		
 		return new ResponseEntity<>(responseMap, new HttpHeaders(), HttpStatus.OK);
-	}
-	
-	private Object paginateAndGenerateSummary(List<Patient> patientList, int page, int size, int totalCount, Date startDate,
-	        Date endDate, filterCategory filterCategory) {
-		return getSummaryResponse.generateSummaryResponse(patientList, page, size, "totalPatients", totalCount, startDate,
-		    endDate, filterCategory, GenerateSummary::generateSummary);
 	}
 	
 	private PatientObservations getPatientObservations(Patient patient) {
