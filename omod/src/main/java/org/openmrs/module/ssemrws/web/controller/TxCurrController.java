@@ -68,7 +68,7 @@ public class TxCurrController {
 	        int size, int totalCount, Date startDate, Date endDate,
 	        SSEMRWebServicesController.filterCategory filterCategory) {
 		return generateTxCurrSummaryResponse.generateActiveClientsSummaryResponse(patientList, page, size, "totalPatients",
-		    totalCount, startDate, endDate, filterCategory,
-		    (enrollmentDates) -> GenerateCumulativeSummary.generateCumulativeSummary(enrollmentDates, startDate, endDate));
+		    totalCount, startDate, endDate, filterCategory, (enrollmentDates) -> GenerateCumulativeSummary
+		            .generateCumulativeSummary(enrollmentDates, startDate, endDate, totalCount));
 	}
 }
