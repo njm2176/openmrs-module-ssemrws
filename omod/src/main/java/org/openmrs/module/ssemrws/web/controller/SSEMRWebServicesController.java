@@ -21,20 +21,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.JsonNodeFactory;
 import org.codehaus.jackson.node.ObjectNode;
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
-import org.openmrs.module.ssemrws.constants.ConceptCache;
-import org.openmrs.module.ssemrws.constants.SharedConstants;
 import org.openmrs.module.ssemrws.queries.*;
-import org.openmrs.module.ssemrws.service.FacilityDashboardService;
 import org.openmrs.module.ssemrws.web.constants.*;
 import org.openmrs.module.ssemrws.web.dto.PatientObservations;
 import org.openmrs.module.webservices.rest.web.RestConstants;
 import org.openmrs.parameter.EncounterSearchCriteria;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +42,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
-import static org.openmrs.module.ssemrws.web.constants.ViralLoadCascade.getViralLoadCascade;
 
 /**
  * This class configured as controller using annotation and mapped with the URL of
@@ -59,8 +53,6 @@ public class SSEMRWebServicesController {
 	
 	private final GetNextAppointmentDate getNextAppointmentDate;
 	
-	private final GeneratePatientListObject getPatientListObjectList;
-	
 	private final GetInterruptedInTreatment getInterruptedInTreatment;
 	
 	private final GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange;
@@ -69,15 +61,9 @@ public class SSEMRWebServicesController {
 	
 	private final GetTxCurrQueries getTxCurr;
 	
-	private final GenerateSummaryResponse getSummaryResponse;
-	
-	private final GetDueForVL getDueForVl;
-	
 	private final GetOnAppointment getOnAppoinment;
 	
 	private final GetAllPatients getAllPatients;
-	
-	private final SharedConstants sharedConstants;
 	
 	private final GetPatientRegimens getPatientRegimens;
 	
@@ -86,23 +72,18 @@ public class SSEMRWebServicesController {
 	private final GetTxCurr getTxCurrMain;
 	
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
-	    GeneratePatientListObject getPatientListObjectList, GetInterruptedInTreatment getInterruptedInTreatment,
+	    GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange,
-	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GenerateSummaryResponse getSummaryResponse,
-	    GetDueForVL getDueForVl, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
-	    SharedConstants sharedConstants, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate,
+	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GetOnAppointment getOnAppoinment,
+	    GetAllPatients getAllPatients, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate,
 	    GetTxCurr getTxCurrMain) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
-		this.getPatientListObjectList = getPatientListObjectList;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getInterruptedInTreatmentWithinRange = getInterruptedInTreatmentWithinRange;
 		this.getMissedAppointments = getMissedAppointments;
 		this.getTxCurr = getTxCurr;
-		this.getSummaryResponse = getSummaryResponse;
-		this.getDueForVl = getDueForVl;
 		this.getOnAppoinment = getOnAppoinment;
 		this.getAllPatients = getAllPatients;
-		this.sharedConstants = sharedConstants;
 		this.getPatientRegimens = getPatientRegimens;
 		this.getVLDueDate = getVLDueDate;
 		this.getTxCurrMain = getTxCurrMain;
