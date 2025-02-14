@@ -279,40 +279,56 @@ public class ViralLoadController {
 	        @RequestParam(value = "page", required = false) Integer page,
 	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
 		
-		// Date format and range parsing
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
-		// Set default values for pagination
-		if (page == null)
-			page = 0;
-		if (size == null)
-			size = 15;
+		int totalPatients = Context.getPatientService().getAllPatients().size();
 		
-		HashSet<Patient> viralLoadSuppressedPatients = new HashSet<>();
+		List<Patient> vlCoveredPatients = fetchPatientsWithViralLoadCoverage(dates[0], dates[1]);
+		int vlCoverage = vlCoveredPatients.size();
 		
-		List<Obs> viralLoadSuppressedPatientsObs = Context.getObsService().getObservations(null, null,
-		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
-		    null, null, null, null, dates[0], dates[1], false);
+		int vlSuppressed = countViralLoadSuppressedPatients(vlCoveredPatients, dates[0], dates[1]);
 		
-		for (Obs obs : viralLoadSuppressedPatientsObs) {
-			if (obs.getValueNumeric() != null && obs.getValueNumeric() < THRESHOLD) {
-				Patient patient = Context.getPatientService().getPatient(obs.getPersonId());
-				if (patient != null) {
-					viralLoadSuppressedPatients.add(patient);
+		Map<String, Integer> response = new HashMap<>();
+		response.put("totalPatients", totalPatients);
+		response.put("vlCoverage", vlCoverage);
+		response.put("vlSuppressed", vlSuppressed);
+		
+		return response;
+	}
+	
+	/**
+	 * Get count of VL Suppressed Patients (BDL or VL < 1000)
+	 */
+	private int countViralLoadSuppressedPatients(List<Patient> vlCoveredPatients, Date startDate, Date endDate) {
+		Concept vlResultConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
+		Concept vlNumericConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID);
+		
+		HashSet<Integer> suppressedPatients = new HashSet<>();
+		
+		for (Patient patient : vlCoveredPatients) {
+			List<Obs> vlObservations = Context.getObsService().getObservations(
+			    Collections.singletonList(patient.getPerson()), null, Arrays.asList(vlResultConcept, vlNumericConcept), null,
+			    null, null, null, null, null, startDate, endDate, false);
+			
+			for (Obs obs : vlObservations) {
+				// Check if VL is Below Detectable (BDL)
+				if (obs.getConcept().equals(vlResultConcept)
+				        && "Below Detectable (BDL)".equalsIgnoreCase(obs.getValueText())) {
+					suppressedPatients.add(patient.getPatientId());
+					break;
+				}
+				
+				// Check if VL Numeric Value is < 1000
+				if (obs.getConcept().equals(vlNumericConcept) && obs.getValueNumeric() != null
+				        && obs.getValueNumeric() < 1000) {
+					suppressedPatients.add(patient.getPatientId());
+					break;
 				}
 			}
 		}
 		
-		int totalPatients = viralLoadSuppressedPatients.size();
-		
-		if (viralLoadSuppressedPatients.isEmpty()) {
-			return "No Clients with Suppressed VL found for the given date range.";
-		}
-		
-		List<Patient> vlSuppressedList = new ArrayList<>(viralLoadSuppressedPatients);
-		
-		return paginateAndGenerateSummary(vlSuppressedList, page, size, totalPatients, dates[0], dates[1], filterCategory);
+		return suppressedPatients.size();
 	}
 	
 	/**
