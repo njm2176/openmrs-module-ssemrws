@@ -14,9 +14,6 @@ import javax.persistence.PersistenceContext;
 import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -59,8 +56,6 @@ public class SSEMRWebServicesController {
 	
 	private final GetMissedAppointments getMissedAppointments;
 	
-	private final GetTxCurrQueries getTxCurr;
-	
 	private final GetOnAppointment getOnAppoinment;
 	
 	private final GetAllPatients getAllPatients;
@@ -74,14 +69,12 @@ public class SSEMRWebServicesController {
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
 	    GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange,
-	    GetMissedAppointments getMissedAppointments, GetTxCurrQueries getTxCurr, GetOnAppointment getOnAppoinment,
-	    GetAllPatients getAllPatients, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate,
-	    GetTxCurr getTxCurrMain) {
+	    GetMissedAppointments getMissedAppointments, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
+	    GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate, GetTxCurr getTxCurrMain) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getInterruptedInTreatmentWithinRange = getInterruptedInTreatmentWithinRange;
 		this.getMissedAppointments = getMissedAppointments;
-		this.getTxCurr = getTxCurr;
 		this.getOnAppoinment = getOnAppoinment;
 		this.getAllPatients = getAllPatients;
 		this.getPatientRegimens = getPatientRegimens;
@@ -484,15 +477,6 @@ public class SSEMRWebServicesController {
 		return paginateAndGenerateSummary(underCareList, page, size, totalPatients, dates[0], dates[1], filterCategory);
 	}
 	
-	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/waterfallAnalysis")
-	@ResponseBody
-	public Object getWaterfallAnalysis(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") filterCategory filterCategory) throws ParseException {
-		
-		return getWaterfallAnalysisChart(qStartDate, qEndDate);
-	}
-	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/obs")
 	@ResponseBody
 	public ResponseEntity<Object> getPatientObs(HttpServletRequest request, @RequestParam("patientUuid") String patientUuid,
@@ -549,105 +533,4 @@ public class SSEMRWebServicesController {
 		return observations;
 	}
 	
-	private Object getWaterfallAnalysisChart(String qStartDate, String qEndDate) throws ParseException {
-		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
-		
-		// Get all active clients for the entire period
-		HashSet<Patient> activeClientsEntirePeriod = getTxCurr.getTxCurr(dates[1]);
-		
-		// Get active clients for the last 30 days
-		Calendar last30DaysCal = Calendar.getInstance();
-		last30DaysCal.setTime(dates[1]);
-		last30DaysCal.add(Calendar.DAY_OF_MONTH, -30);
-		Date last30DaysStartDate = last30DaysCal.getTime();
-		HashSet<Patient> activeClientsLast30Days = getTxCurr.getTxCurr(dates[1]);
-		
-		// Exclude active clients from the last 30 days
-		activeClientsEntirePeriod.removeAll(activeClientsLast30Days);
-		
-		// TX_CURR is the total number of active clients excluding the last 30 days
-		int txCurrFirstTwoMonths = activeClientsEntirePeriod.size();
-		
-		// Get active clients for the third month
-		HashSet<Patient> activeClientsThirdMonth = getTxCurr.getTxCurr(dates[1]);
-		
-		// TX_NEW is the new clients in the third month, excluding those from the first
-		// two months
-		HashSet<Patient> newClientsThirdMonth = new HashSet<>(activeClientsThirdMonth);
-		newClientsThirdMonth.removeAll(activeClientsEntirePeriod);
-		int txNewThirdMonth = newClientsThirdMonth.size();
-		
-		// Other calculations remain unchanged
-		HashSet<Patient> transferredInPatientsCurrentQuarter = getTransferredInPatients(dates[0], dates[1]);
-		HashSet<Patient> returnToTreatmentPatientsCurrentQuarter = getReturnToTreatmentPatients(dates[0], dates[1]);
-		HashSet<Patient> transferredOutPatientsCurrentQuarter = getTransferredOutClients(dates[0], dates[1]);
-		HashSet<Patient> deceasedPatientsCurrentQuarter = new HashSet<>(getDeceasedPatientsByDateRange(dates[0], dates[1]));
-		HashSet<Patient> interruptedInTreatmentPatientsCurrentQuarter = getInterruptedInTreatment.getIit(dates[0], dates[1]);
-		
-		int transferInCurrentQuarter = transferredInPatientsCurrentQuarter.size();
-		int txRttCurrentQuarter = returnToTreatmentPatientsCurrentQuarter.size();
-		int transferOutCurrentQuarter = transferredOutPatientsCurrentQuarter.size();
-		int txDeathCurrentQuarter = deceasedPatientsCurrentQuarter.size();
-		
-		HashSet<Patient> interruptedInTreatmentLessThan3Months = filterInterruptedInTreatmentPatients(
-		    interruptedInTreatmentPatientsCurrentQuarter, 3, false);
-		int txMlIitLessThan3MoCurrentQuarter = interruptedInTreatmentLessThan3Months.size();
-		
-		HashSet<Patient> interruptedInTreatmentMoreThan3Months = filterInterruptedInTreatmentPatients(
-		    interruptedInTreatmentPatientsCurrentQuarter, 3, true);
-		int txMlIitMoreThan3MoCurrentQuarter = interruptedInTreatmentMoreThan3Months.size();
-		
-		// Potential TX_CURR
-		int potentialTxCurr = txNewThirdMonth + txCurrFirstTwoMonths + transferInCurrentQuarter + txRttCurrentQuarter;
-		
-		// CALCULATED TX_CURR
-		
-		// Prepare the results
-		List<Map<String, Object>> waterfallAnalysisList = new ArrayList<>();
-		waterfallAnalysisList.add(createResultMap("TX_CURR", txCurrFirstTwoMonths));
-		waterfallAnalysisList.add(createResultMap("TX_NEW", txNewThirdMonth));
-		waterfallAnalysisList.add(createResultMap("Transfer In", transferInCurrentQuarter));
-		waterfallAnalysisList.add(createResultMap("TX_RTT", txRttCurrentQuarter));
-		waterfallAnalysisList.add(createResultMap("Potential TX_CURR", potentialTxCurr));
-		waterfallAnalysisList.add(createResultMap("Transfer Out", transferOutCurrentQuarter));
-		waterfallAnalysisList.add(createResultMap("TX_DEATH", txDeathCurrentQuarter));
-		waterfallAnalysisList.add(createResultMap("TX_ML_Self Transfer", 0));
-		waterfallAnalysisList.add(createResultMap("TX_ML_Refusal/Stopped", 0));
-		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (<3 mo)", txMlIitLessThan3MoCurrentQuarter));
-		waterfallAnalysisList.add(createResultMap("TX_ML_IIT (3+ mo)", txMlIitMoreThan3MoCurrentQuarter));
-		waterfallAnalysisList.add(createResultMap("CALCULATED TX_CURR", potentialTxCurr));
-		
-		// Combine the results
-		Map<String, Object> results = new HashMap<>();
-		results.put("results", waterfallAnalysisList);
-		return results;
-	}
-	
-	private HashSet<Patient> filterInterruptedInTreatmentPatients(HashSet<Patient> patients, int months, boolean moreThan) {
-		HashSet<Patient> filteredPatients = new HashSet<>();
-		LocalDate currentDate = LocalDate.now();
-		SimpleDateFormat dateFormatter = new SimpleDateFormat("dd-MM-yyyy");
-		
-		for (Patient patient : patients) {
-			String enrollmentDate = getInitiationDate(patient);
-			
-			if (enrollmentDate != null) {
-				try {
-					Date parsedDate = dateFormatter.parse(enrollmentDate);
-					LocalDate enrollmentLocalDate = parsedDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-					long monthsOnTreatment = ChronoUnit.MONTHS.between(enrollmentLocalDate, currentDate);
-					
-					if ((moreThan && monthsOnTreatment >= months) || (!moreThan && monthsOnTreatment < months)) {
-						filteredPatients.add(patient);
-					}
-				}
-				catch (ParseException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		
-		return filteredPatients;
-	}
 }
