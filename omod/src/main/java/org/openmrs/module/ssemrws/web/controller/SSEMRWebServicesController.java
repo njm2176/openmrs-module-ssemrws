@@ -69,9 +69,8 @@ public class SSEMRWebServicesController {
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
 	    GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange,
-	    GetMissedAppointments getMissedAppointments, GetOnAppointment getOnAppoinment,
-	    GetAllPatients getAllPatients, GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate,
-	    GetTxCurr getTxCurrMain) {
+	    GetMissedAppointments getMissedAppointments, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
+	    GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate, GetTxCurr getTxCurrMain) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getInterruptedInTreatmentWithinRange = getInterruptedInTreatmentWithinRange;
@@ -534,5 +533,4 @@ public class SSEMRWebServicesController {
 		return observations;
 	}
 	
-
 }
