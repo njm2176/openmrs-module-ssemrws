@@ -64,6 +64,8 @@ public class AllConcepts {
 	
 	public static final String LAST_CD4_COUNT_UUID = "809dd0f5-ce54-441c-b835-a2a8b06a6140";
 	
+	public static final String CD4_DONE_UUID = "2652c9e7-72c5-48ae-b6ee-0bd3dcb65fca";
+	
 	public static final String TB_STATUS_CONCEPT_UUID = "9a1a731e-937b-46fe-aca2-acf83a326b71";
 	
 	public static final String ARV_REGIMEN_DOSE_UUID = "3fa33347-9871-497b-81f3-7a791b9f4bae";
@@ -123,6 +125,8 @@ public class AllConcepts {
 	public static final String INDEX_FAMILY_MEMBER_PHONE_UUID = "ea7dbf27-e84d-43a3-bbac-d7bb06ff1f23";
 	
 	public static final String INDEX_FAMILY_MEMBER_ART_NUMBER_UUID = "218e861d-393a-4871-9bc3-c9d0effdb073";
+	
+	public static final String INDEX_FAMILY_MEMBER_HIV_STATUS_KNOWN_UUID = "03ae7466-a616-42d8-b827-46024c88a831";
 	
 	public static final String DATE_OF_DEATH_UUID = "bced5365-80f5-4a27-a287-60296c4e4ff9";
 	

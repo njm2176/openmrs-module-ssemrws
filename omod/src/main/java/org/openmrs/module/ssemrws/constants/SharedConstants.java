@@ -234,6 +234,18 @@ public class SharedConstants {
 		return null;
 	}
 	
+	public static String getCD4Done(Patient patient) {
+		Concept cd4Concept = Context.getConceptService().getConceptByUuid(CD4_DONE_UUID);
+		List<Obs> cd4Obs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(cd4Concept), null, null, null, null, null, null, null, null, false);
+		
+		if (!cd4Obs.isEmpty()) {
+			Obs lastcd4Obs = cd4Obs.get(0);
+			return lastcd4Obs.getValueText();
+		}
+		return null;
+	}
+	
 	public static String getTbStatus(Patient patient) {
 		Concept tbStatusConcepts = Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID);
 		
@@ -776,6 +788,7 @@ public class SharedConstants {
 			indexMemberObservation.setAge((String) getFamilyMemberField(patient, obs, "age", true));
 			indexMemberObservation.setSex((String) getFamilyMemberField(patient, obs, "sex", true));
 			indexMemberObservation.setRelationship((String) getFamilyMemberField(patient, obs, "relationship", true));
+			indexMemberObservation.setHivStatusKnown((String) getFamilyMemberField(patient, obs, "hivStatusKnown", true));
 			indexMemberObservation.setHivStatus((String) getFamilyMemberField(patient, obs, "hivStatus", true));
 			indexMemberObservation.setPhone((String) getFamilyMemberField(patient, obs, "phone", true));
 			indexMemberObservation.setUniqueArtNumber((String) getFamilyMemberField(patient, obs, "uniqueArtNumber", true));
@@ -805,6 +818,7 @@ public class SharedConstants {
 		indexFamilyMemberFields.put("age", INDEX_FAMILY_MEMBER_AGE_UUID);
 		indexFamilyMemberFields.put("sex", INDEX_FAMILY_MEMBER_SEX_UUID);
 		indexFamilyMemberFields.put("relationship", INDEX_FAMILY_MEMBER_RELATIONSHIP_UUID);
+		indexFamilyMemberFields.put("hivStatusKnown", INDEX_FAMILY_MEMBER_HIV_STATUS_KNOWN_UUID);
 		indexFamilyMemberFields.put("hivStatus", INDEX_FAMILY_MEMBER_HIV_STATUS_UUID);
 		indexFamilyMemberFields.put("phone", INDEX_FAMILY_MEMBER_PHONE_UUID);
 		indexFamilyMemberFields.put("uniqueArtNumber", INDEX_FAMILY_MEMBER_ART_NUMBER_UUID);
