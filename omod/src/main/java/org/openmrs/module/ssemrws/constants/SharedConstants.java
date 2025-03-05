@@ -501,7 +501,10 @@ public class SharedConstants {
 		DIED,
 		TRANSFERRED_OUT,
 		DUE_FOR_VL,
-		ACTIVE
+		ACTIVE,
+		HIGH_VL,
+		RTT,
+		NEW_CLIENT
 	}
 	
 	public static HashSet<Patient> getTransferredOutClients(Date startDate, Date endDate) {
@@ -711,12 +714,19 @@ public class SharedConstants {
 	public static boolean determineIfPatientIsHighVl(Patient patient) {
 		List<Obs> vlObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
 		    Collections.singletonList(Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID)), null, null,
-		    null, null, 1, null, null, null, false);
+		    null, null, null, null, null, null, false);
 		
 		if (vlObs != null && !vlObs.isEmpty()) {
 			return vlObs.get(0).getValueNumeric() >= THRESHOLD;
 		}
 		return false;
+	}
+	
+	public static boolean determineIfPatientIsRTT(Patient patient) {
+		List<Obs> rttObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DATE_RETURNED_TO_TREATMENT)), null, null,
+		    null, null, null, null, null, null, false);
+		return rttObs != null && !rttObs.isEmpty();
 	}
 	
 	public static Map<String, Map<String, Integer>> generateDashboardSummaryFromObs(Date startDate, Date endDate,
