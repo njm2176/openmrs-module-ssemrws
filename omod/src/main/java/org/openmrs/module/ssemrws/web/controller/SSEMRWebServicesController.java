@@ -511,6 +511,7 @@ public class SSEMRWebServicesController {
 		observations.setLastRefillDate(getLastRefillDate(patient));
 		observations.setArvRegimen(getARTRegimen(patient));
 		observations.setLastCD4Count(getLastCD4Count(patient));
+		observations.setCd4Done(getCD4Done(patient));
 		observations.setTbStatus(getTbStatus(patient));
 		observations.setArvRegimenDose(getARVRegimenDose(patient));
 		observations.setWhoClinicalStage(getWHOClinicalStage(patient));

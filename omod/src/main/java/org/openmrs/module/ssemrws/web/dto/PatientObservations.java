@@ -17,6 +17,8 @@ public class PatientObservations {
 	
 	private Double lastCD4Count;
 	
+	private String cd4Done;
+	
 	private String tbStatus;
 	
 	private String arvRegimenDose;
@@ -82,6 +84,8 @@ public class PatientObservations {
 		private String sex;
 		
 		private String relationship;
+		
+		private String hivStatusKnown;
 		
 		private String hivStatus;
 		
