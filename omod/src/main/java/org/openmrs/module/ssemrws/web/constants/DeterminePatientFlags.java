@@ -1,24 +1,25 @@
 package org.openmrs.module.ssemrws.web.constants;
 
+import ca.uhn.hl7v2.model.v23.datatype.ST;
 import org.openmrs.Patient;
 import org.openmrs.module.ssemrws.constants.SharedConstants;
 import org.openmrs.module.ssemrws.queries.GetDueForVL;
 import org.openmrs.module.ssemrws.queries.GetInterruptedInTreatment;
 import org.openmrs.module.ssemrws.queries.GetMissedAppointments;
-import org.openmrs.module.ssemrws.queries.GetTxCurrQueries;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
+import java.text.ParseException;
+import java.util.*;
 
-import static org.openmrs.module.ssemrws.constants.SharedConstants.getDeceasedPatientsByDateRange;
-import static org.openmrs.module.ssemrws.constants.SharedConstants.getTransferredOutClients;
+import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
 @Component
 public class DeterminePatientFlags {
-	
+
+	private static final Logger logger = LoggerFactory.getLogger(DeterminePatientFlags.class);
+
 	private final GetInterruptedInTreatment getInterruptedInTreatment;
 	
 	private final GetMissedAppointments getMissedAppointments;
@@ -69,6 +70,34 @@ public class DeterminePatientFlags {
 		HashSet<Patient> dueForVlClients = getDueForVl.getDueForVl(startDate, endDate);
 		if (dueForVlClients.contains(patient)) {
 			flags.add(SharedConstants.Flags.DUE_FOR_VL);
+		}
+		
+		boolean highVL = determineIfPatientIsHighVl(patient);
+		if (highVL) {
+			flags.add(SharedConstants.Flags.HIGH_VL);
+		}
+		
+		boolean rtt = determineIfPatientIsRTT(patient);
+		if (rtt) {
+			flags.add(SharedConstants.Flags.RTT);
+		}
+		
+		String enrollmentDateStr = getEnrolmentDate(patient);
+		if (!enrollmentDateStr.isEmpty()) {
+			try {
+				Date enrollmentDate = dateTimeFormatter.parse(enrollmentDateStr);
+				Calendar enrollmentCal = Calendar.getInstance();
+				enrollmentCal.setTime(enrollmentDate);
+				
+				Calendar now = Calendar.getInstance();
+				if (enrollmentCal.get(Calendar.YEAR) == now.get(Calendar.YEAR)
+				        && enrollmentCal.get(Calendar.MONTH) == now.get(Calendar.MONTH)) {
+					flags.add(SharedConstants.Flags.NEW_CLIENT);
+				}
+			}
+			catch (ParseException e) {
+				logger.error("Error parsing enrollment date for patient id: {}", patient.getId(), e);
+			}
 		}
 		
 		return flags;
