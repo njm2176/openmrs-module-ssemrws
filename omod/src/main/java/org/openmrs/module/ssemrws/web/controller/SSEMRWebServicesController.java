@@ -66,11 +66,14 @@ public class SSEMRWebServicesController {
 	
 	private final GetTxCurr getTxCurrMain;
 	
+	private final GetRecurrenceOfIIT getRecurrenceOfIIT;
+	
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
 	    GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange,
 	    GetMissedAppointments getMissedAppointments, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
-	    GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate, GetTxCurr getTxCurrMain) {
+	    GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate, GetTxCurr getTxCurrMain,
+	    GetRecurrenceOfIIT getRecurrenceOfIIT) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getInterruptedInTreatmentWithinRange = getInterruptedInTreatmentWithinRange;
@@ -80,6 +83,7 @@ public class SSEMRWebServicesController {
 		this.getPatientRegimens = getPatientRegimens;
 		this.getVLDueDate = getVLDueDate;
 		this.getTxCurrMain = getTxCurrMain;
+		this.getRecurrenceOfIIT = getRecurrenceOfIIT;
 	}
 	
 	public enum filterCategory {
@@ -530,6 +534,7 @@ public class SSEMRWebServicesController {
 		observations.setFamilyMembers(getFamilyMemberObservations(patient));
 		observations.setIndexFamilyMembers(getIndexFamilyMemberObservations(patient));
 		observations.setVlDueDate(getVLDueDate.getVLDueDate(patient));
+		observations.setIitRecurrence(String.valueOf(getRecurrenceOfIIT.getRecurrenceOfIIT(patient.getUuid())));
 		
 		return observations;
 	}

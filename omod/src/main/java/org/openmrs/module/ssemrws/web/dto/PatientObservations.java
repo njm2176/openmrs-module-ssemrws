@@ -53,6 +53,8 @@ public class PatientObservations {
 	
 	private String tbNumber;
 	
+	private String iitRecurrence;
+	
 	// Add a list for General family member observations
 	private List<FamilyMemberObservation> familyMembers;
 	
