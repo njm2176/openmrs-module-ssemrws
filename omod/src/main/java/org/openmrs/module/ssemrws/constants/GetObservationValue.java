@@ -1,5 +1,6 @@
 package org.openmrs.module.ssemrws.constants;
 
+import org.openmrs.Concept;
 import org.openmrs.Obs;
 import org.openmrs.Patient;
 import org.openmrs.api.context.Context;
@@ -26,6 +27,26 @@ public class GetObservationValue {
 			}
 		}
 		
+		return null;
+	}
+	
+	public static Object getLatestObsByConcept(Patient patient, String conceptUuid) {
+		Concept concept = Context.getConceptService().getConceptByUuid(conceptUuid);
+		
+		List<Obs> observations = Context.getObsService().getObservationsByPersonAndConcept(patient.getPerson(), concept);
+		if (observations != null && !observations.isEmpty()) {
+			Obs latestObs = observations.get(0);
+			
+			if (latestObs.getValueCoded() != null) {
+				return latestObs.getValueCoded().getName().getName();
+			} else if (latestObs.getValueText() != null) {
+				return latestObs.getValueText();
+			} else if (latestObs.getValueNumeric() != null) {
+				return latestObs.getValueNumeric();
+			} else if (latestObs.getValueDatetime() != null) {
+				return latestObs.getValueDatetime().toString();
+			}
+		}
 		return null;
 	}
 }

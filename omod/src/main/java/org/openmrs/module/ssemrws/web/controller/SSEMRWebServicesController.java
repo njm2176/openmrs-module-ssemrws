@@ -520,9 +520,6 @@ public class SSEMRWebServicesController {
 		observations.setArvRegimenDose(getARVRegimenDose(patient));
 		observations.setWhoClinicalStage(getWHOClinicalStage(patient));
 		observations.setDateVLResultsReceived(getDateVLResultsReceived(patient));
-		observations.setChwName(getCHWName(patient));
-		observations.setChwPhone(getCHWPhone(patient));
-		observations.setChwAddress(getCHWAddress(patient));
 		observations.setVlResults(getVLResults(patient));
 		observations.setVlStatus(getVLStatus(patient));
 		observations.setBmi(getBMI(patient));
@@ -535,6 +532,7 @@ public class SSEMRWebServicesController {
 		observations.setIndexFamilyMembers(getIndexFamilyMemberObservations(patient));
 		observations.setVlDueDate(getVLDueDate.getVLDueDate(patient));
 		observations.setIitRecurrence(String.valueOf(getRecurrenceOfIIT.getRecurrenceOfIIT(patient.getUuid())));
+		observations.setChw(getCommunityHealthWorkerObservations(patient));
 		
 		return observations;
 	}

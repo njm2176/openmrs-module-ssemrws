@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.GetDateObservations.getDateByConcept;
 import static org.openmrs.module.ssemrws.constants.GetDateObservations.getPatientDateByConcept;
+import static org.openmrs.module.ssemrws.constants.GetObservationValue.getLatestObsByConcept;
 import static org.openmrs.module.ssemrws.constants.GetObservationValue.getObsValue;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 import static org.openmrs.module.ssemrws.web.constants.GenerateSummary.generateSummary;
@@ -837,6 +838,48 @@ public class SharedConstants {
 	public static Object getFamilyMemberField(Patient patient, Obs observation, String field, boolean isIndexFamilyMember) {
 		String conceptUuid = isIndexFamilyMember ? indexFamilyMemberFields.get(field) : familyMemberFields.get(field);
 		return getObsValue(patient, observation, conceptUuid);
+	}
+	
+	public static List<PatientObservations.CommunityHealthWorkerObservation> getCommunityHealthWorkerObservations(
+	        Patient patient) {
+		List<PatientObservations.CommunityHealthWorkerObservation> chwObservations = new ArrayList<>();
+		
+		Concept cadreConcept = Context.getConceptService().getConceptByUuid(COMMUNITY_CADRE);
+		List<Obs> cadreObsList = Context.getObsService().getObservationsByPersonAndConcept(patient.getPerson(),
+		    cadreConcept);
+		
+		for (Obs cadreObs : cadreObsList) {
+			String cadreValue = cadreObs.getValueCoded() != null ? cadreObs.getValueCoded().getName().getName() : null;
+			
+			if (cadreValue != null) {
+				PatientObservations.CommunityHealthWorkerObservation chwObservation = new PatientObservations.CommunityHealthWorkerObservation();
+				
+				if (cadreValue.equalsIgnoreCase("Community HIV Service Officer")) {
+					chwObservation.setCadre("CHSO");
+					chwObservation.setName((String) getLatestObsByConcept(patient, NAME_OF_COMMUNITY_HIV_SERVICE_OFFICER));
+					chwObservation.setPhone((String) getLatestObsByConcept(patient, COMMUNITY_HIV_SERVICE_OFFICER_PHONE));
+					
+				} else if (cadreValue.equalsIgnoreCase("Mentor Mother")) {
+					chwObservation.setCadre("MM");
+					chwObservation.setName((String) getLatestObsByConcept(patient, NAME_OF_MENTOR_MOTHER));
+					chwObservation.setPhone((String) getLatestObsByConcept(patient, MENTOR_MOTHER_PHONE));
+					chwObservation.setAddress((String) getLatestObsByConcept(patient, ADDRESS_OF_MENTOR_MOTHER));
+					
+				} else if (cadreValue.equalsIgnoreCase("Senior Mentor Mother")) {
+					chwObservation.setCadre("sMM");
+					chwObservation.setName((String) getLatestObsByConcept(patient, NAME_OF_SENIOR_MENTOR_MOTHER));
+					chwObservation.setPhone((String) getLatestObsByConcept(patient, SENIOR_MENTOR_MOTHER_PHONE));
+					
+				} else if (cadreValue.equalsIgnoreCase("Community outreach worker")) {
+					chwObservation.setCadre("COW");
+					chwObservation.setName((String) getLatestObsByConcept(patient, NAME_OF_COW));
+					chwObservation.setPhone((String) getLatestObsByConcept(patient, COW_PHONE));
+					chwObservation.setAddress((String) getLatestObsByConcept(patient, ADDRESS_OF_COW));
+				}
+				chwObservations.add(chwObservation);
+			}
+		}
+		return chwObservations;
 	}
 	
 	public static String getInitiationDate(Patient patient) {

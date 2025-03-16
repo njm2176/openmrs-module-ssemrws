@@ -55,6 +55,21 @@ public class PatientObservations {
 	
 	private String iitRecurrence;
 	
+	// Populate community health Workers
+	private List<CommunityHealthWorkerObservation> chw;
+	
+	@Data
+	public static class CommunityHealthWorkerObservation {
+		
+		private String cadre;
+		
+		private String name;
+		
+		private String phone;
+		
+		private String address;
+	}
+	
 	// Add a list for General family member observations
 	private List<FamilyMemberObservation> familyMembers;
 	
