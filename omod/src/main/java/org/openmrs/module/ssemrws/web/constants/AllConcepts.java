@@ -94,6 +94,8 @@ public class AllConcepts {
 	
 	public static final String CONCEPT_BY_UUID = "1065AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
+	public static final String NO_CONCEPT_UUID = "1066AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	
 	public static final String CLINICIAN_CONCEPT_UUID = "611d6c22-7c6d-47cf-a74e-190f9e3cdd47";
 	
 	public static final String TB_UNIT_NUMBER = "6cc3d304-26b5-43e1-951a-8a94a30841da";

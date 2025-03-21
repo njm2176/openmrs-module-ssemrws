@@ -242,7 +242,7 @@ public class SharedConstants {
 		
 		if (!cd4Obs.isEmpty()) {
 			Obs lastcd4Obs = cd4Obs.get(0);
-			return lastcd4Obs.getValueText();
+			return lastcd4Obs.getValueCoded().getName().getName();
 		}
 		return null;
 	}
