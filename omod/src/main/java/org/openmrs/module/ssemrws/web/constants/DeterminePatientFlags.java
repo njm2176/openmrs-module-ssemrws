@@ -17,9 +17,9 @@ import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
 @Component
 public class DeterminePatientFlags {
-
+	
 	private static final Logger logger = LoggerFactory.getLogger(DeterminePatientFlags.class);
-
+	
 	private final GetInterruptedInTreatment getInterruptedInTreatment;
 	
 	private final GetMissedAppointments getMissedAppointments;

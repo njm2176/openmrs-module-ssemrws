@@ -150,4 +150,26 @@ public class AllConcepts {
 	
 	public static final String ART_SECOND_LINE_SWITCH_DATE = "55337ca1-c8b5-43e4-bed3-845a01463020";
 	
+	public static final String COMMUNITY_CADRE = "802b7dcb-0092-48fa-a4e2-7b18489924fb";
+	
+	public static final String NAME_OF_SENIOR_MENTOR_MOTHER = "7195aadf-e227-4f3d-96c9-955fd4687a1b";
+	
+	public static final String SENIOR_MENTOR_MOTHER_PHONE = "726e7bf8-a0b6-4e3b-af90-d1f5558c4b64";
+	
+	public static final String NAME_OF_COMMUNITY_HIV_SERVICE_OFFICER = "d5e8716f-9cd1-4d01-9377-aa6480d2c433";
+	
+	public static final String COMMUNITY_HIV_SERVICE_OFFICER_PHONE = "a9a8c479-2c11-437d-ae08-26158b194461";
+	
+	public static final String NAME_OF_MENTOR_MOTHER = "fd68a9dd-5cd9-4b77-8f02-f93fcbd04370";
+	
+	public static final String MENTOR_MOTHER_PHONE = "a1e7127b-5895-4b56-af77-94dbdf0e54e7";
+	
+	public static final String ADDRESS_OF_MENTOR_MOTHER = "71d7aa03-28bb-44a9-bf9b-e0b3e5d4f40f";
+	
+	public static final String NAME_OF_COW = "006d7edc-5a6c-4b00-96b8-5bc6c194b44d";
+	
+	public static final String COW_PHONE = "5f7ffbb8-53c7-40e0-9df0-5036b6eb536b";
+	
+	public static final String ADDRESS_OF_COW = "885a341c-068c-4a39-9543-f56e7cd3633c";
+	
 }
