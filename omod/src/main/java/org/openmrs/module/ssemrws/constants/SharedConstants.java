@@ -970,4 +970,54 @@ public class SharedConstants {
 		return generatePatientListObj.generatePatientListObj(new HashSet<>(paginatedPatients), startDate, endDate,
 		    filterCategory, allPatientsObj);
 	}
+	
+	public static Integer getPatientSystolicPressure(Patient patient) {
+		List<Obs> systolicPressureObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(SYSTOLIC_BLOOD_PRESSURE)), null, null,
+		    null, null, null, null, null, null, false);
+		
+		if (!systolicPressureObs.isEmpty()) {
+			Obs systolicPressureObservation = systolicPressureObs.get(0);
+			return systolicPressureObservation.getValueNumeric().intValue();
+		}
+		
+		return null;
+	}
+	
+	public static Integer getPatientDiastolicPressure(Patient patient) {
+		List<Obs> diastolicPressureObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(DIASTOLIC_BLOOD_PRESSURE)), null, null,
+		    null, null, null, null, null, null, false);
+		
+		if (!diastolicPressureObs.isEmpty()) {
+			Obs diastolicPressureObservation = diastolicPressureObs.get(0);
+			return diastolicPressureObservation.getValueNumeric().intValue();
+		}
+		return null;
+		
+	}
+	
+	public static Double getPatientTemperature(Patient patient) {
+		List<Obs> temperatureObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    null, Collections.singletonList(Context.getConceptService().getConceptByUuid(TEMPERATURE)), null, null, null,
+		    null, null, null, null, null, false);
+		
+		if (!temperatureObs.isEmpty()) {
+			Obs temperatureObservation = temperatureObs.get(0);
+			return temperatureObservation.getValueNumeric();
+		}
+		
+		return null;
+	}
+	
+	public static String populateBloodPressure(Patient patient) {
+		Integer systolic = getPatientSystolicPressure(patient);
+		Integer diastolic = getPatientDiastolicPressure(patient);
+		if (systolic != null && diastolic != null) {
+			return systolic + "/" + diastolic;
+		}
+		return null;
+	}
 }
