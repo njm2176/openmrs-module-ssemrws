@@ -55,6 +55,10 @@ public class PatientObservations {
 	
 	private String iitRecurrence;
 	
+	private Double temperature;
+	
+	private String blood_pressure;
+	
 	// Populate community health Workers
 	private List<CommunityHealthWorkerObservation> chw;
 	

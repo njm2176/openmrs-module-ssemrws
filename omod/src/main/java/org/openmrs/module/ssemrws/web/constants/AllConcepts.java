@@ -174,4 +174,10 @@ public class AllConcepts {
 	
 	public static final String ADDRESS_OF_COW = "885a341c-068c-4a39-9543-f56e7cd3633c";
 	
+	public static final String TEMPERATURE = "5088AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	
+	public static final String SYSTOLIC_BLOOD_PRESSURE = "5085AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	
+	public static final String DIASTOLIC_BLOOD_PRESSURE = "5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+	
 }
