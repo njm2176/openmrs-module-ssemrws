@@ -532,6 +532,8 @@ public class SSEMRWebServicesController {
 		observations.setIndexFamilyMembers(getIndexFamilyMemberObservations(patient));
 		observations.setVlDueDate(getVLDueDate.getVLDueDate(patient));
 		observations.setIitRecurrence(String.valueOf(getRecurrenceOfIIT.getRecurrenceOfIIT(patient.getUuid())));
+		observations.setTemperature(getPatientTemperature(patient));
+		observations.setBlood_pressure(populateBloodPressure(patient));
 		observations.setChw(getCommunityHealthWorkerObservations(patient));
 		
 		return observations;
