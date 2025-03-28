@@ -180,4 +180,6 @@ public class AllConcepts {
 	
 	public static final String DIASTOLIC_BLOOD_PRESSURE = "5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
+	public static final String ON_TB = "58ab89cd-6674-480b-95a0-5b761b0275cb";
+	
 }

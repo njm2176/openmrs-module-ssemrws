@@ -247,6 +247,18 @@ public class SharedConstants {
 		return null;
 	}
 	
+	public static String getIsPatientOnTb(Patient patient) {
+		Concept tbConcept = Context.getConceptService().getConceptByUuid(ON_TB);
+		List<Obs> tbObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(tbConcept), null, null, null, null, null, null, null, null, false);
+		
+		if (!tbObs.isEmpty()) {
+			Obs lastTbObs = tbObs.get(0);
+			return lastTbObs.getValueCoded().getName().getName();
+		}
+		return null;
+	}
+	
 	public static String getTbStatus(Patient patient) {
 		Concept tbStatusConcepts = Context.getConceptService().getConceptByUuid(TB_STATUS_CONCEPT_UUID);
 		
