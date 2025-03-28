@@ -535,6 +535,7 @@ public class SSEMRWebServicesController {
 		observations.setTemperature(getPatientTemperature(patient));
 		observations.setBlood_pressure(populateBloodPressure(patient));
 		observations.setChw(getCommunityHealthWorkerObservations(patient));
+		observations.setOnTb(getIsPatientOnTb(patient));
 		
 		return observations;
 	}

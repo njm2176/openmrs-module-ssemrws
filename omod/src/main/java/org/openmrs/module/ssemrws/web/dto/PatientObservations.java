@@ -59,6 +59,8 @@ public class PatientObservations {
 	
 	private String blood_pressure;
 	
+	private String onTb;
+	
 	// Populate community health Workers
 	private List<CommunityHealthWorkerObservation> chw;
 	
