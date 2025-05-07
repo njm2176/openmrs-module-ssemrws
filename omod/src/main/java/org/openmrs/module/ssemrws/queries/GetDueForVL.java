@@ -81,8 +81,6 @@ public class GetDueForVL {
 		        + "or (hvl.third_eac_session_date is not null "
 		        + " AND TIMESTAMPDIFF(MONTH, hvl.third_eac_session_date, :endDate) >= 1) " + ") "
 		        + "and fp.encounter_datetime between :startDate and :endDate";
-				
-		System.out.println("Final Query: " + baseQuery);
 		
 		try {
 			Query query = entityManager.createNativeQuery(baseQuery).setParameter("startDate", startDate)
