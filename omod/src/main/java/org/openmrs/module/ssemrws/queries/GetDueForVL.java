@@ -86,11 +86,9 @@ public class GetDueForVL {
 				// are still Unsuppressed. Eligible after Third EAC Date
 		        + "or (hvl.third_eac_session_date is not null "
 		        + " AND TIMESTAMPDIFF(MONTH, hvl.third_eac_session_date, :endDate) >= 1) " + ") "
-		        + "and fp.encounter_datetime between :startDate and :endDate";
-				
+		        + "and fp.encounter_datetime <= :endDate";
 		try {
-			Query query = entityManager.createNativeQuery(baseQuery).setParameter("startDate", startDate)
-			        .setParameter("endDate", endDate);
+			Query query = entityManager.createNativeQuery(baseQuery).setParameter("endDate", endDate);
 			return query.getResultList();
 		}
 		catch (NoResultException e) {
