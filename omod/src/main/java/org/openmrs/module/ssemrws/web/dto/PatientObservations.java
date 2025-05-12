@@ -61,6 +61,8 @@ public class PatientObservations {
 	
 	private String onTb;
 	
+	private String hasPendingVl;
+	
 	// Populate community health Workers
 	private List<CommunityHealthWorkerObservation> chw;
 	
