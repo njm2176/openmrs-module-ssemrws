@@ -910,10 +910,6 @@ public class SharedConstants {
 		return getPatientDateByConcept(patient, DATE_RETURNED_TO_TREATMENT);
 	}
 	
-	public static String getViralLoadSampleCollectionDate(Patient patient) {
-		return getPatientDateByConcept(patient, SAMPLE_COLLECTION_DATE_UUID);
-	}
-	
 	public static Date getDeathDate(Patient patient) {
 		return getDateByConcept(patient, DATE_OF_DEATH_UUID);
 	}
@@ -1031,5 +1027,31 @@ public class SharedConstants {
 			return systolic + "/" + diastolic;
 		}
 		return null;
+	}
+	
+	public static String hasPendingVlResults(Patient patient) {
+		EncounterType followUpEncounterType = Context.getEncounterService()
+		        .getEncounterTypeByUuid(FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(patient, null, null, null, null, null,
+		        Collections.singletonList(followUpEncounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		
+		Encounter latestEncounter = Collections.max(encounters, Comparator.comparing(Encounter::getEncounterDatetime));
+		
+		Concept sampleCollectedConcept = Context.getConceptService().getConceptByUuid(SAMPLE_COLLECTION_DATE_UUID);
+		Concept sampleReceivedConcept = Context.getConceptService().getConceptByUuid(DATE_VL_RESULTS_RECEIVED_UUID);
+		
+		boolean hasCollected = false;
+		boolean hasReceived = false;
+		
+		for (Obs obs : latestEncounter.getAllObs()) {
+			if (obs.getConcept().equals(sampleCollectedConcept)) {
+				hasCollected = true;
+			} else if (obs.getConcept().equals(sampleReceivedConcept)) {
+				hasReceived = true;
+			}
+		}
+		
+		return (hasCollected && !hasReceived) ? "Yes" : "No";
 	}
 }
