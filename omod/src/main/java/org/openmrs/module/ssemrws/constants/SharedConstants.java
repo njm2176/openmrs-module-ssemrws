@@ -1036,6 +1036,10 @@ public class SharedConstants {
 		        Collections.singletonList(followUpEncounterType), null, null, null, false);
 		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
 		
+		if (encounters == null || encounters.isEmpty()) {
+			return "No";
+		}
+		
 		Encounter latestEncounter = Collections.max(encounters, Comparator.comparing(Encounter::getEncounterDatetime));
 		
 		Concept sampleCollectedConcept = Context.getConceptService().getConceptByUuid(SAMPLE_COLLECTION_DATE_UUID);
