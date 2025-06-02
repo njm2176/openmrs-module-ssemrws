@@ -1,7 +1,6 @@
 package org.openmrs.module.ssemrws.queries;
 
 import org.openmrs.Patient;
-import org.openmrs.module.ssemrws.web.constants.AllConcepts;
 import org.openmrs.module.ssemrws.web.constants.FetchPatientsByIdentifier;
 import org.springframework.stereotype.Component;
 
