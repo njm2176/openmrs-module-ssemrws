@@ -35,7 +35,7 @@ public class GetInterruptedInTreatmentWithinRange {
 		        + "WHERE p.status = 'Missed' "
 		        + "AND DATE_ADD(p.start_date_time, INTERVAL 28 DAY) BETWEEN :startDate AND :endDate "
 		        + "AND DATE(e.encounter_datetime) <= DATE(:endDate) " + "AND DATEDIFF(CURDATE(), p.start_date_time) > 28 "
-		        + "AND (f.death IS NULL OR f.death != 'Yes') " + "AND (f.transfer_out IS NULL OR f.transfer_out != 'Yes') "
+		        + "AND NOT ((f.death = 'Yes' AND f.date_of_death IS NOT NULL) OR (f.transfer_out = 'Yes' AND f.transfer_out_date IS NOT NULL)) "
 		        + "AND (f.client_refused_treatment IS NULL OR f.client_refused_treatment != 'Yes') "
 		        + "ORDER BY p.patient_id ASC " + ") AS t";
 		

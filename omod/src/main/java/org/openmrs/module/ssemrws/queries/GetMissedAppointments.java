@@ -35,7 +35,10 @@ public class GetMissedAppointments {
 		String query = "select distinct fp.patient_id from openmrs.patient_appointment fp "
 		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid is not null "
 		        + "and fp.status = 'Missed' " + "and fp.start_date_time >= :cutoffDate "
-		        + "and fp.start_date_time between :startDate and :endDate";
+		        + "and fp.start_date_time between :startDate and :endDate "
+		        + "and fp.patient_id not in (select eofu.client_id from ssemr_etl.ssemr_flat_encounter_end_of_follow_up eofu "
+		        + "where (eofu.death = 'Yes' and eofu.date_of_death is not null) "
+		        + "or (eofu.transfer_out = 'Yes' and eofu.transfer_out_date is not null))";
 		
 		List<Integer> missedAppointmentIds = entityManager.createNativeQuery(query).setParameter("cutoffDate", cutoffDate)
 		        .setParameter("startDate", startDate).setParameter("endDate", endDate).getResultList();
