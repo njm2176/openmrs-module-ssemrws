@@ -1010,4 +1010,59 @@ public class SharedConstants {
 		
 		return (hasCollected && !hasReceived) ? "Yes" : "No";
 	}
+	
+	/**
+	 * Calculates the age of a patient based on their birthdate.
+	 */
+	public static Period calculatePatientAge(Patient patient) {
+		LocalDate birthDate = patient.getBirthdate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+		return Period.between(birthDate, LocalDate.now());
+	}
+	
+	/**
+	 * Formats the patient's age into a human-readable string.
+	 */
+	public static String formatAge(Period age) {
+		int years = age.getYears();
+		int months = age.getMonths();
+		
+		if (years >= 1) {
+			return years + " year" + (years > 1 ? "s" : "");
+		}
+		if (months >= 1) {
+			return months + " month" + (months > 1 ? "s" : "");
+		}
+		
+		long weeks = age.getDays() / 7;
+		return weeks + " week" + (weeks > 1 ? "s" : "");
+	}
+	
+	/**
+	 * Fetches the last encounter for a given patient and encounter type.
+	 * 
+	 * @param patient The patient
+	 * @param encounterType The encounter type
+	 * @return The most recent encounter of the given type for the patient, or null if none exist
+	 */
+	public static Encounter getLastEncounterForType(Patient patient, EncounterType encounterType) {
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(patient, null, null, null, null,
+		    Collections.singletonList(encounterType), null, null, null, false);
+		if (!encounters.isEmpty()) {
+			encounters.sort((e1, e2) -> e2.getEncounterDatetime().compareTo(e1.getEncounterDatetime()));
+			return encounters.get(0);
+		}
+		return null;
+	}
+	
+	/**
+	 * Fetches the most recent active visit for a given patient.
+	 */
+	public static Visit getLatestActiveVisit(Patient patient) {
+		List<Visit> activeVisits = Context.getVisitService().getActiveVisitsByPatient(patient);
+		if (activeVisits.isEmpty()) {
+			return null;
+		}
+		activeVisits.sort(Comparator.comparing(Visit::getStartDatetime).reversed());
+		return activeVisits.get(0);
+	}
 }

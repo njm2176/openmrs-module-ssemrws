@@ -16,15 +16,11 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.servlet.http.HttpServletRequest;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
 import java.time.Period;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
-import static org.openmrs.module.ssemrws.constants.SharedConstants.getVLResults;
+import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 
 /**
  * This class configured as controller using annotation and mapped with the URL of
@@ -43,121 +39,37 @@ public class FormsController {
 	/**
 	 * Gets a list of available/completed forms for a patient
 	 * 
-	 * @param request
 	 * @param patientUuid
 	 * @return
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/forms")
 	@ResponseBody
-	public Object getAllAvailableFormsForVisit(HttpServletRequest request, @RequestParam("patientUuid") String patientUuid) {
+	public Object getAllAvailableFormsForVisit(@RequestParam("patientUuid") String patientUuid) {
 		if (StringUtils.isBlank(patientUuid)) {
-			return new ResponseEntity<>("You must specify patientUuid in the request!", new HttpHeaders(),
-			        HttpStatus.BAD_REQUEST);
+			return new ResponseEntity<>("You must specify patientUuid in the request!", HttpStatus.BAD_REQUEST);
 		}
-		
 		Patient patient = Context.getPatientService().getPatientByUuid(patientUuid);
-		
 		if (patient == null) {
-			return new ResponseEntity<>("The provided patient was not found in the system!", new HttpHeaders(),
-			        HttpStatus.NOT_FOUND);
+			return new ResponseEntity<>("The provided patient was not found in the system!", HttpStatus.NOT_FOUND);
 		}
 		
-		// Calculate patient age
-		LocalDate birthDate = patient.getBirthdate().toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
-		LocalDate currentDate = LocalDate.now();
-		
-		int years = Period.between(birthDate, currentDate).getYears();
-		int months = Period.between(birthDate, currentDate).getMonths();
-		int days = Period.between(birthDate, currentDate).getDays();
-		
-		String ageDisplay;
-		if (years >= 1) {
-			ageDisplay = years + " year" + (years > 1 ? "s" : "");
-		} else if (months >= 1) {
-			ageDisplay = months + " month" + (months > 1 ? "s" : "");
-		} else {
-			long weeks = days / 7;
-			ageDisplay = weeks + " week" + (weeks > 1 ? "s" : "");
+		Visit latestVisit = getLatestActiveVisit(patient);
+		if (latestVisit == null) {
+			return new ResponseEntity<>("The patient has no active visits.", HttpStatus.NOT_FOUND);
 		}
 		
-		// Fetch the most recent VL results
-		String vlResultString = getVLResults(patient);
-		boolean hasHighVL = false;
-		if (vlResultString != null) {
-			try {
-				double vlResult = Double.parseDouble(vlResultString);
-				hasHighVL = vlResult >= 1000;
-			}
-			catch (NumberFormatException e) {
-				System.err.println("Unable to parse VL result: " + vlResultString);
-			}
-		}
+		Period patientAge = calculatePatientAge(patient);
+		boolean hasHighVL = hasHighViralLoad(patient);
 		
-		List<Visit> activeVisits = Context.getVisitService().getActiveVisitsByPatient(patient);
-		if (activeVisits.isEmpty()) {
-			return new ResponseEntity<>("The patient has no active visits.", new HttpHeaders(), HttpStatus.NOT_FOUND);
-		}
+		String jsonResponse = buildJsonResponse(patient, latestVisit, patientAge, hasHighVL);
 		
-		activeVisits.sort(Comparator.comparing(Visit::getStartDatetime).reversed());
-		Visit latestVisit = activeVisits.get(0);
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		String latestVisitDate = dateFormat.format(latestVisit.getStartDatetime());
-		
-		ArrayNode formList = JsonNodeFactory.instance.arrayNode();
-		ObjectNode allFormsObj = JsonNodeFactory.instance.objectNode();
-		
-		// Add patient details to the response
-		allFormsObj.put("patientName", patient.getGivenName() + " " + patient.getFamilyName());
-		allFormsObj.put("patientUuid", patient.getUuid());
-		allFormsObj.put("patientAge", ageDisplay);
-		allFormsObj.put("latestVisitDate", latestVisitDate);
-		
-		// Fetch all published forms
-		List<Form> availableForms = Context.getFormService().getPublishedForms();
-		
-		for (Form form : availableForms) {
-			String encounterTypeUuid = (form.getEncounterType() != null) ? form.getEncounterType().getUuid() : null;
-			
-			// Add all forms to the list
-			ObjectNode formObj = createFormObject(form, encounterTypeUuid);
-			
-			// Attach the last filled date for the form
-			if (encounterTypeUuid != null) {
-				Encounter lastEncounter = getLastEncounterForType(patient, form.getEncounterType());
-				if (lastEncounter != null) {
-					formObj.put("lastFilledDate", lastEncounter.getEncounterDatetime().toString());
-				} else {
-					formObj.put("lastFilledDate", "Never filled");
-				}
-			} else {
-				formObj.put("lastFilledDate", "No encounter type associated");
-			}
-			
-			// Apply criteria for additional inclusion logic
-			if (encounterTypeUuid != null) {
-				if (encounterTypeUuid.equals(ADULT_AND_ADOLESCENT_INTAKE_FORM_ENCOUNTERTYPE_UUID) && years <= 15) {
-					continue;
-				}
-				if (encounterTypeUuid.equals(PEDIATRIC_INTAKE_FORM_ENCOUNTERTYPE_UUID) && years > 15) {
-					continue;
-				}
-				if (encounterTypeUuid.equals(HIGH_VL_FORM_ENCOUNTERTYPE_UUID) && !hasHighVL) {
-					continue;
-				}
-			}
-			
-			// Add form to the final list
-			formList.add(formObj);
-		}
-		
-		allFormsObj.put("results", formList);
-		return allFormsObj.toString();
+		return new ResponseEntity<>(jsonResponse, new HttpHeaders(), HttpStatus.OK);
 	}
 	
 	/**
-	 * Helper method to create a JSON representation of a form.
+	 * Helper method to create a JSON representation of a form. (This is the method you provided)
+	 * * @param form
 	 * 
-	 * @param form
 	 * @param encounterTypeUuid
 	 * @return
 	 */
@@ -169,40 +81,101 @@ public class FormsController {
 		formObj.put("display", form.getName());
 		formObj.put("description", form.getDescription());
 		
-		// Include the detailed encounterType object
 		EncounterType encounterType = form.getEncounterType();
 		if (encounterType != null) {
 			ObjectNode encounterTypeObj = JsonNodeFactory.instance.objectNode();
 			encounterTypeObj.put("uuid", encounterType.getUuid());
 			encounterTypeObj.put("name", encounterType.getName());
-			encounterTypeObj.put("viewPrivilege",
-			    String.valueOf(encounterType.getViewPrivilege() != null ? encounterType.getViewPrivilege() : null));
-			encounterTypeObj.put("editPrivilege",
-			    String.valueOf(encounterType.getEditPrivilege() != null ? encounterType.getEditPrivilege() : null));
+			encounterTypeObj.put("viewPrivilege", String
+			        .valueOf(encounterType.getViewPrivilege() != null ? encounterType.getViewPrivilege().getName() : null));
+			encounterTypeObj.put("editPrivilege", String
+			        .valueOf(encounterType.getEditPrivilege() != null ? encounterType.getEditPrivilege().getName() : null));
 			
 			formObj.put("encounterType", encounterTypeObj);
 		} else {
-			formObj.put("encounterType", "No encounter type associated");
+			formObj.putNull("encounterType");
 		}
 		
 		return formObj;
 	}
 	
 	/**
-	 * Fetches the last encounter for a given patient and encounter type.
-	 * 
-	 * @param patient The patient
-	 * @param encounterType The encounter type
-	 * @return The most recent encounter of the given type for the patient, or null if none exist
+	 * Checks if the patient has a high viral load (>= 1000).
 	 */
-	private Encounter getLastEncounterForType(Patient patient, EncounterType encounterType) {
-		List<Encounter> encounters = Context.getEncounterService().getEncounters(patient, null, null, null, null,
-		    Collections.singletonList(encounterType), null, null, null, false);
-		if (!encounters.isEmpty()) {
-			// Sort encounters by date, descending
-			encounters.sort((e1, e2) -> e2.getEncounterDatetime().compareTo(e1.getEncounterDatetime()));
-			return encounters.get(0);
+	private boolean hasHighViralLoad(Patient patient) {
+		String vlResultString = getVLResults(patient);
+		if (vlResultString != null) {
+			try {
+				return Double.parseDouble(vlResultString) >= 1000;
+			}
+			catch (NumberFormatException e) {
+				System.err.println("Unable to parse VL result: " + vlResultString);
+			}
 		}
-		return null;
+		return false;
+	}
+	
+	/**
+	 * Constructs the main JSON response object.
+	 */
+	private String buildJsonResponse(Patient patient, Visit latestVisit, Period patientAge, boolean hasHighVL) {
+		ObjectNode responseNode = JsonNodeFactory.instance.objectNode();
+		
+		responseNode.put("patientName", patient.getGivenName() + " " + patient.getFamilyName());
+		responseNode.put("patientUuid", patient.getUuid());
+		responseNode.put("patientAge", formatAge(patientAge));
+		responseNode.put("latestVisitDate",
+		    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(latestVisit.getStartDatetime()));
+		
+		responseNode.put("results", getFilteredFormsAsJson(patient, patientAge, hasHighVL));
+		
+		return responseNode.toString();
+	}
+	
+	/**
+	 * Fetches all published forms, filters them based on patient criteria, and builds a JSON array.
+	 */
+	private ArrayNode getFilteredFormsAsJson(Patient patient, Period patientAge, boolean hasHighVL) {
+		ArrayNode formList = JsonNodeFactory.instance.arrayNode();
+		List<Form> allPublishedForms = Context.getFormService().getPublishedForms();
+		
+		for (Form form : allPublishedForms) {
+			if (shouldIncludeForm(form, patientAge.getYears(), hasHighVL)) {
+				EncounterType encounterType = form.getEncounterType();
+				String encounterTypeUuid = (encounterType != null) ? encounterType.getUuid() : null;
+				
+				ObjectNode formObj = createFormObject(form, encounterTypeUuid);
+				
+				if (encounterType != null) {
+					Encounter lastEncounter = getLastEncounterForType(patient, encounterType);
+					formObj.put("lastFilledDate",
+					    lastEncounter != null ? lastEncounter.getEncounterDatetime().toString() : "Never filled");
+				} else {
+					formObj.put("lastFilledDate", "No encounter type associated");
+				}
+				
+				formList.add(formObj);
+			}
+		}
+		return formList;
+	}
+	
+	/**
+	 * Determines if a form should be included based on patient age and VL status.
+	 */
+	private boolean shouldIncludeForm(Form form, int ageInYears, boolean hasHighVL) {
+		String encounterTypeUuid = (form.getEncounterType() != null) ? form.getEncounterType().getUuid() : null;
+		if (encounterTypeUuid == null) {
+			return true;
+		}
+		
+		if (encounterTypeUuid.equals(ADULT_AND_ADOLESCENT_INTAKE_FORM_ENCOUNTERTYPE_UUID) && ageInYears <= 15)
+			return false;
+		if (encounterTypeUuid.equals(PEDIATRIC_INTAKE_FORM_ENCOUNTERTYPE_UUID) && ageInYears > 15)
+			return false;
+		if (encounterTypeUuid.equals(HIGH_VL_FORM_ENCOUNTERTYPE_UUID) && !hasHighVL)
+			return false;
+		
+		return true;
 	}
 }
