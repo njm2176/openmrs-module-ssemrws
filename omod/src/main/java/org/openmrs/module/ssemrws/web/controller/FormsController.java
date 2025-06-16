@@ -21,6 +21,7 @@ import java.time.Period;
 import java.util.List;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
+import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 
 /**
  * This class configured as controller using annotation and mapped with the URL of
@@ -29,12 +30,6 @@ import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 @Controller
 @RequestMapping(value = "/rest/" + RestConstants.VERSION_1 + "/ssemr")
 public class FormsController {
-	
-	public static final String ADULT_AND_ADOLESCENT_INTAKE_FORM_ENCOUNTERTYPE_UUID = "b645dbdd-7d58-41d4-9b11-eeff023b8ee5";
-	
-	public static final String PEDIATRIC_INTAKE_FORM_ENCOUNTERTYPE_UUID = "356def6a-fa66-4a78-97d5-b43154064875";
-	
-	public static final String HIGH_VL_FORM_ENCOUNTERTYPE_UUID = "f7f1c854-69e5-11ee-8c99-0242ac120002";
 	
 	/**
 	 * Gets a list of available/completed forms for a patient
