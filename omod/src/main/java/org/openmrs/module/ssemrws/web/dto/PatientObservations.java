@@ -25,6 +25,8 @@ public class PatientObservations {
 	
 	private String whoClinicalStage;
 	
+	private String dateVLSampleCollected;
+	
 	private String dateVLResultsReceived;
 	
 	private String chwName;

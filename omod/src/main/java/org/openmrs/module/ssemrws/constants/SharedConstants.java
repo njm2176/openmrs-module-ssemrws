@@ -335,6 +335,24 @@ public class SharedConstants {
 		return "";
 	}
 	
+	public static String getDateVLSampleCollected(Patient patient) {
+		Concept dateVLSampleCollectedConcept = Context.getConceptService().getConceptByUuid(SAMPLE_COLLECTION_DATE_UUID);
+		
+		List<Obs> dateSampleCollectedObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(dateVLSampleCollectedConcept),
+		    null, null, null, null, null, null, null, null, false);
+		
+		if (!dateSampleCollectedObs.isEmpty()) {
+			Obs dateVLCollectedObs = dateSampleCollectedObs.get(0);
+			Date dateVLCollected = dateVLCollectedObs.getValueDate();
+			if (dateVLCollected != null) {
+				return dateTimeFormatter.format(dateVLCollected);
+			}
+		}
+		
+		return "";
+	}
+	
 	public static String getCHWName(Patient patient) {
 		Concept chwNameConcepts = Context.getConceptService().getConceptByUuid(CHW_NAME_UUID);
 		
