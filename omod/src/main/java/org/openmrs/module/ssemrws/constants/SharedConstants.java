@@ -319,77 +319,11 @@ public class SharedConstants {
 	}
 	
 	public static String getDateVLResultsReceived(Patient patient) {
-		Concept dateVLResultsReceivedConcept = Context.getConceptService().getConceptByUuid(DATE_VL_RESULTS_RECEIVED_UUID);
-		
-		List<Obs> dateVLResultsReceivedObs = Context.getObsService().getObservations(
-		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(dateVLResultsReceivedConcept),
-		    null, null, null, null, null, null, null, null, false);
-		
-		if (!dateVLResultsReceivedObs.isEmpty()) {
-			Obs dateVLReceivedObs = dateVLResultsReceivedObs.get(0);
-			Date dateVLResultsReceived = dateVLReceivedObs.getValueDate();
-			if (dateVLResultsReceived != null) {
-				return dateTimeFormatter.format(dateVLResultsReceived);
-			}
-		}
-		return "";
+		return getPatientDateByConcept(patient, DATE_VL_RESULTS_RECEIVED_UUID);
 	}
 	
 	public static String getDateVLSampleCollected(Patient patient) {
-		Concept dateVLSampleCollectedConcept = Context.getConceptService().getConceptByUuid(SAMPLE_COLLECTION_DATE_UUID);
-		
-		List<Obs> dateSampleCollectedObs = Context.getObsService().getObservations(
-		    Collections.singletonList(patient.getPerson()), null, Collections.singletonList(dateVLSampleCollectedConcept),
-		    null, null, null, null, null, null, null, null, false);
-		
-		if (!dateSampleCollectedObs.isEmpty()) {
-			Obs dateVLCollectedObs = dateSampleCollectedObs.get(0);
-			Date dateVLCollected = dateVLCollectedObs.getValueDate();
-			if (dateVLCollected != null) {
-				return dateTimeFormatter.format(dateVLCollected);
-			}
-		}
-		
-		return "";
-	}
-	
-	public static String getCHWName(Patient patient) {
-		Concept chwNameConcepts = Context.getConceptService().getConceptByUuid(CHW_NAME_UUID);
-		
-		List<Obs> chwNameObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(chwNameConcepts), null, null, null, null, null, null, null, null, false);
-		
-		if (!chwNameObs.isEmpty()) {
-			Obs chwName = chwNameObs.get(0);
-			return chwName.getValueText();
-		}
-		return "";
-	}
-	
-	public static String getCHWPhone(Patient patient) {
-		Concept chwPhoneConcepts = Context.getConceptService().getConceptByUuid(CHW_PHONE_UUID);
-		
-		List<Obs> chwPhoneObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
-		    Collections.singletonList(chwPhoneConcepts), null, null, null, null, null, null, null, null, false);
-		
-		if (!chwPhoneObs.isEmpty()) {
-			Obs chwPhone = chwPhoneObs.get(0);
-			return chwPhone.getValueText();
-		}
-		return "";
-	}
-	
-	public static String getCHWAddress(Patient patient) {
-		Concept chwAddressConcepts = Context.getConceptService().getConceptByUuid(CHW_ADDRESS_UUID);
-		
-		List<Obs> chwAddressObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    null, Collections.singletonList(chwAddressConcepts), null, null, null, null, null, null, null, null, false);
-		
-		if (!chwAddressObs.isEmpty()) {
-			Obs chwAddress = chwAddressObs.get(0);
-			return chwAddress.getValueText();
-		}
-		return "";
+		return getPatientDateByConcept(patient, SAMPLE_COLLECTION_DATE_UUID);
 	}
 	
 	public static String getVLResults(Patient patient) {
