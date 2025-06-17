@@ -27,8 +27,7 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.openmrs.module.ssemrws.constants.GetDateObservations.getDateByConcept;
-import static org.openmrs.module.ssemrws.constants.GetDateObservations.getPatientDateByConcept;
+import static org.openmrs.module.ssemrws.constants.GetDateObservations.*;
 import static org.openmrs.module.ssemrws.constants.GetObservationValue.getLatestObsByConcept;
 import static org.openmrs.module.ssemrws.constants.GetObservationValue.getObsValue;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
@@ -322,8 +321,20 @@ public class SharedConstants {
 		return getPatientDateByConcept(patient, DATE_VL_RESULTS_RECEIVED_UUID);
 	}
 	
-	public static String getDateVLSampleCollected(Patient patient) {
-		return getPatientDateByConcept(patient, SAMPLE_COLLECTION_DATE_UUID);
+	public static String getLatestVLSampleCollectionDate(Patient patient) {
+		Date collectionDate = getLatestDateFromObs(patient, SAMPLE_COLLECTION_DATE_UUID);
+		Date repeatCollectionDate = getLatestDateFromObs(patient, REPEAT_VL_COLLECTION_DATE);
+		
+		Date latestCollectionDate = null;
+		if (collectionDate != null && repeatCollectionDate != null) {
+			latestCollectionDate = collectionDate.after(repeatCollectionDate) ? collectionDate : repeatCollectionDate;
+		} else if (collectionDate != null) {
+			latestCollectionDate = collectionDate;
+		} else {
+			latestCollectionDate = repeatCollectionDate;
+		}
+		
+		return formatDate(latestCollectionDate);
 	}
 	
 	public static String getVLResults(Patient patient) {
