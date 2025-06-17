@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -15,8 +16,36 @@ public class GetVLDueDate {
 	@PersistenceContext
 	private EntityManager entityManager;
 	
+	/**
+	 * Checks if the patient's most recent follow-up encounter has a collected VL sample but is still
+	 * awaiting results.
+	 * 
+	 * @param patient The patient to check.
+	 * @return True if a VL result is pending, otherwise false.
+	 */
+	private boolean isPatientVLPending(Patient patient) {
+		String pendingCheckQuery = "SELECT 1 FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up latest_fp "
+		        + "WHERE latest_fp.client_id = :patientId " + "AND latest_fp.date_vl_sample_collected IS NOT NULL "
+		        + "AND latest_fp.date_vl_results_received IS NULL " + "AND latest_fp.encounter_datetime = ( "
+		        + "    SELECT MAX(f.encounter_datetime) " + "    FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up f "
+		        + "    WHERE f.client_id = latest_fp.client_id " + ") LIMIT 1";
+		
+		try {
+			Query query = entityManager.createNativeQuery(pendingCheckQuery).setParameter("patientId",
+			    patient.getPatientId());
+			return !query.getResultList().isEmpty();
+		}
+		catch (Exception e) {
+			System.err.println("Error checking for pending VL status: " + e.getMessage());
+			return false;
+		}
+	}
+	
 	// Query to fetch the VL due date for a specific patient
 	public String getVLDueDate(Patient patient) {
+		if (isPatientVLPending(patient)) {
+			return "Pending Results";
+		}
 		String query = "SELECT client_id, DATE_FORMAT(MAX(eligibility_date), '%d-%m-%Y') AS max_due_date FROM ("
 		        + "SELECT fp.client_id, " + "CASE " +
 				// Adults suppressed
@@ -69,16 +98,18 @@ public class GetVLDueDate {
 		        + "WHERE fp.client_id = :patientId AND DATE(fp.encounter_datetime) <= CURRENT_DATE "
 		        + ") AS t GROUP BY client_id";
 				
-		// Execute the query with the patient ID as a parameter
-		List<Object[]> results = entityManager.createNativeQuery(query).setParameter("patientId", patient.getPatientId())
-		        .getResultList();
-		
-		// Return the next VL due date if found, otherwise return null
-		if (!results.isEmpty() && results.get(0) != null) {
-			Object[] resultRow = results.get(0);
-			return (String) resultRow[1];
+		try {
+			Query nativeQuery = entityManager.createNativeQuery(query).setParameter("patientId", patient.getPatientId());
+			List<Object[]> results = nativeQuery.getResultList();
+			if (results != null && !results.isEmpty()) {
+				Object[] firstResult = results.get(0);
+				return (firstResult[1] != null) ? firstResult[1].toString() : "N/A";
+			}
+		}
+		catch (Exception e) {
+			System.err.println("Error calculating VL due date: " + e.getMessage());
 		}
 		
-		return null;
+		return "N/A";
 	}
 }
