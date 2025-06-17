@@ -98,7 +98,7 @@ public class FormsController {
 	 * Checks if the patient has a high viral load (>= 1000).
 	 */
 	private boolean hasHighViralLoad(Patient patient) {
-		String vlResultString = getVLResults(patient);
+		String vlResultString = getVLResultsFromFollowUpForm(patient);
 		if (vlResultString != null) {
 			try {
 				return Double.parseDouble(vlResultString) >= 1000;
@@ -164,11 +164,11 @@ public class FormsController {
 			return true;
 		}
 		
-		if (encounterTypeUuid.equals(ADULT_AND_ADOLESCENT_INTAKE_FORM_ENCOUNTERTYPE_UUID) && ageInYears <= 15)
+		if (encounterTypeUuid.equals(ADULT_AND_ADOLESCENT_INTAKE_FORM) && ageInYears <= 15)
 			return false;
-		if (encounterTypeUuid.equals(PEDIATRIC_INTAKE_FORM_ENCOUNTERTYPE_UUID) && ageInYears > 15)
+		if (encounterTypeUuid.equals(PEDIATRIC_INTAKE_FORM) && ageInYears > 15)
 			return false;
-		if (encounterTypeUuid.equals(HIGH_VL_FORM_ENCOUNTERTYPE_UUID) && !hasHighVL)
+		if (encounterTypeUuid.equals(HIGH_VL_ENCOUNTERTYPE_UUID) && !hasHighVL)
 			return false;
 		
 		return true;

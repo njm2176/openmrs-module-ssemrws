@@ -364,6 +364,68 @@ public class SharedConstants {
 		return null;
 	}
 	
+	/**
+	 * Gets the latest VL Result from the Follow-Up Form.
+	 */
+	public static String getVLResultsFromFollowUpForm(Patient patient) {
+		return getLatestVlValueForEncounterType(patient, FOLLOW_UP_FORM_ENCOUNTER_TYPE);
+	}
+	
+	/**
+	 * This is the new private helper method that contains all the reusable logic. It fetches the most
+	 * recent Viral Load value for a patient from within encounters of a specific type.
+	 * 
+	 * @param patient The patient to check.
+	 * @param encounterTypeUuid The UUID of the EncounterType to search within.
+	 * @return The formatted String of the latest VL value, or null if none is found.
+	 */
+	private static String getLatestVlValueForEncounterType(Patient patient, String encounterTypeUuid) {
+		EncounterType encounterType = Context.getEncounterService().getEncounterTypeByUuid(encounterTypeUuid);
+		if (encounterType == null) {
+			System.err.println("Could not find EncounterType with UUID: " + encounterTypeUuid);
+			return null;
+		}
+		
+		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(patient, null, null, null, null, null,
+		        Collections.singletonList(encounterType), null, null, null, false);
+		List<Encounter> encounters = Context.getEncounterService().getEncounters(encounterSearchCriteria);
+		
+		if (encounters.isEmpty()) {
+			return null;
+		}
+		
+		Concept viralLoadResultsConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_RESULTS_UUID);
+		Concept bdlConcept = Context.getConceptService().getConceptByUuid(BDL_CONCEPT_UUID);
+		Concept viralLoadConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID);
+		
+		List<Concept> vlConcepts = Arrays.asList(viralLoadConcept, viralLoadResultsConcept);
+		
+		List<Obs> allObservations = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    encounters, vlConcepts, null, null, null, null, 0, null, null, null, false);
+		
+		if (allObservations.isEmpty()) {
+			return null;
+		}
+		
+		allObservations.sort((o1, o2) -> o2.getObsDatetime().compareTo(o1.getObsDatetime()));
+		Obs mostRecentObs = allObservations.get(0);
+		
+		if (mostRecentObs.getValueNumeric() != null) {
+			return mostRecentObs.getValueNumeric().toString();
+		} else if (mostRecentObs.getValueText() != null) {
+			return mostRecentObs.getValueText();
+		} else if (mostRecentObs.getValueCoded() != null) {
+			if (mostRecentObs.getValueCoded().equals(bdlConcept)) {
+				return "Below Detectable (BDL)";
+			} else {
+				return mostRecentObs.getValueCoded().getName().getName();
+			}
+		}
+		
+		System.err.println("Observation value is neither numeric, text, nor coded for Obs ID: " + mostRecentObs.getId());
+		return null;
+	}
+	
 	public static String getVLStatus(Patient patient) {
 		String vlResult = getVLResults(patient);
 		
