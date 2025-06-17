@@ -519,7 +519,7 @@ public class SSEMRWebServicesController {
 		observations.setTbStatus(getTbStatus(patient));
 		observations.setArvRegimenDose(getARVRegimenDose(patient));
 		observations.setWhoClinicalStage(getWHOClinicalStage(patient));
-		observations.setDateVLSampleCollected(getDateVLSampleCollected(patient));
+		observations.setDateVLSampleCollected(getLatestVLSampleCollectionDate(patient));
 		observations.setDateVLResultsReceived(getDateVLResultsReceived(patient));
 		observations.setVlResults(getVLResults(patient));
 		observations.setVlStatus(getVLStatus(patient));
