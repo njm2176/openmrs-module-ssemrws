@@ -94,6 +94,14 @@ public class GetDueForVL {
 				// are still Unsuppressed. Eligible after Third EAC Date
 		        + "or (hvl.third_eac_session_date is not null "
 		        + " AND TIMESTAMPDIFF(MONTH, hvl.third_eac_session_date, :endDate) >= 1) " + ") "
+				// Check for pending results and remove them from the list
+				+ "AND NOT EXISTS ( "
+		        + "    SELECT 1 FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up latest_fp "
+		        + "    WHERE latest_fp.client_id = fp.client_id " + "    AND latest_fp.date_vl_sample_collected IS NOT NULL "
+		        + "    AND latest_fp.date_vl_results_received IS NULL " + "    AND latest_fp.encounter_datetime = ( "
+		        + "        SELECT MAX(f.encounter_datetime) "
+		        + "        FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up f "
+		        + "        WHERE f.client_id = latest_fp.client_id " + "    ) " + ") "
 		        + "and fp.encounter_datetime <= :endDate "
 		        + "AND NOT ((fup.death = 'Yes' AND fup.date_of_death IS NOT NULL) OR (fup.transfer_out = 'Yes' AND fup.transfer_out_date IS NOT NULL)) "
 		        + "and (fup.client_refused_treatment IS NULL OR fup.client_refused_treatment != 'Yes')"
