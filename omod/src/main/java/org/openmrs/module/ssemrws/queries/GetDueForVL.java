@@ -94,8 +94,8 @@ public class GetDueForVL {
 				// are still Unsuppressed. Eligible after Third EAC Date
 		        + "or (hvl.third_eac_session_date is not null "
 		        + " AND TIMESTAMPDIFF(MONTH, hvl.third_eac_session_date, :endDate) >= 1) " + ") "
-		        + "and fp.encounter_datetime <= :endDate " + "and (fup.death IS NULL OR fup.death != 'Yes') "
-		        + "and (fup.transfer_out IS NULL OR fup.transfer_out != 'Yes') "
+		        + "and fp.encounter_datetime <= :endDate "
+		        + "AND NOT ((fup.death = 'Yes' AND fup.date_of_death IS NOT NULL) OR (fup.transfer_out = 'Yes' AND fup.transfer_out_date IS NOT NULL)) "
 		        + "and (fup.client_refused_treatment IS NULL OR fup.client_refused_treatment != 'Yes')"
 		        + "and (appt.status IS NULL OR appt.status != 'Missed' OR DATEDIFF(:endDate, appt.start_date_time) <= 28)";
 		try {

@@ -181,5 +181,11 @@ public class AllConcepts {
 	public static final String DIASTOLIC_BLOOD_PRESSURE = "5086AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 	
 	public static final String ON_TB = "58ab89cd-6674-480b-95a0-5b761b0275cb";
+
+	public static final String ADULT_AND_ADOLESCENT_INTAKE_FORM_ENCOUNTERTYPE_UUID = "b645dbdd-7d58-41d4-9b11-eeff023b8ee5";
+
+	public static final String PEDIATRIC_INTAKE_FORM_ENCOUNTERTYPE_UUID = "356def6a-fa66-4a78-97d5-b43154064875";
+
+	public static final String HIGH_VL_FORM_ENCOUNTERTYPE_UUID = "f7f1c854-69e5-11ee-8c99-0242ac120002";
 	
 }

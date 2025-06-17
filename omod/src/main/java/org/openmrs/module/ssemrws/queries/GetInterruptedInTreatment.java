@@ -34,9 +34,9 @@ public class GetInterruptedInTreatment {
 		        + "LEFT JOIN ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up e ON e.client_id = p.patient_id "
 		        + "LEFT JOIN ssemr_etl.ssemr_flat_encounter_end_of_follow_up f ON f.client_id = p.patient_id "
 		        + "WHERE p.status = 'Missed' " + "AND DATE(e.encounter_datetime) <= DATE(:endDate) "
-		        + "AND DATEDIFF(CURDATE(), p.start_date_time) > 28 " + "AND (f.death IS NULL OR f.death != 'Yes') "
-		        + "AND (f.transfer_out IS NULL OR f.transfer_out != 'Yes') "
+		        + "AND DATEDIFF(CURDATE(), p.start_date_time) > 28 "
 		        + "AND (f.client_refused_treatment IS NULL OR f.client_refused_treatment != 'Yes') "
+		        + "AND NOT ((f.death = 'Yes' AND f.date_of_death IS NOT NULL) OR (f.transfer_out = 'Yes' AND f.transfer_out_date IS NOT NULL)) "
 		        + "ORDER BY p.patient_id ASC " + ") AS t;";
 		
 		// Execute the query
