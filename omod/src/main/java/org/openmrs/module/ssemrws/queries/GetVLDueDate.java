@@ -41,10 +41,37 @@ public class GetVLDueDate {
 		}
 	}
 	
-	// Query to fetch the VL due date for a specific patient
+	/**
+	 * Checks if the patient's latest viral load result is high (>= 1000) AND they have not yet
+	 * completed their third EAC session.
+	 * 
+	 * @param patient The patient to check.
+	 * @return True if the patient meets the HVL criteria, otherwise false.
+	 */
+	private boolean isPatientInHVLCohort(Patient patient) {
+		String hvlCheckQuery = "SELECT 1 FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up fp "
+		        + "LEFT JOIN ssemr_etl.ssemr_flat_encounter_high_viral_load hvl ON fp.client_id = hvl.client_id "
+		        + "WHERE fp.client_id = :patientId " + "AND fp.encounter_datetime = ( "
+		        + "    SELECT MAX(f.encounter_datetime) " + "    FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up f "
+		        + "    WHERE f.client_id = fp.client_id " + ") " + "AND fp.viral_load_value >= 1000 "
+		        + "AND hvl.third_eac_session_date IS NULL " + "LIMIT 1";
+		
+		try {
+			Query query = entityManager.createNativeQuery(hvlCheckQuery).setParameter("patientId", patient.getPatientId());
+			return !query.getResultList().isEmpty();
+		}
+		catch (Exception e) {
+			System.err.println("Error checking for HVL cohort status: " + e.getMessage());
+			return false;
+		}
+	}
+	
 	public String getVLDueDate(Patient patient) {
 		if (isPatientVLPending(patient)) {
 			return "Pending Results";
+		}
+		if (isPatientInHVLCohort(patient)) {
+			return "High VL, Pending EAC 3";
 		}
 		String query = "SELECT client_id, DATE_FORMAT(MAX(eligibility_date), '%d-%m-%Y') AS max_due_date FROM ("
 		        + "SELECT fp.client_id, " + "CASE " +

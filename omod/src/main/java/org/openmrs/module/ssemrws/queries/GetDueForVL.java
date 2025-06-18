@@ -101,6 +101,14 @@ public class GetDueForVL {
 		        + "        SELECT MAX(f.encounter_datetime) "
 		        + "        FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up f "
 		        + "        WHERE f.client_id = latest_fp.client_id " + "    ) " + ") "
+				// This block excludes patients who have a high VL but have not yet completed
+				// their 3rd EAC session.
+		        + "AND NOT ( " + "    (SELECT f.viral_load_value "
+		        + "     FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up f "
+		        + "     WHERE f.client_id = fp.client_id AND f.viral_load_value IS NOT NULL "
+		        + "     ORDER BY f.encounter_datetime DESC LIMIT 1) >= 1000 " + "    AND " + "    NOT EXISTS (SELECT 1 "
+		        + "                FROM ssemr_etl.ssemr_flat_encounter_high_viral_load hvl "
+		        + "                WHERE hvl.client_id = fp.client_id AND hvl.third_eac_session_date IS NOT NULL) " + ") "
 		        + "and fp.encounter_datetime <= :endDate "
 		        + "AND NOT ((fup.death = 'Yes' AND fup.date_of_death IS NOT NULL) OR (fup.transfer_out = 'Yes' AND fup.transfer_out_date IS NOT NULL)) "
 		        + "and (fup.client_refused_treatment IS NULL OR fup.client_refused_treatment != 'Yes')"
