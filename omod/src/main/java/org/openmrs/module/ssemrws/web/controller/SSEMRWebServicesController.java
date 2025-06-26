@@ -112,6 +112,7 @@ public class SSEMRWebServicesController {
 		}
 		
 		List<Patient> filteredPatientsList = new ArrayList<>(filteredPatientsSet);
+
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
@@ -140,6 +141,7 @@ public class SSEMRWebServicesController {
 		}
 		
 		List<Patient> allClients = new ArrayList<>(allClientsSet);
+		allClients.sort(Comparator.comparing(Patient::getPatientId).reversed());
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		
