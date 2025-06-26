@@ -89,11 +89,13 @@ public class GetAllPatients {
 		
 		LocalDate birthDate = patient.getBirthdate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 		int age = Period.between(birthDate, LocalDate.now()).getYears();
+		int patientId = patient.getPatientId();
 		
 		ArrayNode identifiersArray = getPatientIdentifiersArray(patient);
 		
 		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
 		patientObj.put("uuid", patient.getUuid());
+		patientObj.put("patientId", patientId);
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("age", age);
 		patientObj.put("identifiers", identifiersArray);
