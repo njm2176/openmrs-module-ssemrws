@@ -31,10 +31,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
@@ -95,6 +92,33 @@ public class SSEMRWebServicesController {
 	private EntityManager entityManager;
 	
 	/**
+	 * Retrieve filtered patients list
+	 */
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/filteredPatientsList")
+	@ResponseBody
+	public Object getFilteredPatients(HttpServletRequest request,
+	        @RequestParam(required = false, value = "filter") filterCategory filterCategory,
+	        @RequestParam(required = false, value = "page") Integer page,
+	        @RequestParam(required = false, value = "size") Integer size) {
+		if (page == null)
+			page = 0;
+		if (size == null)
+			size = 15;
+		
+		HashSet<Patient> filteredPatientsSet = getAllPatients.getAllPatients(page, size);
+		
+		if (filteredPatientsSet.isEmpty()) {
+			return "No Patients found.";
+		}
+		
+		List<Patient> filteredPatientsList = new ArrayList<>(filteredPatientsSet);
+		
+		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
+		
+		return getAllPatients.filteredPatientsListObj(filteredPatientsList, allPatientsObj);
+	}
+	
+	/**
 	 * Retrieves all patients from the system, applying pagination and filtering options.
 	 */
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/allClients")
@@ -109,11 +133,13 @@ public class SSEMRWebServicesController {
 		if (size == null)
 			size = 15;
 		
-		HashSet<Patient> allClients = getAllPatients.getAllPatients(page, size);
+		HashSet<Patient> allClientsSet = getAllPatients.getAllPatients(page, size);
 		
-		if (allClients.isEmpty()) {
+		if (allClientsSet.isEmpty()) {
 			return "No Patients found.";
 		}
+		
+		List<Patient> allClients = new ArrayList<>(allClientsSet);
 		
 		ObjectNode allPatientsObj = JsonNodeFactory.instance.objectNode();
 		

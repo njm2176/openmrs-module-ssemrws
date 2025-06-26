@@ -10,9 +10,13 @@ import org.springframework.stereotype.Component;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.function.Function;
 
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 import static org.openmrs.module.ssemrws.constants.SharedConstants.getPatientIdentifiersArray;
@@ -50,51 +54,74 @@ public class GetAllPatients {
 		}
 	}
 	
-	public Object allPatientsListObj(HashSet<Patient> allPatients, ObjectNode allPatientsObj) {
-		
-		// Initialize patient list array
+	/**
+	 * A generic helper method to build a list of patient JSON objects. It abstracts away the looping
+	 * and JSON construction logic.
+	 * 
+	 * @param patients The set of patients to process.
+	 * @param containerNode The ObjectNode to which the results will be added.
+	 * @param patientJsonGenerator A function that takes a Patient and returns an ObjectNode.
+	 * @return The containerNode serialized to a String.
+	 */
+	private String buildPatientList(List<Patient> patients, ObjectNode containerNode,
+	        Function<Patient, ObjectNode> patientJsonGenerator) {
 		ArrayNode patientList = JsonNodeFactory.instance.arrayNode();
 		
-		// Loop through all patients and generate the required patient objects
-		for (Patient patient : allPatients) {
-			ObjectNode patientObj = generateAllPatientObject(patient);
+		for (Patient patient : patients) {
+			ObjectNode patientObj = patientJsonGenerator.apply(patient);
 			patientList.add(patientObj);
 		}
 		
-		// Populate the ObjectNode with the patient list
-		allPatientsObj.put("results", patientList);
-		
-		// Return the object as a JSON string
-		return allPatientsObj.toString();
+		containerNode.put("results", patientList);
+		return containerNode.toString();
 	}
 	
-	private ObjectNode generateAllPatientObject(Patient patient) {
+	public String allPatientsListObj(List<Patient> allPatients, ObjectNode allPatientsObj) {
+		return buildPatientList(allPatients, allPatientsObj, this::generateAllPatientObject);
+	}
+	
+	public String filteredPatientsListObj(List<Patient> allPatients, ObjectNode allPatientsObj) {
+		return buildPatientList(allPatients, allPatientsObj, this::generateFilteredPatientObject);
+	}
+	
+	private ObjectNode createBasePatientObject(Patient patient) {
 		ObjectNode patientObj = JsonNodeFactory.instance.objectNode();
-		String artRegimen = getARTRegimen(patient);
-		String dateEnrolled = getEnrolmentDate(patient);
-		String artInitiationDate = getEnrolmentDate(patient);
-		String lastRefillDate = getLastRefillDate(patient);
-		String artAppointmentDate = getNextAppointmentDate.getNextArtAppointmentDate(patient);
 		
-		// Calculate age in years based on patient's birthdate and current date
-		Date birthdate = patient.getBirthdate();
-		Date currentDate = new Date();
-		long age = (currentDate.getTime() - birthdate.getTime()) / (1000L * 60 * 60 * 24 * 365);
+		LocalDate birthDate = patient.getBirthdate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+		int age = Period.between(birthDate, LocalDate.now()).getYears();
 		
 		ArrayNode identifiersArray = getPatientIdentifiersArray(patient);
 		
-		// Populate common fields
 		patientObj.put("name", patient.getPersonName() != null ? patient.getPersonName().toString() : "");
 		patientObj.put("uuid", patient.getUuid());
 		patientObj.put("sex", patient.getGender());
 		patientObj.put("age", age);
 		patientObj.put("identifiers", identifiersArray);
-		patientObj.put("ARTRegimen", artRegimen);
-		patientObj.put("initiationDate", artInitiationDate);
-		patientObj.put("dateEnrolled", dateEnrolled);
-		patientObj.put("lastRefillDate", lastRefillDate);
-		patientObj.put("appointmentDate", artAppointmentDate);
 		
 		return patientObj;
+	}
+	
+	/**
+	 * Generates a complete JSON object for a patient, including all ART details.
+	 */
+	public ObjectNode generateAllPatientObject(Patient patient) {
+		ObjectNode patientObj = createBasePatientObject(patient);
+		
+		String enrolmentDate = getEnrolmentDate(patient);
+		
+		patientObj.put("ARTRegimen", getARTRegimen(patient));
+		patientObj.put("initiationDate", enrolmentDate);
+		patientObj.put("dateEnrolled", enrolmentDate);
+		patientObj.put("lastRefillDate", getLastRefillDate(patient));
+		patientObj.put("appointmentDate", getNextAppointmentDate.getNextArtAppointmentDate(patient));
+		
+		return patientObj;
+	}
+	
+	/**
+	 * Generates a filtered or summary JSON object for a patient.
+	 */
+	public ObjectNode generateFilteredPatientObject(Patient patient) {
+		return createBasePatientObject(patient);
 	}
 }
