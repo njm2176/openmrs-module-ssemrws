@@ -408,31 +408,35 @@ public class SharedConstants {
 		Concept bdlConcept = Context.getConceptService().getConceptByUuid(BDL_CONCEPT_UUID);
 		Concept viralLoadConcept = Context.getConceptService().getConceptByUuid(VIRAL_LOAD_CONCEPT_UUID);
 		
-		List<Concept> vlConcepts = Arrays.asList(viralLoadConcept, viralLoadResultsConcept);
+		List<Obs> getVLResultNumericObs = Context.getObsService().getObservations(
+		    Collections.singletonList(patient.getPerson()), encounters, Collections.singletonList(viralLoadConcept), null,
+		    null, null, null, null, null, null, null, false);
 		
-		List<Obs> allObservations = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-		    encounters, vlConcepts, null, null, null, null, 0, null, null, null, false);
+		List<Obs> getVLResultObs = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
+		    encounters, Collections.singletonList(viralLoadResultsConcept), null, null, null, null, null, null, null, null,
+		    false);
 		
-		if (allObservations.isEmpty()) {
-			return null;
-		}
+		List<Obs> allObservations = new ArrayList<>();
+		allObservations.addAll(getVLResultNumericObs);
+		allObservations.addAll(getVLResultObs);
 		
-		allObservations.sort((o1, o2) -> o2.getObsDatetime().compareTo(o1.getObsDatetime()));
-		Obs mostRecentObs = allObservations.get(0);
-		
-		if (mostRecentObs.getValueNumeric() != null) {
-			return mostRecentObs.getValueNumeric().toString();
-		} else if (mostRecentObs.getValueText() != null) {
-			return mostRecentObs.getValueText();
-		} else if (mostRecentObs.getValueCoded() != null) {
-			if (mostRecentObs.getValueCoded().equals(bdlConcept)) {
-				return "Below Detectable (BDL)";
+		if (!allObservations.isEmpty()) {
+			Obs mostRecentObs = allObservations.get(0);
+			
+			if (mostRecentObs.getValueNumeric() != null) {
+				return mostRecentObs.getValueNumeric().toString();
+			} else if (mostRecentObs.getValueText() != null) {
+				return mostRecentObs.getValueText();
+			} else if (mostRecentObs.getValueCoded() != null) {
+				if (mostRecentObs.getValueCoded().equals(bdlConcept)) {
+					return "Below Detectable (BDL)";
+				} else {
+					return mostRecentObs.getValueCoded().getName().getName();
+				}
 			} else {
-				return mostRecentObs.getValueCoded().getName().getName();
+				System.err.println("Observation value is neither numeric, text, nor coded.");
 			}
 		}
-		
-		System.err.println("Observation value is neither numeric, text, nor coded for Obs ID: " + mostRecentObs.getId());
 		return null;
 	}
 	
