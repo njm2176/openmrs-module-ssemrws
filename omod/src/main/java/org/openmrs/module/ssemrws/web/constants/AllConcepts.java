@@ -74,9 +74,9 @@ public class AllConcepts {
 	
 	public static final String DATE_VL_RESULTS_RECEIVED_UUID = "80e34f1b-26e8-49ea-9b6e-d7d903a91e26";
 	
-	public static final String CHW_NAME_UUID = "5b258179-1872-4339-8b29-5ecf618bd4d3";
+	public static final String CHW_NAME_UUID = "006d7edc-5a6c-4b00-96b8-5bc6c194b44d";
 	
-	public static final String CHW_PHONE_UUID = "cb3385ee-18c3-4856-a410-c7b4d105a779";
+	public static final String CHW_PHONE_UUID = "5f7ffbb8-53c7-40e0-9df0-5036b6eb536b";
 	
 	public static final String CHW_ADDRESS_UUID = "77a35b01-7713-437a-a82b-7f74c75ea41d";
 	
