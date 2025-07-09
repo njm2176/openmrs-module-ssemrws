@@ -28,8 +28,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.openmrs.module.ssemrws.constants.GetDateObservations.*;
-import static org.openmrs.module.ssemrws.constants.GetObservationValue.getLatestObsByConcept;
-import static org.openmrs.module.ssemrws.constants.GetObservationValue.getObsValue;
+import static org.openmrs.module.ssemrws.constants.GetObservationValue.*;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 import static org.openmrs.module.ssemrws.web.constants.GenerateSummary.generateSummary;
 import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
@@ -1137,5 +1136,13 @@ public class SharedConstants {
 		}
 		activeVisits.sort(Comparator.comparing(Visit::getStartDatetime).reversed());
 		return activeVisits.get(0);
+	}
+	
+	public static String getCHWName(Patient patient) {
+		return getLatestObsValueText(patient, CHW_NAME_UUID);
+	}
+	
+	public static String getCHWPhone(Patient patient) {
+		return getLatestObsValueText(patient, CHW_PHONE_UUID);
 	}
 }
