@@ -1139,10 +1139,10 @@ public class SharedConstants {
 	}
 	
 	public static String getCHWName(Patient patient) {
-		return getLatestObsValueText(patient, CHW_NAME_UUID);
+		return getLatestValueFromConcepts(patient, COW_NAME_UUID, CHW_NAME_UUID);
 	}
 	
 	public static String getCHWPhone(Patient patient) {
-		return getLatestObsValueText(patient, CHW_PHONE_UUID);
+		return getLatestValueFromConcepts(patient, COW_PHONE_UUID, CHW_PHONE_UUID);
 	}
 }

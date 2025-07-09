@@ -74,4 +74,50 @@ public class GetObservationValue {
 
 		return "";
 	}
+	
+	/**
+	 * Compares the latest observations from two concepts and returns the value of the most recent one.
+	 * 
+	 * @param patient The patient to query.
+	 * @param newConceptUuid The UUID of the primary/new concept.
+	 * @param oldConceptUuid The UUID of the secondary/old concept.
+	 * @return The value of the most recent observation, or an empty string if none are found.
+	 */
+	public static String getLatestValueFromConcepts(Patient patient, String newConceptUuid, String oldConceptUuid) {
+		Obs newObs = getLatestObsForConcept(patient, newConceptUuid);
+		Obs oldObs = getLatestObsForConcept(patient, oldConceptUuid);
+		
+		if (newObs != null && oldObs != null) {
+			return newObs.getObsDatetime().after(oldObs.getObsDatetime()) ? newObs.getValueText() : oldObs.getValueText();
+		} else if (newObs != null) {
+			return newObs.getValueText();
+		} else if (oldObs != null) {
+			return oldObs.getValueText();
+		} else {
+			return "";
+		}
+	}
+	
+	/**
+	 * Fetches the single most recent observation for a given patient and concept.
+	 * 
+	 * @param patient The patient.
+	 * @param conceptUuid The concept UUID.
+	 * @return The latest Obs object, or null if not found.
+	 */
+	private static Obs getLatestObsForConcept(Patient patient, String conceptUuid) {
+		Concept question = Context.getConceptService().getConceptByUuid(conceptUuid);
+		if (question == null) {
+			System.err.println("Concept not found with uuid: " + conceptUuid);
+			return null;
+		}
+		
+		List<Obs> obsList = Context.getObsService().getObservationsByPersonAndConcept(patient.getPerson(), question);
+		
+		if (!obsList.isEmpty()) {
+			return obsList.get(0);
+		}
+		
+		return null;
+	}
 }
