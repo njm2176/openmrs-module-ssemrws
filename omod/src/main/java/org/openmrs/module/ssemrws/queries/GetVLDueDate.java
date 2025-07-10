@@ -71,24 +71,22 @@ public class GetVLDueDate {
 			return "Pending Results";
 		}
 		if (isPatientInHVLCohort(patient)) {
-			return "High VL, Pending EAC 3";
+			return "Pending EAC 3";
 		}
 		String query = "SELECT client_id, DATE_FORMAT(MAX(eligibility_date), '%d-%m-%Y') AS max_due_date FROM ("
 		        + "SELECT fp.client_id, " + "CASE " +
+				
+				// This handles cases where a sample was collected but results are pending or
+				// unsuppressed.
+		        "WHEN fp.date_vl_sample_collected IS NOT NULL AND (fp.viral_load_value IS NULL OR fp.viral_load_value >= 1000) "
+		        + "THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 6 MONTH) " +
+				
 				// Adults suppressed
 		        "WHEN (mp.age > 18 AND pfh.art_start_date IS NOT NULL AND fp.client_pmtct = 'No' "
-		        + " AND (fp.viral_load_value < 1000 OR fp.vl_results = 'Below Detectable (BDL)') "
-		        + " AND EXISTS (SELECT 1 FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up prev "
-		        + "     WHERE prev.client_id = fp.client_id AND prev.date_vl_sample_collected < fp.date_vl_sample_collected "
-		        + "     AND (prev.viral_load_value < 1000 OR prev.vl_results = 'Below Detectable (BDL)')) "
-		        + ") THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 12 MONTH) " +
-				
-		        "WHEN (mp.age > 18 AND pfh.art_start_date IS NOT NULL AND fp.client_pmtct = 'No' "
-		        + " AND (fp.viral_load_value < 1000 OR fp.vl_results = 'Below Detectable (BDL)') "
-		        + " AND NOT EXISTS (SELECT 1 FROM ssemr_etl.ssemr_flat_encounter_hiv_care_follow_up prev "
-		        + "     WHERE prev.client_id = fp.client_id AND prev.date_vl_sample_collected < fp.date_vl_sample_collected "
-		        + "     AND (prev.viral_load_value < 1000 OR prev.vl_results = 'Below Detectable (BDL)')) "
-		        + ") THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 6 MONTH) " +
+		        + " AND (fp.viral_load_value < 1000 OR fp.vl_results = 'Below Detectable (BDL)')) " + "THEN " + "    CASE "
+		        + "        WHEN DATEDIFF(fp.encounter_datetime, pfh.art_start_date) > 365 "
+		        + "        THEN DATE_ADD(fp.date_vl_sample_collected, INTERVAL 12 MONTH) "
+		        + "        ELSE DATE_ADD(fp.date_vl_sample_collected, INTERVAL 6 MONTH) " + "    END " +
 				
 				// Adults newly on ART
 		        "WHEN (mp.age > 18 AND pfh.art_start_date IS NOT NULL "

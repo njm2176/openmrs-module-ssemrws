@@ -57,6 +57,11 @@ public class GetDueForVL {
 		        + "             AND (prev.viral_load_value < 1000 OR prev.vl_results = 'Below Detectable (BDL)') "
 		        + "         ) " + "         AND TIMESTAMPDIFF(MONTH, fp.date_vl_sample_collected, :endDate) >= 6 "
 		        + "     ) " + " )" + ")"
+				// Handles patients with a collected sample but who are NOT suppressed (or
+				// results are pending)
+		        + "or (mp.age > 18 AND pfh.art_start_date IS NOT NULL " + "    AND fp.date_vl_sample_collected IS NOT NULL "
+		        + "    AND (fp.viral_load_value IS NULL OR fp.viral_load_value >= 1000) "
+		        + "    AND TIMESTAMPDIFF(MONTH, fp.date_vl_sample_collected, :endDate) >= 6 " + ") "
 				// Criteria 2: Adults newly on ART, no VL test yet, due 6 months from ART start
 				// date
 		        + "or (mp.age > 18 AND pfh.art_start_date IS NOT NULL " + " AND NOT EXISTS ( "
