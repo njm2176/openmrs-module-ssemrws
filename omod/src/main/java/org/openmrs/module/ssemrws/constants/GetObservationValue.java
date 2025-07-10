@@ -59,19 +59,14 @@ public class GetObservationValue {
 	 * @return The value of the observation as a String, or an empty string if not found.
 	 */
 	public static String getLatestObsValueText(Patient patient, String conceptUuid) {
-		Concept question = Context.getConceptService().getConceptByUuid(conceptUuid);
-		if (question == null) {
-			return "Concept " + conceptUuid + "not found";
-		}
-
-		List<Obs> obsValue = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()),
-				null, Collections.singletonList(Context.getConceptService().getConceptByUuid(conceptUuid)), null, null, null,
-				null, null, null, null, null, false);
-
+		List<Obs> obsValue = Context.getObsService().getObservations(Collections.singletonList(patient.getPerson()), null,
+		    Collections.singletonList(Context.getConceptService().getConceptByUuid(conceptUuid)), null, null, null, null,
+		    null, null, null, null, false);
+		
 		if (!obsValue.isEmpty()) {
 			return obsValue.get(0).getValueText();
 		}
-
+		
 		return "";
 	}
 	
