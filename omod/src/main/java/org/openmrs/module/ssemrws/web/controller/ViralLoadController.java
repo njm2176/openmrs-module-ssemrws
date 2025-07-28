@@ -333,7 +333,7 @@ public class ViralLoadController {
 		Map<String, Integer> response = new HashMap<>();
 		response.put("totalPatients", totalPatients);
 		response.put("suppressed", suppressed);
-		response.put("UnSuppressed", unSuppressed);
+		response.put("unSuppressed", unSuppressed);
 		
 		return response;
 	}
