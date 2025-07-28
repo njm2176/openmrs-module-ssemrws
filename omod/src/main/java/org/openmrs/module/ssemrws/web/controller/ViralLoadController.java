@@ -305,12 +305,12 @@ public class ViralLoadController {
 	@RequestMapping(method = RequestMethod.GET, value = "/chart/viralLoadSuppression")
 	@ResponseBody
 	public Object viralLoadSuppressionChart(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qendDate,
+	        @RequestParam("endDate") String qEndDate,
 	        @RequestParam(required = false, value = "filter") SSEMRWebServicesController.filterCategory filterCategory,
 	        @RequestParam(value = "page", required = false) Integer page,
 	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
 		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
-		Date[] dates = getStartAndEndDate(qStartDate, qendDate, dateTimeFormatter);
+		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
 		int totalPatients = Context.getPatientService().getAllPatients().size();
 		
@@ -331,13 +331,13 @@ public class ViralLoadController {
 		int unSuppressed = vlCoverage > 0 ? 100 - suppressed : 0;
 		
 		Map<String, Integer> response = new HashMap<>();
-		response.put("Total Patients", totalPatients);
+		response.put("totalPatients", totalPatients);
 		response.put("suppressed", suppressed);
 		response.put("UnSuppressed", unSuppressed);
 		
 		return response;
 	}
-
+	
 	/**
 	 * Get count of VL Suppressed Patients (BDL or VL < 1000)
 	 */
