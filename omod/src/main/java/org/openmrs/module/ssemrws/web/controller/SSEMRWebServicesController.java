@@ -533,6 +533,14 @@ public class SSEMRWebServicesController {
 		
 		int totalPatients = Context.getPatientService().getAllPatients().size();
 		
+		if (totalPatients == 0) {
+			Map<String, Integer> response = new HashMap<>();
+			response.put("totalPatients", 0);
+			response.put("linkedToCHW", 0);
+			response.put("notLinkedToCHW", 0);
+			return response;
+		}
+		
 		EncounterType communityLinkageEncounterType = Context.getEncounterService()
 		        .getEncounterTypeByUuid(COMMUNITY_LINKAGE_ENCOUNTER_UUID);
 		EncounterSearchCriteria encounterSearchCriteria = new EncounterSearchCriteria(null, null, dates[0], dates[1], null,
