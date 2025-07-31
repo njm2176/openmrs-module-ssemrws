@@ -340,6 +340,47 @@ public class ViralLoadController {
 	}
 	
 	/**
+	 * Handles the calculation for the viral load suppression chart in the hiv art module using data
+	 * from existing functions
+	 */
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/chart/viralLoadSuppression")
+	@ResponseBody
+	public Object viralLoadSuppressionChart(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") SSEMRWebServicesController.filterCategory filterCategory,
+	        @RequestParam(value = "page", required = false) Integer page,
+	        @RequestParam(value = "size", required = false) Integer size) throws ParseException {
+		SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd");
+		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
+		
+		int totalPatients = Context.getPatientService().getAllPatients().size();
+		
+		if (totalPatients == 0) {
+			Map<String, Integer> response = new HashMap<>();
+			response.put("totalPatients", totalPatients);
+			response.put("vlCoverage", 0);
+			response.put("vlSuppressed", 0);
+			
+			return response;
+		}
+		
+		List<Patient> vlCoveredPatients = fetchPatientsWithViralLoadCoverage(dates[0], dates[1]);
+		int vlCoverage = vlCoveredPatients.size();
+		int vlSuppressed = countViralLoadSuppressedPatients(vlCoveredPatients, dates[0], dates[1]);
+		
+		int suppressed = vlCoverage > 0 ? Math.round(((float) vlSuppressed / vlCoverage) * 100) : 0;
+		int unSuppressed = vlCoverage > 0 ? 100 - suppressed : 0;
+		
+		Map<String, Integer> response = new HashMap<>();
+		response.put("totalPatients", totalPatients);
+		response.put("suppressed", suppressed);
+		response.put("unSuppressed", unSuppressed);
+		
+		return response;
+	}
+	
+	/**
 	 * Get count of VL Suppressed Patients (BDL or VL < 1000)
 	 */
 	private int countViralLoadSuppressedPatients(List<Patient> vlCoveredPatients, Date startDate, Date endDate) {
