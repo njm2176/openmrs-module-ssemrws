@@ -57,15 +57,6 @@ public class GetDateObservations {
 			return null;
 		}
 		
-		obsList.sort((o1, o2) -> o2.getObsDatetime().compareTo(o1.getObsDatetime()));
-		
 		return obsList.get(0).getValueDate();
-	}
-	
-	public static String formatDate(Date date) {
-		if (date == null) {
-			return null;
-		}
-		return new SimpleDateFormat("dd-MM-yyyy").format(date);
 	}
 }
