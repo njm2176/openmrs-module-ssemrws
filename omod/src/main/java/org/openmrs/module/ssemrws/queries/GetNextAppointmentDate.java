@@ -74,7 +74,7 @@ public class GetNextAppointmentDate {
        // Query for cancelled appointments
 		String cancelledAppointmentQuery = "select fp.start_date_time " + "from openmrs.patient_appointment fp "
 		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid = :patientUuid "
-		        + "and fp.status = 'Cancelled' ";
+		        + "and fp.status = 'Cancelled' " + "order by fp.start_date_time desc";
 		
 		List<Date> cancelledResults = entityManager.createNativeQuery(cancelledAppointmentQuery)
 		        .setParameter("patientUuid", patientUuid).getResultList();
