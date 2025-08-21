@@ -63,7 +63,7 @@ public class GetNextAppointmentDate {
 		// Query for missed appointments
 		String missedAppointmentQuery = "select fp.start_date_time " + "from openmrs.patient_appointment fp "
 		        + "join openmrs.person p on fp.patient_id = p.person_id " + "where p.uuid = :patientUuid "
-		        + "and fp.start_date_time < :now " + "and fp.status = 'Missed'" + "order by fp.start_date_time desc";
+		        + "and fp.start_date_time < :now " + "and fp.status = 'Missed' " + "order by fp.start_date_time desc";
 		
 		List<Date> missedResults = entityManager.createNativeQuery(missedAppointmentQuery)
 		        .setParameter("patientUuid", patientUuid).setParameter("now", now).getResultList();
