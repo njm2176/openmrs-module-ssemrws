@@ -246,7 +246,7 @@ public class ViralLoadController {
 		Date[] dates = getStartAndEndDate(qStartDate, qEndDate, dateTimeFormatter);
 		
 		int totalPatients = Context.getPatientService().getAllPatients().size();
-
+		
 		if (totalPatients == 0) {
 			Map<String, Object> response = new HashMap<>();
 			response.put("Total Patients", 0);
@@ -256,10 +256,11 @@ public class ViralLoadController {
 		}
 		
 		List<Patient> patientsWithVLCoverage = fetchPatientsWithViralLoadCoverage(dates[0], dates[1]);
-
+		
 		if (patientsWithVLCoverage == null) {
 			patientsWithVLCoverage = new ArrayList<>();
-		};
+		}
+		;
 		int vlCoverage = patientsWithVLCoverage.size();
 		
 		int notVlCovered = totalPatients - vlCoverage;
@@ -429,5 +430,63 @@ public class ViralLoadController {
 		    Arrays.asList(FIRST_EAC_SESSION, SECOND_EAC_SESSION, THIRD_EAC_SESSION, EXTENDED_EAC_CONCEPT_UUID,
 		        REAPEAT_VL_COLLECTION, REPEAT_VL_RESULTS, HIGH_VL_ENCOUNTERTYPE_UUID, ACTIVE_REGIMEN_CONCEPT_UUID),
 		    EAC_SESSION_CONCEPT_UUID);
+	}
+	
+	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/completedEACSessions")
+	@ResponseBody
+	public Object eacSessions(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
+	        @RequestParam("endDate") String qEndDate,
+	        @RequestParam(required = false, value = "filter") SSEMRWebServicesController.filterCategory filterCategory)
+	        throws ParseException {
+		
+		SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd");
+		SimpleDateFormat monthFormatter = new SimpleDateFormat("MMM");
+		
+		Date startDate = parser.parse(qStartDate);
+		Date endDate = parser.parse(qEndDate);
+		
+		Map<String, Map<String, Integer>> monthlyCounts = new LinkedHashMap<>();
+		
+		List<Patient> patients = Context.getPatientService().getAllPatients();
+		
+		for (Patient patient : patients) {
+			processEACDate(getFirstEACDate(patient), "EAC1", startDate, endDate, monthlyCounts, monthFormatter);
+			processEACDate(getSecondEACDate(patient), "EAC2", startDate, endDate, monthlyCounts, monthFormatter);
+			processEACDate(getThirdEACDate(patient), "EAC3", startDate, endDate, monthlyCounts, monthFormatter);
+		}
+		
+		List<Map<String, Integer>> resultList = new ArrayList<>();
+		List<String> eacTypesInOrder = Arrays.asList("EAC1", "EAC2", "EAC3");
+		
+		for (Map.Entry<String, Map<String, Integer>> entry : monthlyCounts.entrySet()) {
+			String month = entry.getKey();
+			Map<String, Integer> eacDataForMonth = entry.getValue();
+			Map<String, Integer> formattedMonthObject = new LinkedHashMap<>();
+			
+			for (String eacType : eacTypesInOrder) {
+				if (eacDataForMonth.containsKey(eacType)) {
+					formattedMonthObject.put(month + " " + eacType, eacDataForMonth.get(eacType));
+				}
+			}
+			
+			if (!formattedMonthObject.isEmpty()) {
+				resultList.add(formattedMonthObject);
+			}
+		}
+		
+		Map<String, Object> finalPayload = new HashMap<>();
+		finalPayload.put("data", resultList);
+		
+		return finalPayload;
+	}
+	
+	private void processEACDate(Date eacDate, String eacType, Date startDate, Date endDate,
+	        Map<String, Map<String, Integer>> monthlyCounts, SimpleDateFormat monthFormatter) {
+		
+		if (eacDate != null && !eacDate.before(startDate) && !eacDate.after(endDate)) {
+			String month = monthFormatter.format(eacDate);
+			Map<String, Integer> eacCountsInMonth = monthlyCounts.computeIfAbsent(month, k -> new HashMap<>());
+			eacCountsInMonth.merge(eacType, 1, Integer::sum);
+		}
 	}
 }
