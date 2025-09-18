@@ -9,7 +9,7 @@ import org.openmrs.module.ssemrws.queries.GetMissedAppointments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
+import org.openmrs.module.ssemrws.queries.GetPMTCT;
 import java.text.ParseException;
 import java.util.*;
 
@@ -28,12 +28,15 @@ public class DeterminePatientFlags {
 	
 	private final GetTxCurr getTxCurr;
 	
+	private final GetPMTCT getPMTCT;
+	
 	public DeterminePatientFlags(GetInterruptedInTreatment getInterruptedInTreatment,
-	    GetMissedAppointments getMissedAppointments, GetDueForVL getDueForVl, GetTxCurr getTxCurr) {
+	    GetMissedAppointments getMissedAppointments, GetDueForVL getDueForVl, GetTxCurr getTxCurr, GetPMTCT getPMTCT) {
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getMissedAppointments = getMissedAppointments;
 		this.getDueForVl = getDueForVl;
 		this.getTxCurr = getTxCurr;
+		this.getPMTCT = getPMTCT;
 	}
 	
 	public List<SharedConstants.Flags> determinePatientFlags(Patient patient, Date startDate, Date endDate) {
@@ -80,6 +83,11 @@ public class DeterminePatientFlags {
 		boolean rtt = determineIfPatientIsRTT(patient);
 		if (rtt) {
 			flags.add(SharedConstants.Flags.RTT);
+		}
+		
+		String pmtct = getPMTCT.getPMTCTClient(patient, startDate, endDate);
+		if (pmtct != null && !pmtct.isEmpty()) {
+			flags.add(SharedConstants.Flags.PMTCT);
 		}
 		
 		String enrollmentDateStr = getEnrolmentDate(patient);
