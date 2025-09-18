@@ -534,7 +534,8 @@ public class SharedConstants {
 		ACTIVE,
 		HIGH_VL,
 		RTT,
-		NEW_CLIENT
+		NEW_CLIENT,
+		PMTCT
 	}
 	
 	public static HashSet<Patient> getTransferredOutClients(Date startDate, Date endDate) {
