@@ -49,11 +49,10 @@ public class GetObservationValue {
 		}
 		return null;
 	}
-
+	
 	/**
-	 * A reusable method to get the value text from the latest observation
-	 * for a specific concept.
-	 *
+	 * A reusable method to get the value text from the latest observation for a specific concept.
+	 * 
 	 * @param patient The patient to get the observation for.
 	 * @param conceptUuid The UUID of the concept to search for.
 	 * @return The value of the observation as a String, or an empty string if not found.

@@ -3,6 +3,7 @@ package org.openmrs.module.ssemrws.web.controller;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.openmrs.*;
 import org.openmrs.api.context.Context;
+import org.openmrs.module.ssemrws.queries.EacSessionService;
 import org.openmrs.module.ssemrws.queries.GetDueForVL;
 import org.openmrs.module.ssemrws.web.constants.FilterUtility;
 import org.openmrs.module.webservices.rest.web.RestConstants;
@@ -34,8 +35,11 @@ public class ViralLoadController {
 	
 	private final GetDueForVL getDueForVl;
 	
-	public ViralLoadController(GetDueForVL getDueForVl) {
+	private final EacSessionService eacSessionService;
+	
+	public ViralLoadController(GetDueForVL getDueForVl, EacSessionService eacSessionService) {
 		this.getDueForVl = getDueForVl;
+		this.eacSessionService = eacSessionService;
 	}
 	
 	/**
@@ -434,34 +438,32 @@ public class ViralLoadController {
 	
 	@RequestMapping(method = RequestMethod.GET, value = "/dashboard/completedEACSessions")
 	@ResponseBody
-	public Object eacSessions(HttpServletRequest request, @RequestParam("startDate") String qStartDate,
-	        @RequestParam("endDate") String qEndDate,
-	        @RequestParam(required = false, value = "filter") SSEMRWebServicesController.filterCategory filterCategory)
+	public Object eacSessions(@RequestParam("startDate") String qStartDate, @RequestParam("endDate") String qEndDate)
 	        throws ParseException {
 		
 		SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd");
-		SimpleDateFormat monthFormatter = new SimpleDateFormat("MMM");
-		
 		Date startDate = parser.parse(qStartDate);
 		Date endDate = parser.parse(qEndDate);
 		
 		Map<String, Map<String, Integer>> monthlyCounts = new LinkedHashMap<>();
 		
-		List<Patient> patients = Context.getPatientService().getAllPatients();
+		List<Object[]> results = eacSessionService.getEacSessionCountsByDateRange(startDate, endDate);
 		
-		for (Patient patient : patients) {
-			processEACDate(getFirstEACDate(patient), "EAC1", startDate, endDate, monthlyCounts, monthFormatter);
-			processEACDate(getSecondEACDate(patient), "EAC2", startDate, endDate, monthlyCounts, monthFormatter);
-			processEACDate(getThirdEACDate(patient), "EAC3", startDate, endDate, monthlyCounts, monthFormatter);
+		for (Object[] row : results) {
+			String eacType = (String) row[0];
+			String month = (String) row[1];
+			Integer count = ((Number) row[2]).intValue();
+			
+			monthlyCounts.computeIfAbsent(month, k -> new LinkedHashMap<>()).put(eacType, count);
 		}
 		
-		List<Map<String, Integer>> resultList = new ArrayList<>();
+		List<Map<String, Object>> resultList = new ArrayList<>();
 		List<String> eacTypesInOrder = Arrays.asList("EAC1", "EAC2", "EAC3");
 		
 		for (Map.Entry<String, Map<String, Integer>> entry : monthlyCounts.entrySet()) {
 			String month = entry.getKey();
 			Map<String, Integer> eacDataForMonth = entry.getValue();
-			Map<String, Integer> formattedMonthObject = new LinkedHashMap<>();
+			Map<String, Object> formattedMonthObject = new LinkedHashMap<>();
 			
 			for (String eacType : eacTypesInOrder) {
 				if (eacDataForMonth.containsKey(eacType)) {
@@ -478,15 +480,5 @@ public class ViralLoadController {
 		finalPayload.put("data", resultList);
 		
 		return finalPayload;
-	}
-	
-	private void processEACDate(Date eacDate, String eacType, Date startDate, Date endDate,
-	        Map<String, Map<String, Integer>> monthlyCounts, SimpleDateFormat monthFormatter) {
-		
-		if (eacDate != null && !eacDate.before(startDate) && !eacDate.after(endDate)) {
-			String month = monthFormatter.format(eacDate);
-			Map<String, Integer> eacCountsInMonth = monthlyCounts.computeIfAbsent(month, k -> new HashMap<>());
-			eacCountsInMonth.merge(eacType, 1, Integer::sum);
-		}
 	}
 }
