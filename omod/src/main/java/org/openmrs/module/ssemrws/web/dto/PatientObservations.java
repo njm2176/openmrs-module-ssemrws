@@ -65,6 +65,8 @@ public class PatientObservations {
 	
 	private String hasPendingVl;
 	
+	private Integer hvlRecurrence;
+	
 	// Populate community health Workers
 	private List<CommunityHealthWorkerObservation> chw;
 	

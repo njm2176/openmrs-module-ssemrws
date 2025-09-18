@@ -32,7 +32,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-
+import org.openmrs.module.ssemrws.queries.GetRecurrentHVL;
 import static org.openmrs.module.ssemrws.constants.SharedConstants.*;
 import static org.openmrs.module.ssemrws.web.constants.AllConcepts.*;
 import static org.openmrs.module.ssemrws.web.constants.RegimenConcepts.*;
@@ -65,12 +65,14 @@ public class SSEMRWebServicesController {
 	
 	private final GetRecurrenceOfIIT getRecurrenceOfIIT;
 	
+	private final GetRecurrentHVL getRecurrentHVL;
+	
 	public SSEMRWebServicesController(GetNextAppointmentDate getNextAppointmentDate,
 	    GetInterruptedInTreatment getInterruptedInTreatment,
 	    GetInterruptedInTreatmentWithinRange getInterruptedInTreatmentWithinRange,
 	    GetMissedAppointments getMissedAppointments, GetOnAppointment getOnAppoinment, GetAllPatients getAllPatients,
 	    GetPatientRegimens getPatientRegimens, GetVLDueDate getVLDueDate, GetTxCurr getTxCurrMain,
-	    GetRecurrenceOfIIT getRecurrenceOfIIT) {
+	    GetRecurrenceOfIIT getRecurrenceOfIIT, GetRecurrentHVL getRecurrentHVL) {
 		this.getNextAppointmentDate = getNextAppointmentDate;
 		this.getInterruptedInTreatment = getInterruptedInTreatment;
 		this.getInterruptedInTreatmentWithinRange = getInterruptedInTreatmentWithinRange;
@@ -81,6 +83,7 @@ public class SSEMRWebServicesController {
 		this.getVLDueDate = getVLDueDate;
 		this.getTxCurrMain = getTxCurrMain;
 		this.getRecurrenceOfIIT = getRecurrenceOfIIT;
+		this.getRecurrentHVL = getRecurrentHVL;
 	}
 	
 	public enum filterCategory {
@@ -624,7 +627,7 @@ public class SSEMRWebServicesController {
 		observations.setChw(getCommunityHealthWorkerObservations(patient));
 		observations.setOnTb(getIsPatientOnTb(patient));
 		observations.setHasPendingVl(hasPendingVlResults(patient));
-		
+		observations.setHvlRecurrence(getRecurrentHVL.getRecurrentHVLCount(patient.getUuid()));
 		return observations;
 	}
 	
