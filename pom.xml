@@ -30,6 +30,12 @@
 
 	<repositories>
 		<repository>
+			<id>repsy</id>
+			<name>My Private Maven Repository on Repsy</name>
+			<url>https://repo.repsy.io/mvn/njm2176/maven</url>
+		</repository>
+	
+		<repository>
 			<id>openmrs-repo</id>
 			<name>OpenMRS Nexus Repository</name>
 			<url>https://mavenrepo.openmrs.org/public</url>
@@ -140,6 +146,17 @@
 		<mockito.version>1.10.19</mockito.version>
 		<powermock.version>1.7.3</powermock.version>
     </properties>
+
+	<distributionManagement>
+		<repository>
+			<id>repsy</id>
+			<url>https://repo.repsy.io/mvn/njm2176/maven</url>
+		</repository>
+		<snapshotRepository>
+			<id>repsy</id>
+			<url>https://repo.repsy.io/mvn/njm2176/maven</url>
+		</snapshotRepository>
+	</distributionManagement>
 
 	<build>
 		<plugins>
